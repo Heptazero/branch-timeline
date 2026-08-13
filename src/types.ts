@@ -3,9 +3,16 @@ export interface BranchTimelineSettings {
   diaryFolder: string;
   projectFolder: string;
   habits: string[];
-  tagMap: Record<string, string>;
+  tags: TimelineTag[];
   dayStartMinute: number;
   dayEndMinute: number;
+}
+
+export interface TimelineTag {
+  id: string;
+  name: string;
+  category: string;
+  color: string;
 }
 
 export interface TimelineBranch {
@@ -26,6 +33,7 @@ export interface TimelineItem {
   endMin?: number;
   projectPath?: string;
   projectTaskId?: string;
+  tagId?: string;
   tag?: string;
   note?: string;
   branchId?: string | null;

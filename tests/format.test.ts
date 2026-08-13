@@ -11,6 +11,7 @@ import {
   setHabitInDiary,
   setProjectTaskDone
 } from "../src/vault/format";
+import { loadTags } from "../src/tags";
 
 const date = new Date(2026, 7, 13);
 
@@ -46,4 +47,10 @@ test("uses a stable block id to complete project tasks", () => {
   const created = appendProjectTask("## 任务\n\n## log\n", "精读论文", "btl-test");
   assert.match(created, /- \[ \] 精读论文 \^btl-test/);
   assert.match(setProjectTaskDone(created, "btl-test", true), /- \[x\] 精读论文 \^btl-test/);
+});
+
+test("migrates legacy tag mappings without restoring deleted tags", () => {
+  const migrated = loadTags(undefined, { 工作: "work", 探索: "explore" });
+  assert.deepEqual(migrated.map(tag => [tag.name, tag.category]), [["工作", "work"], ["探索", "explore"]]);
+  assert.deepEqual(loadTags([], { 工作: "work" }), []);
 });

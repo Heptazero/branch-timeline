@@ -60,13 +60,21 @@ export class BranchTimelineView extends ItemView {
     const start = item.startMin ?? item.plannedMin ?? wake;
     const end = item.endMin ?? start;
     const block = timeline.createDiv({ cls: `btl-timeline-item is-${item.kind}` });
+    const tag = item.tagId
+      ? this.plugin.settings.tags.find(candidate => candidate.id === item.tagId)
+      : this.plugin.settings.tags.find(candidate => candidate.name === item.tag);
+    if (tag) {
+      block.addClass("has-tag");
+      block.style.setProperty("--btl-tag-color", tag.color);
+    }
     block.style.top = `${((start - wake) / span) * 100}%`;
     if (item.kind === "fact") block.style.height = `${Math.max(28, (end - start) * 0.72)}px`;
     const title = block.createDiv({ cls: "btl-item-title", text: item.title });
     if (item.projectPath) title.createSpan({ cls: "btl-item-project", text: ` @${item.projectPath.split("/").pop()?.replace(/\.md$/, "") || ""}` });
     if (item.note) block.createDiv({ cls: "btl-item-note", text: item.note });
     const meta = block.createDiv({ cls: "btl-item-time", text: item.kind === "fact" ? `${timeLabel(start)}–${timeLabel(end)}` : timeLabel(start) });
-    if (item.tag) meta.createSpan({ text: ` #${item.tag}` });
+    const tagName = tag?.name || item.tag;
+    if (tagName) meta.createSpan({ text: ` #${tagName}` });
   }
 
   private openAddMenu(event: MouseEvent): void {

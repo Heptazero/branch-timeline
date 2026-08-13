@@ -20,6 +20,7 @@
 .btl-timeline-item { position: absolute; z-index: 4; left: calc(50% + 18px); width: min(240px, calc(50vw - 54px)); min-height: 26px; transform: translateY(-2px); border: 1px solid color-mix(in srgb, var(--interactive-accent) 65%, var(--background-modifier-border)); border-radius: 9px; padding: 5px 8px; background: color-mix(in srgb, var(--interactive-accent) 12%, var(--background-primary)); overflow: hidden; }
 .btl-timeline-item.is-todo { left: auto; right: calc(50% + 18px); border-radius: 999px; width: min(210px, calc(50vw - 54px)); background: var(--background-primary); }
 .btl-timeline-item.is-todo::after { content: ""; position: absolute; right: -25px; top: 50%; width: 7px; height: 7px; border: 2px solid var(--interactive-accent); border-radius: 50%; background: var(--background-primary); transform: translateY(-50%); }
+.btl-timeline-item.has-tag { border-color: color-mix(in srgb, var(--btl-tag-color) 68%, var(--background-modifier-border)); background: color-mix(in srgb, var(--btl-tag-color) 13%, var(--background-primary)); }
 .btl-item-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-normal); font-size: 11px; font-weight: 700; }
 .btl-item-project { color: var(--interactive-accent); font-weight: 550; }
 .btl-item-note { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 9px; }
@@ -33,6 +34,8 @@
 .btl-duration-wheel::-webkit-scrollbar { display: none; }
 .btl-duration-wheel button { display: block; width: 100%; height: 38px; scroll-snap-align: center; border: 0; background: transparent; color: var(--text-muted); }
 .btl-duration-wheel button.is-selected { color: var(--text-normal); font-size: 18px; font-weight: 750; }
+.btl-tag-setting .setting-item-control { flex-wrap: wrap; }
+.btl-tag-setting input { width: 112px; }
 @media (max-width: 520px) {
   .branch-timeline-hz { padding-inline: 8px; }
   .btl-timeline { margin-left: 38px; margin-right: 4px; }

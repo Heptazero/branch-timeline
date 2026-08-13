@@ -55,6 +55,30 @@ export class TextEntryModal extends Modal {
 
 export interface DurationResult { minutes: number; note: string }
 
+export class ConfirmModal extends Modal {
+  constructor(
+    app: App,
+    private title: string,
+    private message: string,
+    private confirm: () => void | Promise<void>
+  ) { super(app); }
+
+  onOpen(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("btl-modal");
+    this.contentEl.createEl("h3", { text: this.title });
+    this.contentEl.createEl("p", { text: this.message });
+    const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
+    actions.createEl("button", { text: "取消" }).onclick = () => this.close();
+    actions.createEl("button", { text: "删除", cls: "mod-warning" }).onclick = () => {
+      this.close();
+      void this.confirm();
+    };
+  }
+
+  onClose(): void { this.contentEl.empty(); }
+}
+
 export class DurationModal extends Modal {
   private selected = 30;
   private note = "";

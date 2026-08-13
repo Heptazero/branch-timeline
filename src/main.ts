@@ -1,6 +1,7 @@
 import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
 import { ChoiceSuggestModal, DurationModal, ProjectSuggestModal, TextEntryModal } from "./modals";
 import { BranchTimelineSettingTab, DEFAULT_SETTINGS } from "./settings";
+import { loadTags } from "./tags";
 import { BRANCH_TIMELINE_VIEW, BranchTimelineView } from "./timeline-view";
 import type { BranchTimelineSettings, ProjectRef } from "./types";
 import { dateKey } from "./vault/format";
@@ -30,12 +31,13 @@ export default class BranchTimelinePlugin extends Plugin {
   onunload(): void { this.app.workspace.detachLeavesOfType(BRANCH_TIMELINE_VIEW); }
 
   async loadSettings(): Promise<void> {
-    const saved = await this.loadData() as Partial<BranchTimelineSettings> | null;
+    const saved = await this.loadData() as (Partial<BranchTimelineSettings> & { tagMap?: Record<string, string> }) | null;
+    const { tagMap, ...settings } = saved || {};
     this.settings = {
       ...DEFAULT_SETTINGS,
-      ...saved,
+      ...settings,
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
-      tagMap: { ...DEFAULT_SETTINGS.tagMap, ...(saved?.tagMap || {}) }
+      tags: loadTags(saved?.tags, tagMap)
     };
   }
 
@@ -85,20 +87,22 @@ export default class BranchTimelinePlugin extends Plugin {
   }
 
   async recordCategoryDuration(date: Date): Promise<void> {
-    const mapped = Object.entries(this.settings.tagMap).filter(([, category]) => category.trim());
+    const mapped = this.settings.tags.filter(tag => tag.name.trim() && tag.category.trim());
     if (!mapped.length) { new Notice("请先在设置中配置标签映射。"); return; }
-    const choice = await this.choose("选择标签", mapped.map(([label, category]) => ({ id: category, label })));
+    const choice = await this.choose("选择标签", mapped.map(tag => ({ id: tag.id, label: tag.name })));
     if (!choice) return;
+    const tag = mapped.find(item => item.id === choice.id);
+    if (!tag) return;
     const result = await this.duration(`记录 · ${choice.label}`);
     if (!result) return;
     const end = this.minuteNow(date);
     const start = Math.max(this.settings.dayStartMinute, end - result.minutes);
-    await this.repository.addCategoryDuration(date, choice.id, result.minutes);
+    await this.repository.addCategoryDuration(date, tag.category, result.minutes);
     await this.store.update(state => {
       const day = state.days[dateKey(date)] ||= defaultDay(this.settings.dayStartMinute, this.settings.dayEndMinute);
       day.items.push({
         id: this.uid("fact"), title: result.note || choice.label, kind: "fact", startMin: start, endMin: end,
-        tag: choice.label, note: result.note || undefined
+        tagId: tag.id, tag: tag.name, note: result.note || undefined
       });
     });
     new Notice(`${choice.label} · ${result.minutes} 分钟`);

@@ -12,6 +12,8 @@
 
 项目来自 `21_project/` 内 frontmatter 为 `type: project` 的笔记。插件独有数据保存在 `99_assets/branch-timeline/state.json`。
 
+标签可在插件设置中新增、重命名、映射周记分类、改色和删除。删除标签不会删除已有时间记录。
+
 ## 开发
 
 ```bash
