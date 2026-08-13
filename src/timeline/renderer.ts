@@ -26,13 +26,29 @@ export interface TimelineRenderResult {
   layout: TimelineLayout;
 }
 
+export function applyTimelineLod(canvas: HTMLElement, scale: number): void {
+  const detail = smoothstep(0.58, 1.04, scale);
+  const text = smoothstep(0.64, 0.98, scale);
+  canvas.style.setProperty("--btl-point-width", `${lerp(8, 108, detail)}px`);
+  canvas.style.setProperty("--btl-timed-width", `${lerp(7, 150, detail)}px`);
+  canvas.style.setProperty("--btl-item-radius", `${lerp(999, 8, detail)}px`);
+  canvas.style.setProperty("--btl-item-padding-x", `${lerp(0, 8, detail)}px`);
+  canvas.style.setProperty("--btl-item-padding-y", `${lerp(0, 5, detail)}px`);
+  canvas.style.setProperty("--btl-todo-bottom", `${lerp(0, 16, detail)}px`);
+  canvas.style.setProperty("--btl-item-gap", `${lerp(0, 7, detail)}px`);
+  canvas.style.setProperty("--btl-head-height", `${lerp(7, 31, detail)}px`);
+  canvas.style.setProperty("--btl-title-size", `${lerp(8, 11, text)}px`);
+  canvas.style.setProperty("--btl-detail-opacity", String(text));
+  canvas.style.setProperty("--btl-compact-opacity", String(1 - text));
+  canvas.style.setProperty("--btl-menu-opacity", String(Math.max(0.12, text)));
+}
+
 export function renderTimeline(container: HTMLElement, options: TimelineRenderOptions): TimelineRenderResult {
   const { day, tags, scale, width, nowMinute } = options;
   const layout = computeTimelineLayout(day, width, scale, nowMinute);
   const canvas = container.createDiv({ cls: "btl-canvas" });
   canvas.style.height = `${layout.height}px`;
-  canvas.toggleClass("is-compact", scale < 0.92);
-  canvas.toggleClass("is-minimal", scale < 0.68);
+  applyTimelineLod(canvas, scale);
 
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.addClass("btl-paths");
@@ -46,8 +62,8 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   renderRhythm(canvas, day, scale);
   renderBranches(canvas, svg, day, layout);
 
-  const orderedItems = [...day.items].sort((a, b) => itemDuration(b, day.wake) - itemDuration(a, day.wake));
-  for (const item of orderedItems) renderItem(canvas, day, layout, item, tags);
+  const orderedItems = [...day.items].sort((a, b) => itemDuration(b, day.wake, nowMinute) - itemDuration(a, day.wake, nowMinute));
+  for (const item of orderedItems) renderItem(canvas, day, layout, item, tags, nowMinute);
   return { canvas, layout };
 }
 
@@ -140,19 +156,21 @@ function renderItem(
   day: TimelineDayState,
   layout: TimelineLayout,
   item: TimelineItem,
-  tags: readonly TimelineTag[]
+  tags: readonly TimelineTag[],
+  nowMinute?: number
 ): void {
   const start = itemStart(item, day.wake);
-  const end = itemEnd(item, day.wake);
+  const end = itemEnd(item, day.wake, nowMinute);
   const duration = Math.max(0, end - start);
-  const timed = item.kind === "fact" && duration > 0;
+  const running = item.factTiming || (item.kind === "todo" && item.startedMin != null);
+  const timed = duration > 0 && (item.kind === "fact" || running);
   const xOffset = itemX(item, layout);
   const x = layout.center + xOffset;
   const branch = item.branchId ? layout.branches.get(item.branchId)?.branch : undefined;
   const tag = item.tagId ? tags.find(candidate => candidate.id === item.tagId) : tags.find(candidate => candidate.name === item.tag);
   const color = tag?.color || branch?.color || "var(--interactive-accent)";
   const card = canvas.createDiv({
-    cls: `btl-canvas-item is-${item.kind}${timed ? " is-timed" : ""}${!branch || branch.side < 0 ? " compact-left" : ""}`,
+    cls: `btl-canvas-item is-${item.kind}${timed ? " is-timed" : ""}${running ? " is-running" : ""}${!branch || branch.side < 0 ? " compact-left" : ""}`,
     attr: { "data-item-id": item.id }
   });
   card.style.left = `${x}px`;
@@ -184,7 +202,7 @@ function renderItem(
 
   const time = card.createDiv({
     cls: "btl-canvas-item-time",
-    text: item.kind === "todo" ? `plan: ${formatTime(start)}` : duration ? durationLabel(duration) : formatTime(end)
+    text: running ? `计时 ${durationLabel(duration)}` : item.kind === "todo" ? `plan: ${formatTime(start)}` : duration ? durationLabel(duration) : formatTime(end)
   });
   if (!timed) {
     const compact = card.createDiv({ cls: "btl-canvas-item-compact" });
@@ -193,10 +211,19 @@ function renderItem(
     if (project) compact.createSpan({ cls: "btl-canvas-item-project", text: `@${project}` });
   }
 
-  if (timed) {
+  if (timed && !running) {
     renderSpanHandle(canvas, item.id, "start", x, minuteToY(day, layout.scale, start), formatTime(start), color);
     renderSpanHandle(canvas, item.id, "end", x, minuteToY(day, layout.scale, end), formatTime(end), color);
   }
+}
+
+function smoothstep(min: number, max: number, value: number): number {
+  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  return t * t * (3 - 2 * t);
+}
+
+function lerp(from: number, to: number, amount: number): number {
+  return from + (to - from) * amount;
 }
 
 function renderSpanHandle(

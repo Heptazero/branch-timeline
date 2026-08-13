@@ -30,8 +30,10 @@ export interface TimelineItem {
   title: string;
   kind: "todo" | "fact";
   plannedMin?: number;
+  startedMin?: number;
   startMin?: number;
   endMin?: number;
+  factTiming?: boolean;
   projectPath?: string;
   projectTaskId?: string;
   tagId?: string;

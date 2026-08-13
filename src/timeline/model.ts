@@ -45,24 +45,28 @@ export function yToMinute(day: TimelineDayState, scale: number, y: number): numb
 export function itemStart(item: TimelineItem, fallback: number): number {
   return item.kind === "fact"
     ? item.startMin ?? item.endMin ?? item.plannedMin ?? fallback
-    : item.plannedMin ?? item.startMin ?? fallback;
+    : item.startedMin ?? item.plannedMin ?? item.startMin ?? fallback;
 }
 
-export function itemEnd(item: TimelineItem, fallback: number): number {
+export function itemEnd(item: TimelineItem, fallback: number, nowMinute?: number): number {
+  if (item.factTiming && nowMinute != null) return Math.max(itemStart(item, fallback), nowMinute);
+  if (item.kind === "todo" && item.startedMin != null && nowMinute != null) {
+    return Math.max(item.startedMin, nowMinute);
+  }
   return item.kind === "fact"
     ? item.endMin ?? item.startMin ?? item.plannedMin ?? fallback
     : itemStart(item, fallback);
 }
 
-export function itemDuration(item: TimelineItem, fallback: number): number {
-  return Math.max(0, itemEnd(item, fallback) - itemStart(item, fallback));
+export function itemDuration(item: TimelineItem, fallback: number, nowMinute?: number): number {
+  return Math.max(0, itemEnd(item, fallback, nowMinute) - itemStart(item, fallback));
 }
 
 export function effectiveBranchEnd(day: TimelineDayState, branch: TimelineBranch, nowMinute?: number): number {
   if (branch.endMin != null) return Math.max(branch.startMin + 30, branch.endMin);
   let end = branch.startMin + 45;
   for (const item of day.items) {
-    if (item.branchId === branch.id) end = Math.max(end, itemEnd(item, day.wake) + 25);
+    if (item.branchId === branch.id) end = Math.max(end, itemEnd(item, day.wake, nowMinute) + 25);
   }
   if (nowMinute != null) end = Math.max(end, nowMinute);
   return Math.min(day.sleep, end);

@@ -1,10 +1,10 @@
-import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import type BranchTimelinePlugin from "./main";
 import { ConfirmModal, TextEntryModal } from "./modals";
 import { TimelineGestures } from "./timeline/gestures";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, clampMinute, minuteToY } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
-import { renderTimeline } from "./timeline/renderer";
+import { applyTimelineLod, renderTimeline } from "./timeline/renderer";
 import type { TimelineBranch, TimelineDayState, TimelineItem } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
@@ -13,6 +13,15 @@ export const BRANCH_TIMELINE_VIEW = "branch-timeline-hz-view";
 const BRANCH_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
 
 interface ScrollAnchor { minute: number; offset: number }
+type TimelinePage = "day" | "projects" | "habits" | "achievements" | "policy";
+
+const PAGES: ReadonlyArray<{ id: TimelinePage; label: string }> = [
+  { id: "day", label: "今天" },
+  { id: "projects", label: "项目" },
+  { id: "habits", label: "习惯" },
+  { id: "achievements", label: "成就" },
+  { id: "policy", label: "锚点" }
+];
 
 export class BranchTimelineView extends ItemView {
   private date = logicalToday();
@@ -21,13 +30,27 @@ export class BranchTimelineView extends ItemView {
   private scroller: HTMLElement | null = null;
   private day: TimelineDayState | null = null;
   private renderId = 0;
+  private page: TimelinePage = "day";
+  private pendingScale: number | null = null;
+  private pendingScaleAnchor: ScrollAnchor | null = null;
+  private scaleButtonTimer: number | null = null;
+  private clockTimer: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, private plugin: BranchTimelinePlugin) { super(leaf); }
   getViewType(): string { return BRANCH_TIMELINE_VIEW; }
   getDisplayText(): string { return "Branch Timeline"; }
   getIcon(): string { return "git-branch"; }
-  async onOpen(): Promise<void> { await this.render(false); }
-  async onClose(): Promise<void> { this.gestures?.destroy(); }
+  async onOpen(): Promise<void> {
+    await this.render(false);
+    this.clockTimer = window.setInterval(() => {
+      if (this.page === "day" && this.day?.items.some(item => item.factTiming || item.startedMin != null)) void this.render(true);
+    }, 60_000);
+  }
+  async onClose(): Promise<void> {
+    this.gestures?.destroy();
+    if (this.clockTimer != null) window.clearInterval(this.clockTimer);
+    if (this.scaleButtonTimer != null) window.clearTimeout(this.scaleButtonTimer);
+  }
   async refresh(): Promise<void> { await this.render(true); }
 
   private async render(preserveScroll: boolean, anchor?: ScrollAnchor): Promise<void> {
@@ -48,22 +71,33 @@ export class BranchTimelineView extends ItemView {
     const add = this.iconButton(toolbar, "plus", "添加", event => this.openAddMenu(event));
     add.addClass("btl-add-button");
 
-    const [state, diary] = await Promise.all([this.plugin.store.load(), this.plugin.repository.readDiaryDay(this.date)]);
+    const pageNav = root.createDiv({ cls: "btl-page-nav" });
+    for (const page of PAGES) {
+      const button = pageNav.createEl("button", { text: page.label, cls: this.page === page.id ? "is-active" : "" });
+      button.onclick = () => {
+        if (this.page === page.id) return;
+        this.page = page.id;
+        void this.render(false);
+      };
+    }
+
+    const pageContent = root.createDiv({ cls: "btl-page-content" });
+
+    const state = await this.plugin.store.load();
     if (requestId !== this.renderId) return;
     const key = dateKey(this.date);
     const day = state.days[key] || defaultDay(this.plugin.settings.dayStartMinute, this.plugin.settings.dayEndMinute);
     this.day = day;
 
-    const habitStrip = root.createDiv({ cls: "btl-habit-strip" });
-    for (const habit of this.plugin.settings.habits) {
-      const chip = habitStrip.createEl("button", { text: habit, cls: diary.habits[habit] ? "is-done" : "" });
-      chip.onclick = async () => {
-        await this.plugin.repository.setHabit(this.date, habit, !diary.habits[habit]);
-        await this.render(true);
-      };
+    if (this.page !== "day") {
+      this.scroller = null;
+      if (this.page === "projects") this.renderProjectsPage(pageContent);
+      else if (this.page === "habits") await this.renderHabitsPage(pageContent, requestId);
+      else this.renderSimplePage(pageContent, this.page);
+      return;
     }
 
-    const scroller = root.createDiv({ cls: "btl-timeline-scroller" });
+    const scroller = pageContent.createDiv({ cls: "btl-timeline-scroller" });
     this.scroller = scroller;
     const width = Math.max(280, scroller.clientWidth || root.clientWidth || 390);
     const nowMinute = this.nowOnAxis(day);
@@ -87,12 +121,12 @@ export class BranchTimelineView extends ItemView {
       onRhythm: (rhythm, minute, moved) => void this.updateRhythm(rhythm, minute, moved),
       onAddTodo: (minute, branchId) => void this.addTimelineTodo(minute, branchId),
       onAddBranch: minute => void this.addTimelineBranch(minute),
-      onScale: (scale, anchorClientY) => void this.setScale(scale, anchorClientY)
+      onScale: (scale, anchorClientY, commit) => void this.previewScale(scale, anchorClientY, commit)
     });
 
     const zoom = root.createDiv({ cls: "btl-zoom-controls" });
-    this.iconButton(zoom, "minus", "缩小", () => void this.setScale(this.scale / 1.28, this.viewportCenterY()));
-    this.iconButton(zoom, "plus", "放大", () => void this.setScale(this.scale * 1.28, this.viewportCenterY()));
+    this.iconButton(zoom, "minus", "缩小", () => this.stepScale(1 / 1.28));
+    this.iconButton(zoom, "plus", "放大", () => this.stepScale(1.28));
 
     window.requestAnimationFrame(() => {
       if (requestId !== this.renderId || !this.scroller) return;
@@ -116,6 +150,8 @@ export class BranchTimelineView extends ItemView {
         const duration = Math.max(0, (item.endMin ?? oldStart) - oldStart);
         item.startMin = startMin;
         item.endMin = Math.min(day.sleep, startMin + duration);
+      } else if (item.startedMin != null) {
+        item.startedMin = startMin;
       } else {
         item.plannedMin = startMin;
       }
@@ -144,8 +180,54 @@ export class BranchTimelineView extends ItemView {
       if (!target) return;
       const end = this.nowOnAxis(day) ?? target.plannedMin ?? day.pivot;
       target.kind = "fact";
-      target.startMin = end;
+      target.startMin = target.startedMin ?? end;
       target.endMin = end;
+      target.factTiming = false;
+      delete target.startedMin;
+    });
+  }
+
+  private async startTiming(itemId: string): Promise<void> {
+    await this.updateDay(day => {
+      const target = day.items.find(candidate => candidate.id === itemId);
+      if (!target) return;
+      const now = this.nowOnAxis(day) ?? target.plannedMin ?? target.endMin ?? day.pivot;
+      if (target.kind === "todo") {
+        target.startedMin = now;
+        return;
+      }
+      const start = target.startMin ?? target.endMin ?? now;
+      const end = target.endMin ?? start;
+      if (end > start) {
+        day.items.push({
+          ...target,
+          id: this.uid("fact"),
+          startMin: now,
+          endMin: now,
+          factTiming: true,
+          projectTaskId: undefined
+        });
+      } else {
+        target.startMin = now;
+        target.endMin = now;
+        target.factTiming = true;
+      }
+    });
+  }
+
+  private async stopTiming(itemId: string): Promise<void> {
+    await this.updateDay(day => {
+      const target = day.items.find(candidate => candidate.id === itemId);
+      if (!target || target.kind !== "fact" || !target.factTiming) return;
+      target.endMin = this.nowOnAxis(day) ?? target.endMin ?? target.startMin;
+      target.factTiming = false;
+    });
+  }
+
+  private async cancelTiming(itemId: string): Promise<void> {
+    await this.updateDay(day => {
+      const target = day.items.find(candidate => candidate.id === itemId);
+      if (target?.kind === "todo") delete target.startedMin;
     });
   }
 
@@ -154,6 +236,9 @@ export class BranchTimelineView extends ItemView {
     if (!item) return;
     showItemMenu(event, item, this.plugin.settings.tags, {
       complete: () => void this.completeItem(item.id),
+      startTiming: () => void this.startTiming(item.id),
+      stopTiming: () => void this.stopTiming(item.id),
+      cancelTiming: () => void this.cancelTiming(item.id),
       rename: () => void this.renameItem(item),
       setTag: tagId => void this.setItemTag(item.id, tagId),
       remove: () => this.confirmRemoveItem(item)
@@ -268,21 +353,148 @@ export class BranchTimelineView extends ItemView {
     await this.render(true);
   }
 
-  private async setScale(next: number, anchorClientY: number): Promise<void> {
+  private async previewScale(next: number, anchorClientY: number, commit: boolean): Promise<void> {
     if (!this.scroller || !this.day) return;
     next = clampScale(next);
-    if (Math.abs(next - this.scale) < 0.005) return;
+    if (Math.abs(next - (this.pendingScale ?? this.scale)) < 0.001 && !commit) return;
     const rect = this.scroller.getBoundingClientRect();
     const offset = anchorClientY - rect.top;
-    const minute = (this.scroller.scrollTop + offset - TIMELINE_TOP) / this.scale + this.day.wake;
+    if (!this.pendingScaleAnchor) {
+      this.pendingScaleAnchor = {
+        minute: (this.scroller.scrollTop + offset - TIMELINE_TOP) / this.scale + this.day.wake,
+        offset
+      };
+    }
+    this.pendingScale = next;
+    const canvas = this.scroller.querySelector<HTMLElement>(".btl-canvas");
+    if (canvas) {
+      canvas.style.transformOrigin = `50% ${this.scroller.scrollTop + this.pendingScaleAnchor.offset}px`;
+      canvas.style.transform = `scaleY(${next / this.scale})`;
+      applyTimelineLod(canvas, next);
+    }
+    if (commit) await this.commitScale();
+  }
+
+  private async commitScale(): Promise<void> {
+    const next = this.pendingScale;
+    const anchor = this.pendingScaleAnchor;
+    if (next == null || !anchor) return;
+    this.pendingScale = null;
+    this.pendingScaleAnchor = null;
     this.scale = next;
     localStorage.setItem("branch-timeline-hz-scale", String(next));
-    await this.render(false, { minute, offset });
+    await this.render(false, anchor);
+  }
+
+  private stepScale(factor: number): void {
+    const next = clampScale((this.pendingScale ?? this.scale) * factor);
+    void this.previewScale(next, this.viewportCenterY(), false);
+    if (this.scaleButtonTimer != null) window.clearTimeout(this.scaleButtonTimer);
+    this.scaleButtonTimer = window.setTimeout(() => {
+      this.scaleButtonTimer = null;
+      void this.commitScale();
+    }, 120);
+  }
+
+  private renderProjectsPage(container: HTMLElement): void {
+    const projects = this.plugin.repository.listProjects();
+    const groups: ReadonlyArray<{ label: string; matches: (status: string) => boolean }> = [
+      { label: "进行中", matches: status => ["active", "doing", "进行中"].includes(status) },
+      { label: "计划", matches: status => ["todo", "plan", "planned", "计划", ""].includes(status) },
+      { label: "搁置", matches: status => ["hold", "paused", "搁置"].includes(status) },
+      { label: "归档", matches: status => ["done", "archived", "archive", "归档"].includes(status) }
+    ];
+    if (!projects.length) {
+      container.createDiv({ cls: "btl-empty", text: "暂无项目" });
+      return;
+    }
+    const assigned = new Set<string>();
+    for (const group of groups) {
+      const entries = projects.filter(project => group.matches(project.status));
+      if (!entries.length) continue;
+      const section = container.createDiv({ cls: "btl-project-section" });
+      section.createEl("h3", { text: group.label });
+      const grid = section.createDiv({ cls: "btl-project-grid" });
+      for (const project of entries) {
+        assigned.add(project.path);
+        this.renderProjectCard(grid, project.path, project.name, group.label);
+      }
+    }
+    const other = projects.filter(project => !assigned.has(project.path));
+    if (other.length) {
+      const section = container.createDiv({ cls: "btl-project-section" });
+      section.createEl("h3", { text: "其他" });
+      const grid = section.createDiv({ cls: "btl-project-grid" });
+      for (const project of other) this.renderProjectCard(grid, project.path, project.name, project.status || "未分类");
+    }
+  }
+
+  private renderProjectCard(container: HTMLElement, path: string, name: string, status: string): void {
+    const card = container.createEl("button", { cls: "btl-project-card" });
+    card.createSpan({ cls: "btl-project-card-title", text: name });
+    card.createSpan({ cls: "btl-project-card-status", text: status });
+    card.onclick = async () => {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (file instanceof TFile) await this.app.workspace.getLeaf("tab").openFile(file);
+    };
+  }
+
+  private async renderHabitsPage(container: HTMLElement, requestId: number): Promise<void> {
+    const start = startOfWeek(this.date);
+    const dates = Array.from({ length: 7 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
+    const snapshots = await Promise.all(dates.map(date => this.plugin.repository.readDiaryDay(date)));
+    if (requestId !== this.renderId) return;
+    if (!this.plugin.settings.habits.length) {
+      container.createDiv({ cls: "btl-empty", text: "暂无习惯" });
+      return;
+    }
+    const table = container.createDiv({ cls: "btl-habit-week" });
+    const header = table.createDiv({ cls: "btl-habit-week-row is-header" });
+    header.createSpan({ text: "本周" });
+    dates.forEach(date => {
+      const cell = header.createSpan();
+      cell.createSpan({ text: weekdayLabel(date) });
+      cell.createEl("small", { text: String(date.getDate()) });
+    });
+    for (const habit of this.plugin.settings.habits) {
+      const row = table.createDiv({ cls: "btl-habit-week-row" });
+      row.createSpan({ cls: "btl-habit-name", text: habit });
+      dates.forEach((date, index) => {
+        const done = !!snapshots[index].habits[habit];
+        const button = row.createEl("button", {
+          cls: `btl-habit-cell${done ? " is-done" : ""}`,
+          attr: { "aria-label": `${habit} · ${date.getMonth() + 1}月${date.getDate()}日` }
+        });
+        button.onclick = async () => {
+          await this.plugin.repository.setHabit(date, habit, !done);
+          await this.render(false);
+        };
+      });
+    }
+  }
+
+  private renderSimplePage(container: HTMLElement, page: "achievements" | "policy"): void {
+    container.createDiv({ cls: "btl-empty", text: page === "achievements" ? "暂无成就" : "暂无锚点" });
   }
 
   private openAddMenu(event: MouseEvent): void {
     const menu = new Menu();
     const minute = this.day ? this.nowOnAxis(this.day) ?? this.day.pivot : 12 * 60;
+    if (this.page === "projects") {
+      menu.addItem(item => item.setTitle("添加项目待办").setIcon("list-plus").onClick(() => void this.plugin.addProjectTask(this.date)));
+      menu.addItem(item => item.setTitle("记录项目工时").setIcon("timer").onClick(() => void this.plugin.recordProjectWork(this.date)));
+      menu.showAtMouseEvent(event);
+      return;
+    }
+    if (this.page === "habits") {
+      menu.addItem(item => item.setTitle("打卡习惯").setIcon("check-circle").onClick(() => void this.plugin.toggleHabit(this.date)));
+      menu.showAtMouseEvent(event);
+      return;
+    }
+    if (this.page !== "day") {
+      new Notice(this.page === "policy" ? "请在锚点页双击添加" : "请在成就页添加");
+      return;
+    }
     menu.addItem(item => item.setTitle("添加代办").setIcon("circle-plus").onClick(() => void this.addTimelineTodo(minute, null)));
     menu.addItem(item => item.setTitle("添加分支").setIcon("git-branch-plus").onClick(() => void this.addTimelineBranch(minute)));
     menu.addSeparator();
@@ -295,11 +507,17 @@ export class BranchTimelineView extends ItemView {
   }
 
   private shiftDate(amount: number): void {
-    this.date = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate() + amount);
+    const step = this.page === "habits" ? amount * 7 : amount;
+    this.date = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate() + step);
     void this.render(false);
   }
 
   private dateTitle(): string {
+    if (this.page === "habits") {
+      const start = startOfWeek(this.date);
+      const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+      return `${start.getMonth() + 1}/${start.getDate()}–${end.getMonth() + 1}/${end.getDate()}`;
+    }
     const today = dateKey(this.date) === dateKey(logicalToday());
     return `${this.date.getMonth() + 1}月${this.date.getDate()}日${today ? " · 今天" : ""}`;
   }
@@ -345,4 +563,13 @@ function rhythmClamp(day: TimelineDayState, key: "wake" | "pivot" | "sleep", min
   if (key === "wake") return Math.max(0, Math.min(day.pivot - 30, minute));
   if (key === "pivot") return Math.max(day.wake + 30, Math.min(day.sleep - 30, minute));
   return Math.max(day.pivot + 30, Math.min(28 * 60, minute));
+}
+
+function startOfWeek(date: Date): Date {
+  const day = date.getDay() || 7;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - day + 1);
+}
+
+function weekdayLabel(date: Date): string {
+  return ["日", "一", "二", "三", "四", "五", "六"][date.getDay()];
 }

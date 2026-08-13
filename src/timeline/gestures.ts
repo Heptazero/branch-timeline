@@ -32,7 +32,7 @@ export interface TimelineGestureCallbacks {
   onRhythm: (key: RhythmKey, minute: number, moved: boolean) => void;
   onAddTodo: (minute: number, branchId: string | null) => void;
   onAddBranch: (minute: number) => void;
-  onScale: (scale: number, anchorClientY: number) => void;
+  onScale: (scale: number, anchorClientY: number, commit: boolean) => void;
 }
 
 type DragState =
@@ -58,6 +58,8 @@ export class TimelineGestures {
   private background: BackgroundPointer | null = null;
   private lastTouchTap: { time: number; x: number; y: number } | null = null;
   private pinch: { distance: number; scale: number; nextScale: number; anchorClientY: number } | null = null;
+  private previewScale: number;
+  private wheelTimer: number | null = null;
 
   constructor(
     private scroller: HTMLElement,
@@ -66,6 +68,7 @@ export class TimelineGestures {
     private layout: TimelineLayout,
     private callbacks: TimelineGestureCallbacks
   ) {
+    this.previewScale = layout.scale;
     canvas.addEventListener("pointerdown", this.pointerDown);
     canvas.addEventListener("pointermove", this.pointerMove);
     canvas.addEventListener("pointerup", this.pointerUp);
@@ -79,6 +82,7 @@ export class TimelineGestures {
 
   destroy(): void {
     this.cancelBackground();
+    if (this.wheelTimer != null) window.clearTimeout(this.wheelTimer);
     this.canvas.removeEventListener("pointerdown", this.pointerDown);
     this.canvas.removeEventListener("pointermove", this.pointerMove);
     this.canvas.removeEventListener("pointerup", this.pointerUp);
@@ -272,7 +276,13 @@ export class TimelineGestures {
   private wheel = (event: WheelEvent): void => {
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
-    this.callbacks.onScale(this.clampScale(this.layout.scale * Math.exp(-event.deltaY * 0.01)), event.clientY);
+    this.previewScale = this.clampScale(this.previewScale * Math.exp(-event.deltaY * 0.01));
+    this.callbacks.onScale(this.previewScale, event.clientY, false);
+    if (this.wheelTimer != null) window.clearTimeout(this.wheelTimer);
+    this.wheelTimer = window.setTimeout(() => {
+      this.wheelTimer = null;
+      this.callbacks.onScale(this.previewScale, event.clientY, true);
+    }, 120);
   };
 
   private touchStart = (event: TouchEvent): void => {
@@ -280,7 +290,7 @@ export class TimelineGestures {
       this.drag = null;
       this.cancelBackground();
       this.pinch = {
-        distance: touchDistance(event), scale: this.layout.scale, nextScale: this.layout.scale,
+        distance: touchDistance(event), scale: this.previewScale, nextScale: this.previewScale,
         anchorClientY: (event.touches[0].clientY + event.touches[1].clientY) / 2
       };
     }
@@ -291,18 +301,15 @@ export class TimelineGestures {
     event.preventDefault();
     this.pinch.nextScale = this.clampScale(this.pinch.scale * touchDistance(event) / this.pinch.distance);
     this.pinch.anchorClientY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
-    const rect = this.canvas.getBoundingClientRect();
-    this.canvas.style.transformOrigin = `50% ${this.pinch.anchorClientY - rect.top}px`;
-    this.canvas.style.transform = `scaleY(${this.pinch.nextScale / this.pinch.scale})`;
+    this.previewScale = this.pinch.nextScale;
+    this.callbacks.onScale(this.previewScale, this.pinch.anchorClientY, false);
   };
 
   private touchEnd = (): void => {
     const pinch = this.pinch;
     if (!pinch) return;
-    this.canvas.style.transform = "";
-    this.canvas.style.transformOrigin = "";
     this.pinch = null;
-    this.callbacks.onScale(pinch.nextScale, pinch.anchorClientY);
+    this.callbacks.onScale(pinch.nextScale, pinch.anchorClientY, true);
   };
 
   private previewItem(drag: Extract<DragState, { kind: "item" }>, dx: number, dy: number): void {

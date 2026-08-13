@@ -3,6 +3,9 @@ import type { TimelineBranch, TimelineItem, TimelineTag } from "../types";
 
 export interface ItemMenuActions {
   complete: () => void;
+  startTiming: () => void;
+  stopTiming: () => void;
+  cancelTiming: () => void;
   rename: () => void;
   setTag: (tagId: string | null) => void;
   remove: () => void;
@@ -15,7 +18,13 @@ export function showItemMenu(
   actions: ItemMenuActions
 ): void {
   const menu = new Menu();
-  if (item.kind === "todo") menu.addItem(entry => entry.setTitle("完成").setIcon("check").onClick(actions.complete));
+  const running = item.factTiming || (item.kind === "todo" && item.startedMin != null);
+  if (item.kind === "todo") menu.addItem(entry => entry.setTitle(running ? "完成并停止计时" : "完成").setIcon("check").onClick(actions.complete));
+  if (running) {
+    menu.addItem(entry => entry.setTitle(item.kind === "fact" ? "停止计时" : "取消计时").setIcon("square").onClick(item.kind === "fact" ? actions.stopTiming : actions.cancelTiming));
+  } else {
+    menu.addItem(entry => entry.setTitle(item.kind === "fact" ? "继续计时" : "开始计时").setIcon("timer").onClick(actions.startTiming));
+  }
   menu.addItem(entry => entry.setTitle("重命名").setIcon("pencil").onClick(actions.rename));
   menu.addSeparator();
   menu.addItem(entry => entry.setTitle("标签").setIsLabel(true));

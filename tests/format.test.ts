@@ -92,3 +92,8 @@ test("snaps timeline motion while preserving fact duration", () => {
   assert.equal(yToMinute(day, 2, 194), 490);
   assert.equal(itemDuration({ id: "fact", title: "实验", kind: "fact", startMin: 500, endMin: 575 }, day.wake), 75);
 });
+
+test("extends running todos and facts to the current minute", () => {
+  assert.equal(itemDuration({ id: "todo", title: "写作", kind: "todo", plannedMin: 500, startedMin: 520 }, 420, 575), 55);
+  assert.equal(itemDuration({ id: "fact", title: "阅读", kind: "fact", startMin: 480, endMin: 480, factTiming: true }, 420, 555), 75);
+});
