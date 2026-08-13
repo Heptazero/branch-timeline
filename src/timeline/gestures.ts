@@ -1,4 +1,5 @@
-import type { TimelineDayState, TimelineItem } from "../types";
+import { rhythmBounds, rhythmLabel } from "../rhythm";
+import type { RhythmKey, TimelineDayState, TimelineItem } from "../types";
 import {
   MAX_SCALE,
   MIN_SCALE,
@@ -16,8 +17,6 @@ import {
   yToMinute,
   type TimelineLayout
 } from "./model";
-
-type RhythmKey = "wake" | "pivot" | "sleep";
 
 export interface TimelineGestureCallbacks {
   onItemMove: (itemId: string, startMin: number, branchId: string | null) => void;
@@ -427,16 +426,6 @@ export class TimelineGestures {
   }
 
   private clampScale(value: number): number { return Math.max(MIN_SCALE, Math.min(MAX_SCALE, value)); }
-}
-
-function rhythmBounds(day: TimelineDayState, key: RhythmKey): [number, number] {
-  if (key === "wake") return [0, Math.max(0, day.pivot - 30)];
-  if (key === "pivot") return [day.wake + 30, day.sleep - 30];
-  return [day.pivot + 30, 28 * 60];
-}
-
-function rhythmLabel(key: RhythmKey): string {
-  return key === "wake" ? "起床" : key === "pivot" ? "午休" : "入睡";
 }
 
 function touchDistance(event: TouchEvent): number {

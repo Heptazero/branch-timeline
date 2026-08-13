@@ -14,12 +14,18 @@
 .btl-date-button { min-width: 118px; padding: 7px 10px; font-weight: 650; }
 .btl-add-button { margin-left: auto; border-radius: 50%; background: var(--interactive-accent); color: var(--text-on-accent); }
 
-.btl-page-nav { display: flex; flex: 0 0 auto; gap: 4px; overflow-x: auto; padding: 0 0 8px; scrollbar-width: none; }
+.btl-page-nav-row { display: flex; min-width: 0; flex: 0 0 auto; align-items: stretch; gap: 6px; padding: 0 0 8px; }
+.btl-page-nav { display: flex; min-width: 0; flex: 1 1 auto; gap: 4px; overflow-x: auto; padding: 0; scrollbar-width: none; }
 .btl-page-nav::-webkit-scrollbar { display: none; }
 .btl-page-nav button { position: relative; flex: 0 0 auto; border: 0; border-radius: 8px; padding: 6px 11px; background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 650; }
 .btl-page-nav button:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
 .btl-page-nav button.is-active { color: var(--interactive-accent); }
 .btl-page-nav button.is-active::after { content: ""; position: absolute; right: 11px; bottom: 1px; left: 11px; height: 2px; border-radius: 99px; background: var(--interactive-accent); }
+.btl-day-countdown { display: flex; min-width: 92px; flex: 0 0 auto; flex-direction: column; align-items: flex-end; justify-content: center; border: 0; border-left: 1px solid var(--background-modifier-border); border-radius: 0; padding: 0 2px 0 10px; background: var(--background-primary); color: var(--text-normal); }
+.btl-day-countdown > span { color: var(--text-faint); font-size: 8px; font-weight: 600; line-height: 1; }
+.btl-day-countdown > strong { margin-top: 2px; color: var(--interactive-accent); font-size: 21px; font-weight: 780; font-variant-numeric: tabular-nums; letter-spacing: -.6px; line-height: 1; }
+.btl-day-countdown.is-elapsed > strong { color: var(--text-muted); }
+.btl-day-countdown:hover { background: var(--background-modifier-hover); }
 .btl-page-content { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; overflow-x: hidden; overflow-y: auto; }
 
 .btl-habit-strip { display: flex; flex: 0 0 auto; gap: 6px; overflow-x: auto; padding: 0 0 8px; scrollbar-width: none; }
@@ -161,6 +167,22 @@
 .btl-duration-wheel::-webkit-scrollbar { display: none; }
 .btl-duration-wheel button { display: block; width: 100%; height: 38px; scroll-snap-align: center; border: 0; background: transparent; color: var(--text-muted); }
 .btl-duration-wheel button.is-selected { color: var(--text-normal); font-size: 18px; font-weight: 750; }
+.btl-rhythm-popover { position: fixed; z-index: 10000; width: min(272px, calc(100vw - 16px)); border: 1px solid var(--background-modifier-border); border-radius: 13px; padding: 8px; background: var(--background-primary); box-shadow: 0 12px 32px rgba(0,0,0,.24); font-family: var(--font-interface); }
+.btl-rhythm-popover-head { display: grid; min-height: 34px; grid-template-columns: 34px 1fr auto; align-items: center; gap: 5px; padding: 0 2px 5px; }
+.btl-rhythm-popover-head > strong:first-child { grid-column: 1 / 3; padding-left: 7px; }
+.btl-rhythm-popover-head button { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 8px; padding: 0; background: transparent; color: var(--text-muted); }
+.btl-rhythm-popover-head button:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.btl-rhythm-popover-head > span { color: var(--interactive-accent); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.btl-rhythm-row { display: flex; width: 100%; min-height: 40px; align-items: center; justify-content: space-between; border: 0; border-radius: 9px; padding: 5px 9px; background: transparent; color: var(--text-normal); text-align: left; }
+.btl-rhythm-row:hover { background: var(--background-modifier-hover); }
+.btl-rhythm-row > span { color: var(--text-muted); font-size: 11px; }
+.btl-rhythm-row > strong { font-size: 12px; font-variant-numeric: tabular-nums; }
+.btl-time-wheel { height: 166px; margin: 2px 0 8px; padding-block: 64px; overflow-y: auto; scroll-snap-type: y mandatory; border-block: 1px solid var(--background-modifier-border); scrollbar-width: none; background: linear-gradient(var(--background-primary), transparent 38%, transparent 62%, var(--background-primary)); }
+.btl-time-wheel::-webkit-scrollbar { display: none; }
+.btl-time-wheel button { display: block; width: 100%; height: 38px; scroll-snap-align: center; border: 0; background: transparent; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.btl-time-wheel button.is-selected { color: var(--text-normal); font-size: 18px; font-weight: 760; }
+.btl-rhythm-popover-actions { display: flex; justify-content: flex-end; gap: 7px; }
+.btl-rhythm-popover-actions button { border-radius: 8px; padding: 5px 11px; }
 .btl-tag-setting .setting-item-info { display: none; }
 .btl-tag-setting .setting-item-control { width: 100%; flex-wrap: nowrap; }
 .btl-tag-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }
@@ -168,6 +190,10 @@
 @media (max-width: 520px) {
   .branch-timeline-hz { padding-inline: 7px; }
   .btl-date-button { min-width: 104px; font-size: 12px; }
+  .btl-page-nav-row { gap: 3px; }
+  .btl-page-nav button { padding-inline: 9px; }
+  .btl-day-countdown { min-width: 84px; padding-left: 7px; }
+  .btl-day-countdown > strong { font-size: 19px; }
   .btl-rhythm-marker { left: calc(50% - 66px); padding-right: 7px; font-size: 9px; }
   .btl-rhythm-marker::after { right: -62px; width: 60px; }
   .btl-canvas-item-compact { width: 88px; }

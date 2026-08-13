@@ -1,5 +1,6 @@
 import { App, normalizePath } from "obsidian";
-import type { BranchTimelineState, TimelineDayState } from "../types";
+import { normalizeTimelineDay } from "../rhythm";
+import type { BranchTimelineState, RhythmSchedule, TimelineDayState } from "../types";
 
 const EMPTY_STATE: BranchTimelineState = { version: 1, days: {}, projects: {}, policyNodes: [] };
 
@@ -17,7 +18,9 @@ export class StateStore {
       const parsed = JSON.parse(await this.app.vault.adapter.read(path)) as Partial<BranchTimelineState>;
       return {
         version: 1,
-        days: parsed.days && typeof parsed.days === "object" ? parsed.days : {},
+        days: parsed.days && typeof parsed.days === "object"
+          ? Object.fromEntries(Object.entries(parsed.days).map(([date, day]) => [date, normalizeTimelineDay(day)]))
+          : {},
         projects: parsed.projects && typeof parsed.projects === "object" ? parsed.projects : {},
         policyNodes: Array.isArray(parsed.policyNodes) ? parsed.policyNodes : []
       };
@@ -57,6 +60,15 @@ export class StateStore {
   }
 }
 
-export function defaultDay(wake: number, sleep: number): TimelineDayState {
-  return { wake, sleep, pivot: 14 * 60, wakeReal: false, pivotReal: false, sleepReal: false, branches: [], items: [] };
+export function defaultDay(schedule: RhythmSchedule): TimelineDayState {
+  return {
+    ...schedule,
+    wakeReal: false,
+    napStartReal: false,
+    napEndReal: false,
+    sleepPrepReal: false,
+    sleepReal: false,
+    branches: [],
+    items: []
+  };
 }

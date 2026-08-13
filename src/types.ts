@@ -4,8 +4,17 @@ export interface BranchTimelineSettings {
   projectFolder: string;
   habits: string[];
   tags: TimelineTag[];
-  dayStartMinute: number;
-  dayEndMinute: number;
+  rhythm: RhythmSchedule;
+}
+
+export type RhythmKey = "wake" | "napStart" | "napEnd" | "sleepPrep" | "sleep";
+
+export interface RhythmSchedule {
+  wake: number;
+  napStart: number;
+  napEnd: number;
+  sleepPrep: number;
+  sleep: number;
 }
 
 export interface TimelineTag {
@@ -46,11 +55,19 @@ export interface TimelineItem {
 
 export interface TimelineDayState {
   wake: number;
+  napStart: number;
+  napEnd: number;
+  sleepPrep: number;
   sleep: number;
-  pivot: number;
   wakeReal?: boolean;
-  pivotReal?: boolean;
+  napStartReal?: boolean;
+  napEndReal?: boolean;
+  sleepPrepReal?: boolean;
   sleepReal?: boolean;
+  /** 旧版单一午休节点，仅用于读取迁移。 */
+  pivot?: number;
+  /** 旧版单一午休完成状态，仅用于读取迁移。 */
+  pivotReal?: boolean;
   branches: TimelineBranch[];
   items: TimelineItem[];
 }

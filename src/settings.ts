@@ -1,6 +1,8 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type BranchTimelinePlugin from "./main";
 import { ConfirmModal } from "./modals";
+import { openRhythmSchedulePopover } from "./rhythm-popover";
+import { DEFAULT_RHYTHM, RHYTHM_KEYS, rhythmLabel } from "./rhythm";
 import { cloneDefaultTags, createTag } from "./tags";
 import type { BranchTimelineSettings } from "./types";
 
@@ -10,8 +12,7 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   projectFolder: "21_project",
   habits: ["早睡", "阅读", "对话训练", "写日记"],
   tags: cloneDefaultTags(),
-  dayStartMinute: 7 * 60,
-  dayEndMinute: 26 * 60
+  rhythm: { ...DEFAULT_RHYTHM }
 };
 
 export class BranchTimelineSettingTab extends PluginSettingTab {
@@ -25,6 +26,26 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     this.textSetting("数据文件", "分支、节律与决策树的 Vault 内路径。", "statePath");
     this.textSetting("周记目录", "习惯和分类时长写入的位置。", "diaryFolder");
     this.textSetting("项目目录", "扫描 type: project 的范围。", "projectFolder");
+
+    new Setting(containerEl).setName("节律").setHeading();
+    for (const key of RHYTHM_KEYS) {
+      new Setting(containerEl)
+        .setName(rhythmLabel(key))
+        .addButton(button => {
+          const refresh = () => button.setButtonText(this.timeLabel(this.plugin.settings.rhythm[key]));
+          refresh();
+          button.onClick(() => openRhythmSchedulePopover(
+            button.buttonEl,
+            this.plugin.settings.rhythm,
+            async next => {
+              this.plugin.settings.rhythm = next;
+              refresh();
+              await this.plugin.saveSettings();
+            },
+            key
+          ));
+        });
+    }
 
     new Setting(containerEl)
       .setName("习惯")
@@ -80,5 +101,11 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
         this.plugin.settings[key] = value.trim();
         await this.plugin.saveSettings();
       }));
+  }
+
+  private timeLabel(minute: number): string {
+    const normalized = ((minute % 1440) + 1440) % 1440;
+    const time = `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+    return minute >= 1440 ? `${time} · 次日` : time;
   }
 }

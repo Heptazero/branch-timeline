@@ -14,6 +14,7 @@ import {
   setProjectTaskDone
 } from "../src/vault/format";
 import { loadTags, tagCategoryKey } from "../src/tags";
+import { countdownLabel, normalizeRhythmSchedule, normalizeTimelineDay } from "../src/rhythm";
 import { pageDateTitle, shiftPageDate, startOfWeek } from "../src/pages/navigation";
 import {
   absoluteMinute,
@@ -89,7 +90,7 @@ test("migrates legacy tag mappings without restoring deleted tags", () => {
 
 test("lays out overlapping branches in separate reusable lanes", () => {
   const day: TimelineDayState = {
-    wake: 420, sleep: 1560, pivot: 840, items: [],
+    wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, items: [],
     branches: [
       { id: "a", name: "A", startMin: 480, endMin: 600, side: 1, color: "#000000" },
       { id: "b", name: "B", startMin: 540, endMin: 660, side: 1, color: "#000000" },
@@ -104,7 +105,7 @@ test("lays out overlapping branches in separate reusable lanes", () => {
 });
 
 test("snaps timeline motion while preserving fact duration", () => {
-  const day: TimelineDayState = { wake: 420, sleep: 1560, pivot: 840, items: [], branches: [] };
+  const day: TimelineDayState = { wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, items: [], branches: [] };
   assert.equal(snapMinute(487), 485);
   assert.equal(yToMinute(day, 2, 194), 490);
   assert.equal(itemDuration({ id: "fact", title: "实验", kind: "fact", startMin: 500, endMin: 575 }, day.wake), 75);
@@ -113,6 +114,17 @@ test("snaps timeline motion while preserving fact duration", () => {
 test("extends running todos and facts to the current minute", () => {
   assert.equal(itemDuration({ id: "todo", title: "写作", kind: "todo", plannedMin: 500, startedMin: 520 }, 420, 575), 55);
   assert.equal(itemDuration({ id: "fact", title: "阅读", kind: "fact", startMin: 480, endMin: 480, factTiming: true }, 420, 555), 75);
+});
+
+test("migrates the legacy single nap marker and counts down to sleep preparation", () => {
+  const day = normalizeTimelineDay({ wake: 420, pivot: 840, pivotReal: true, sleep: 1560, branches: [], items: [] });
+  assert.equal(day.napStart, 840);
+  assert.equal(day.napEnd, 870);
+  assert.equal(day.sleepPrep, 1500);
+  assert.equal(day.napStartReal, true);
+  const rhythm = normalizeRhythmSchedule(undefined, 420, 1560);
+  assert.equal(countdownLabel(rhythm, new Date(2026, 7, 13, 23, 0)), "02:00");
+  assert.equal(countdownLabel(rhythm, new Date(2026, 7, 14, 1, 15)), "+00:15");
 });
 
 test("builds a multi-day project timeline without changing item dates", () => {
@@ -125,8 +137,8 @@ test("builds a multi-day project timeline without changing item dates", () => {
       }
     },
     days: {
-      "2026-08-12": { wake: 420, sleep: 1560, pivot: 840, branches: [], items: [{ id: "a", title: "输入", kind: "fact", startMin: 500, endMin: 560, projectPath: "21_project/test.md" }] },
-      "2026-08-13": { wake: 420, sleep: 1560, pivot: 840, branches: [], items: [{ id: "b", title: "输出", kind: "todo", plannedMin: 600, projectPath: "21_project/test.md" }] }
+      "2026-08-12": { wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [], items: [{ id: "a", title: "输入", kind: "fact", startMin: 500, endMin: 560, projectPath: "21_project/test.md" }] },
+      "2026-08-13": { wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [], items: [{ id: "b", title: "输出", kind: "todo", plannedMin: 600, projectPath: "21_project/test.md" }] }
     }
   };
   const entries = projectEntries(state, "21_project/test.md");

@@ -1,5 +1,6 @@
 import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
 import { ChoiceSuggestModal, DurationModal, ProjectSuggestModal, TextEntryModal } from "./modals";
+import { normalizeRhythmSchedule } from "./rhythm";
 import { BranchTimelineSettingTab, DEFAULT_SETTINGS } from "./settings";
 import { loadTags, tagCategoryKey } from "./tags";
 import { BRANCH_TIMELINE_VIEW, BranchTimelineView } from "./timeline-view";
@@ -31,13 +32,18 @@ export default class BranchTimelinePlugin extends Plugin {
   onunload(): void { this.app.workspace.detachLeavesOfType(BRANCH_TIMELINE_VIEW); }
 
   async loadSettings(): Promise<void> {
-    const saved = await this.loadData() as (Partial<BranchTimelineSettings> & { tagMap?: Record<string, string> }) | null;
-    const { tagMap, ...settings } = saved || {};
+    const saved = await this.loadData() as (Partial<BranchTimelineSettings> & {
+      tagMap?: Record<string, string>;
+      dayStartMinute?: number;
+      dayEndMinute?: number;
+    }) | null;
+    const { tagMap, dayStartMinute, dayEndMinute, ...settings } = saved || {};
     this.settings = {
       ...DEFAULT_SETTINGS,
       ...settings,
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
-      tags: loadTags(saved?.tags, tagMap)
+      tags: loadTags(saved?.tags, tagMap),
+      rhythm: normalizeRhythmSchedule(saved?.rhythm, dayStartMinute, dayEndMinute)
     };
   }
 
@@ -73,10 +79,10 @@ export default class BranchTimelinePlugin extends Plugin {
     const result = await this.duration(`记录 · ${project.name}`);
     if (!result) return;
     const end = this.minuteNow(date);
-    const start = Math.max(this.settings.dayStartMinute, end - result.minutes);
+    const start = Math.max(this.settings.rhythm.wake, end - result.minutes);
     await this.repository.addProjectLog(project.path, date, end, result.minutes, result.note);
     await this.store.update(state => {
-      const day = state.days[dateKey(date)] ||= defaultDay(this.settings.dayStartMinute, this.settings.dayEndMinute);
+      const day = state.days[dateKey(date)] ||= defaultDay(this.settings.rhythm);
       day.items.push({
         id: this.uid("fact"), title: result.note || project.name, kind: "fact", startMin: start, endMin: end,
         projectPath: project.path, note: result.note || undefined
@@ -96,10 +102,10 @@ export default class BranchTimelinePlugin extends Plugin {
     const result = await this.duration(`记录 · ${choice.label}`);
     if (!result) return;
     const end = this.minuteNow(date);
-    const start = Math.max(this.settings.dayStartMinute, end - result.minutes);
+    const start = Math.max(this.settings.rhythm.wake, end - result.minutes);
     await this.repository.addCategoryDuration(date, tagCategoryKey(tag), result.minutes);
     await this.store.update(state => {
-      const day = state.days[dateKey(date)] ||= defaultDay(this.settings.dayStartMinute, this.settings.dayEndMinute);
+      const day = state.days[dateKey(date)] ||= defaultDay(this.settings.rhythm);
       day.items.push({
         id: this.uid("fact"), title: result.note || choice.label, kind: "fact", startMin: start, endMin: end,
         tagId: tag.id, tag: tag.name, note: result.note || undefined
@@ -117,7 +123,7 @@ export default class BranchTimelinePlugin extends Plugin {
     const id = this.uid("btl");
     await this.repository.addProjectTask(project.path, title, id);
     await this.store.update(state => {
-      const day = state.days[dateKey(date)] ||= defaultDay(this.settings.dayStartMinute, this.settings.dayEndMinute);
+      const day = state.days[dateKey(date)] ||= defaultDay(this.settings.rhythm);
       day.items.push({ id, title, kind: "todo", plannedMin: this.minuteNow(date), projectPath: project.path, projectTaskId: id });
     });
     new Notice(`已添加到 ${project.name}`);
@@ -161,11 +167,11 @@ export default class BranchTimelinePlugin extends Plugin {
 
   private minuteNow(date: Date): number {
     const today = dateKey(date) === dateKey(logicalToday());
-    if (!today) return Math.min(this.settings.dayEndMinute, 18 * 60);
+    if (!today) return Math.min(this.settings.rhythm.sleep, 18 * 60);
     const now = new Date();
     const minute = now.getHours() * 60 + now.getMinutes();
     const axisMinute = now.getHours() < 2 ? minute + 1440 : minute;
-    return Math.max(this.settings.dayStartMinute, Math.min(this.settings.dayEndMinute, axisMinute));
+    return Math.max(this.settings.rhythm.wake, Math.min(this.settings.rhythm.sleep, axisMinute));
   }
 
   private uid(prefix: string): string {

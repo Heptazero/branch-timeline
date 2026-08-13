@@ -61,7 +61,7 @@ export class ProjectTimelineActions {
     }
     this.preserveAnchor();
     await this.options.plugin.store.update(state => {
-      const day = state.days[date] ||= defaultDay(this.options.plugin.settings.dayStartMinute, this.options.plugin.settings.dayEndMinute);
+      const day = state.days[date] ||= defaultDay(this.options.plugin.settings.rhythm);
       day.items.push({
         id,
         title,
@@ -139,7 +139,7 @@ export class ProjectTimelineActions {
       }
     }
     await this.updateItem(date, itemId, (target, day) => {
-      const end = this.minuteForDate(date, day, target.plannedMin ?? day.pivot);
+      const end = this.minuteForDate(date, day, target.plannedMin ?? day.napEnd);
       target.kind = "fact";
       target.startMin = target.startedMin ?? end;
       target.endMin = end;
@@ -150,7 +150,7 @@ export class ProjectTimelineActions {
 
   private async startItemTiming(date: string, itemId: string): Promise<void> {
     await this.updateItem(date, itemId, (target, day) => {
-      const now = this.minuteForDate(date, day, target.plannedMin ?? target.endMin ?? day.pivot);
+      const now = this.minuteForDate(date, day, target.plannedMin ?? target.endMin ?? day.napEnd);
       if (target.kind === "todo") {
         target.startedMin = now;
         return;
@@ -178,7 +178,7 @@ export class ProjectTimelineActions {
   private async stopItemTiming(date: string, itemId: string): Promise<void> {
     await this.updateItem(date, itemId, (target, day) => {
       if (target.kind !== "fact") return;
-      target.endMin = this.minuteForDate(date, day, target.endMin ?? target.startMin ?? day.pivot);
+      target.endMin = this.minuteForDate(date, day, target.endMin ?? target.startMin ?? day.napEnd);
       target.factTiming = false;
     });
   }

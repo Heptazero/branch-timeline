@@ -1,5 +1,6 @@
 import { setIcon } from "obsidian";
-import type { TimelineDayState, TimelineItem, TimelineTag } from "../types";
+import { RHYTHM_KEYS, rhythmLabel, rhythmRealKey } from "../rhythm";
+import type { RhythmKey, TimelineDayState, TimelineItem, TimelineTag } from "../types";
 import {
   branchPath,
   computeTimelineLayout,
@@ -91,16 +92,13 @@ function renderNow(canvas: HTMLElement, day: TimelineDayState, scale: number, no
 }
 
 function renderRhythm(canvas: HTMLElement, day: TimelineDayState, scale: number): void {
-  const markers: Array<{ key: "wake" | "pivot" | "sleep"; label: string; minute: number; real: boolean }> = [
-    { key: "wake", label: "起床", minute: day.wake, real: !!day.wakeReal },
-    { key: "pivot", label: "午休", minute: day.pivot, real: !!day.pivotReal },
-    { key: "sleep", label: "入睡", minute: day.sleep, real: !!day.sleepReal }
-  ];
-  for (const marker of markers) {
-    const element = canvas.createDiv({ cls: "btl-rhythm-marker", attr: { "data-rhythm-key": marker.key } });
-    element.style.top = `${minuteToY(day, scale, marker.minute)}px`;
-    element.createSpan({ cls: `btl-rhythm-dot${marker.real ? " is-real" : ""}` });
-    element.createSpan({ text: `${marker.label} ${formatTime(marker.minute)}` });
+  for (const key of RHYTHM_KEYS) {
+    const minute = day[key];
+    const real = !!day[rhythmRealKey(key as RhythmKey)];
+    const element = canvas.createDiv({ cls: "btl-rhythm-marker", attr: { "data-rhythm-key": key } });
+    element.style.top = `${minuteToY(day, scale, minute)}px`;
+    element.createSpan({ cls: `btl-rhythm-dot${real ? " is-real" : ""}` });
+    element.createSpan({ text: `${rhythmLabel(key)} ${formatTime(minute)}` });
   }
 }
 

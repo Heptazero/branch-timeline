@@ -12,11 +12,13 @@ import {
 } from "./pages/project-detail";
 import { absoluteMinute } from "./pages/project-model";
 import { renderProjectsPage } from "./pages/projects";
+import { countdownLabel, rhythmBounds, rhythmRealKey } from "./rhythm";
+import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { TimelineGestures } from "./timeline/gestures";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, clampMinute, minuteToY } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
 import { applyTimelineLod, renderTimeline } from "./timeline/renderer";
-import type { TimelineBranch, TimelineDayState, TimelineItem } from "./types";
+import type { RhythmKey, TimelineBranch, TimelineDayState, TimelineItem } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
 
@@ -43,6 +45,7 @@ export class BranchTimelineView extends ItemView {
   private getProjectAnchor: (() => ProjectScaleAnchor) | null = null;
   private destroyProjectDetail: (() => void) | null = null;
   private projectActions: ProjectTimelineActions | null = null;
+  private countdownButton: HTMLButtonElement | null = null;
 
   constructor(leaf: WorkspaceLeaf, private plugin: BranchTimelinePlugin) { super(leaf); }
   getViewType(): string { return BRANCH_TIMELINE_VIEW; }
@@ -51,6 +54,7 @@ export class BranchTimelineView extends ItemView {
   async onOpen(): Promise<void> {
     await this.render(false);
     this.clockTimer = window.setInterval(() => {
+      this.updateCountdown();
       if (this.page === "day" && this.day?.items.some(item => item.factTiming || item.startedMin != null)) void this.render(true);
     }, 60_000);
   }
@@ -71,6 +75,7 @@ export class BranchTimelineView extends ItemView {
     this.destroyProjectDetail = null;
     this.getProjectAnchor = null;
     this.projectActions = null;
+    this.countdownButton = null;
 
     const root = this.contentEl;
     root.empty();
@@ -84,18 +89,24 @@ export class BranchTimelineView extends ItemView {
     const add = this.iconButton(toolbar, "plus", "添加", event => this.openAddMenu(event));
     add.addClass("btl-add-button");
 
-    renderPageNavigation(root, this.page, page => {
+    const navigationRow = root.createDiv({ cls: "btl-page-nav-row" });
+    renderPageNavigation(navigationRow, this.page, page => {
       this.page = page;
       if (page !== "projects") this.selectedProjectPath = null;
       void this.render(false);
     });
+    this.countdownButton = navigationRow.createEl("button", { cls: "btl-day-countdown", attr: { "aria-label": "设置节律" } });
+    this.countdownButton.createSpan({ text: "距睡眠准备" });
+    this.countdownButton.createEl("strong");
+    this.countdownButton.onclick = () => this.openRhythmSettings(this.countdownButton!);
+    this.updateCountdown();
 
     const pageContent = root.createDiv({ cls: "btl-page-content" });
 
     const state = await this.plugin.store.load();
     if (requestId !== this.renderId) return;
     const key = dateKey(this.date);
-    const day = state.days[key] || defaultDay(this.plugin.settings.dayStartMinute, this.plugin.settings.dayEndMinute);
+    const day = state.days[key] || defaultDay(this.plugin.settings.rhythm);
     this.day = day;
 
     if (this.page !== "day") {
@@ -201,7 +212,7 @@ export class BranchTimelineView extends ItemView {
       } else if (preserveScroll) {
         this.scroller.scrollTop = previousScroll;
       } else {
-        const focusMinute = nowMinute ?? day.pivot;
+        const focusMinute = nowMinute ?? day.napEnd;
         this.scroller.scrollTop = Math.max(0, minuteToY(day, this.scale, focusMinute) - this.scroller.clientHeight * 0.38);
       }
     });
@@ -244,7 +255,7 @@ export class BranchTimelineView extends ItemView {
     await this.updateDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
       if (!target) return;
-      const end = this.nowOnAxis(day) ?? target.plannedMin ?? day.pivot;
+      const end = this.nowOnAxis(day) ?? target.plannedMin ?? day.napEnd;
       target.kind = "fact";
       target.startMin = target.startedMin ?? end;
       target.endMin = end;
@@ -257,7 +268,7 @@ export class BranchTimelineView extends ItemView {
     await this.updateDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
       if (!target) return;
-      const now = this.nowOnAxis(day) ?? target.plannedMin ?? target.endMin ?? day.pivot;
+      const now = this.nowOnAxis(day) ?? target.plannedMin ?? target.endMin ?? day.napEnd;
       if (target.kind === "todo") {
         target.startedMin = now;
         return;
@@ -378,9 +389,9 @@ export class BranchTimelineView extends ItemView {
     });
   }
 
-  private async updateRhythm(key: "wake" | "pivot" | "sleep", minute: number, moved: boolean): Promise<void> {
+  private async updateRhythm(key: RhythmKey, minute: number, moved: boolean): Promise<void> {
     await this.updateDay(day => {
-      const realKey = `${key}Real` as "wakeReal" | "pivotReal" | "sleepReal";
+      const realKey = rhythmRealKey(key);
       if (moved) {
         day[key] = minute;
         day[realKey] = true;
@@ -388,7 +399,10 @@ export class BranchTimelineView extends ItemView {
         day[realKey] = false;
       } else {
         const now = this.nowOnAxis(day);
-        if (now != null) day[key] = rhythmClamp(day, key, now);
+        if (now != null) {
+          const [lower, upper] = rhythmBounds(day, key);
+          day[key] = Math.max(lower, Math.min(upper, now));
+        }
         day[realKey] = true;
       }
     });
@@ -417,7 +431,7 @@ export class BranchTimelineView extends ItemView {
   private async updateDay(mutator: (day: TimelineDayState) => void): Promise<void> {
     const key = dateKey(this.date);
     await this.plugin.store.update(state => {
-      const day = state.days[key] ||= defaultDay(this.plugin.settings.dayStartMinute, this.plugin.settings.dayEndMinute);
+      const day = state.days[key] ||= defaultDay(this.plugin.settings.rhythm);
       mutator(day);
     });
     await this.render(true);
@@ -472,7 +486,7 @@ export class BranchTimelineView extends ItemView {
 
   private openAddMenu(event: MouseEvent): void {
     const menu = new Menu();
-    const minute = this.day ? this.nowOnAxis(this.day) ?? this.day.pivot : 12 * 60;
+    const minute = this.day ? this.nowOnAxis(this.day) ?? this.day.napEnd : 12 * 60;
     if (this.page === "projects") {
       if (this.selectedProjectPath && this.projectActions) {
         const at = absoluteMinute(dateKey(this.date), minute);
@@ -527,6 +541,21 @@ export class BranchTimelineView extends ItemView {
     return rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
   }
 
+  private updateCountdown(): void {
+    const button = this.countdownButton;
+    if (!button) return;
+    const value = countdownLabel(this.plugin.settings.rhythm, new Date());
+    button.querySelector("strong")?.setText(value);
+    button.toggleClass("is-elapsed", value.startsWith("+"));
+  }
+
+  private openRhythmSettings(anchor: HTMLElement): void {
+    openRhythmSchedulePopover(anchor, this.plugin.settings.rhythm, async next => {
+      this.plugin.settings.rhythm = next;
+      await this.plugin.saveSettings();
+    });
+  }
+
   private text(title: string, placeholder: string, value = ""): Promise<string | null> {
     return new Promise(resolve => {
       let settled = false;
@@ -552,9 +581,3 @@ export class BranchTimelineView extends ItemView {
 
 function clampScale(value: number): number { return Math.max(MIN_SCALE, Math.min(MAX_SCALE, value)); }
 function clampProjectScale(value: number): number { return Math.max(PROJECT_SCALE_MIN, Math.min(PROJECT_SCALE_MAX, value)); }
-
-function rhythmClamp(day: TimelineDayState, key: "wake" | "pivot" | "sleep", minute: number): number {
-  if (key === "wake") return Math.max(0, Math.min(day.pivot - 30, minute));
-  if (key === "pivot") return Math.max(day.wake + 30, Math.min(day.sleep - 30, minute));
-  return Math.max(day.pivot + 30, Math.min(28 * 60, minute));
-}
