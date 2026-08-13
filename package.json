@@ -1,0 +1,19 @@
+{
+  "name": "branch-timeline-hz",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "test": "node esbuild.config.mjs test && node --test .test-dist/format.test.cjs",
+    "check": "tsc --noEmit && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "latest",
+    "tslib": "^2.8.0",
+    "typescript": "^5.8.0"
+  }
+}
