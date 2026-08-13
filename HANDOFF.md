@@ -6,7 +6,7 @@
 
 ## Current
 
-- 插件 ID：`branch-timeline-hz`，已核实未与社区插件列表重名。
+- 插件显示名：`Branch Timeline`；ID：`branch-timeline-hz`，已核实未与社区插件列表重名。
 - 插件直接位于 `.obsidian/plugins/branch-timeline-hz/`，桌面与移动端均可加载。
 - ItemView 已有日期导航、时间轴、习惯条和右上角添加菜单。
 - 命令已支持习惯打卡、项目工时、分类时长、项目待办。
