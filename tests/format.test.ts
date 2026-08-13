@@ -14,6 +14,7 @@ import {
   setProjectTaskDone
 } from "../src/vault/format";
 import { loadTags, tagCategoryKey } from "../src/tags";
+import { pageDateTitle, shiftPageDate, startOfWeek } from "../src/pages/navigation";
 import {
   computeTimelineLayout,
   itemDuration,
@@ -36,6 +37,14 @@ test("maps dates to the existing weekly diary format", () => {
 test("keeps the previous logical day before 02:00", () => {
   assert.equal(dateKey(logicalToday(new Date(2026, 7, 13, 1, 30))), "2026-08-12");
   assert.equal(dateKey(logicalToday(new Date(2026, 7, 13, 2, 0))), "2026-08-13");
+});
+
+test("moves daily pages by day and the habit page by week", () => {
+  const thursday = new Date(2026, 7, 13);
+  assert.equal(dateKey(shiftPageDate(thursday, "day", -1)), "2026-08-12");
+  assert.equal(dateKey(shiftPageDate(thursday, "habits", -1)), "2026-08-06");
+  assert.equal(dateKey(startOfWeek(thursday)), "2026-08-10");
+  assert.equal(pageDateTitle(thursday, "habits"), "8/10–8/16");
 });
 
 test("toggles an exact habit without touching similarly named tasks", () => {

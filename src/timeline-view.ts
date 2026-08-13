@@ -1,6 +1,9 @@
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import type BranchTimelinePlugin from "./main";
 import { ConfirmModal, TextEntryModal } from "./modals";
+import { renderHabitsPage } from "./pages/habits";
+import { pageDateTitle, renderPageNavigation, shiftPageDate, type TimelinePage } from "./pages/navigation";
+import { renderProjectsPage } from "./pages/projects";
 import { TimelineGestures } from "./timeline/gestures";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, clampMinute, minuteToY } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
@@ -13,15 +16,6 @@ export const BRANCH_TIMELINE_VIEW = "branch-timeline-hz-view";
 const BRANCH_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
 
 interface ScrollAnchor { minute: number; offset: number }
-type TimelinePage = "day" | "projects" | "habits" | "achievements" | "policy";
-
-const PAGES: ReadonlyArray<{ id: TimelinePage; label: string }> = [
-  { id: "day", label: "今天" },
-  { id: "projects", label: "项目" },
-  { id: "habits", label: "习惯" },
-  { id: "achievements", label: "成就" },
-  { id: "policy", label: "锚点" }
-];
 
 export class BranchTimelineView extends ItemView {
   private date = logicalToday();
@@ -71,15 +65,10 @@ export class BranchTimelineView extends ItemView {
     const add = this.iconButton(toolbar, "plus", "添加", event => this.openAddMenu(event));
     add.addClass("btl-add-button");
 
-    const pageNav = root.createDiv({ cls: "btl-page-nav" });
-    for (const page of PAGES) {
-      const button = pageNav.createEl("button", { text: page.label, cls: this.page === page.id ? "is-active" : "" });
-      button.onclick = () => {
-        if (this.page === page.id) return;
-        this.page = page.id;
-        void this.render(false);
-      };
-    }
+    renderPageNavigation(root, this.page, page => {
+      this.page = page;
+      void this.render(false);
+    });
 
     const pageContent = root.createDiv({ cls: "btl-page-content" });
 
@@ -91,8 +80,19 @@ export class BranchTimelineView extends ItemView {
 
     if (this.page !== "day") {
       this.scroller = null;
-      if (this.page === "projects") this.renderProjectsPage(pageContent);
-      else if (this.page === "habits") await this.renderHabitsPage(pageContent, requestId);
+      if (this.page === "projects") {
+        renderProjectsPage(pageContent, this.plugin.repository.listProjects(), path => void this.openProject(path));
+      } else if (this.page === "habits") {
+        await renderHabitsPage({
+          container: pageContent,
+          date: this.date,
+          habits: this.plugin.settings.habits,
+          readDay: date => this.plugin.repository.readDiaryDay(date),
+          setHabit: (date, habit, done) => this.plugin.repository.setHabit(date, habit, done),
+          isCurrent: () => requestId === this.renderId,
+          refresh: () => this.render(false)
+        });
+      }
       else this.renderSimplePage(pageContent, this.page);
       return;
     }
@@ -396,81 +396,9 @@ export class BranchTimelineView extends ItemView {
     }, 120);
   }
 
-  private renderProjectsPage(container: HTMLElement): void {
-    const projects = this.plugin.repository.listProjects();
-    const groups: ReadonlyArray<{ label: string; matches: (status: string) => boolean }> = [
-      { label: "进行中", matches: status => ["active", "doing", "进行中"].includes(status) },
-      { label: "计划", matches: status => ["todo", "plan", "planned", "计划", ""].includes(status) },
-      { label: "搁置", matches: status => ["hold", "paused", "搁置"].includes(status) },
-      { label: "归档", matches: status => ["done", "archived", "archive", "归档"].includes(status) }
-    ];
-    if (!projects.length) {
-      container.createDiv({ cls: "btl-empty", text: "暂无项目" });
-      return;
-    }
-    const assigned = new Set<string>();
-    for (const group of groups) {
-      const entries = projects.filter(project => group.matches(project.status));
-      if (!entries.length) continue;
-      const section = container.createDiv({ cls: "btl-project-section" });
-      section.createEl("h3", { text: group.label });
-      const grid = section.createDiv({ cls: "btl-project-grid" });
-      for (const project of entries) {
-        assigned.add(project.path);
-        this.renderProjectCard(grid, project.path, project.name, group.label);
-      }
-    }
-    const other = projects.filter(project => !assigned.has(project.path));
-    if (other.length) {
-      const section = container.createDiv({ cls: "btl-project-section" });
-      section.createEl("h3", { text: "其他" });
-      const grid = section.createDiv({ cls: "btl-project-grid" });
-      for (const project of other) this.renderProjectCard(grid, project.path, project.name, project.status || "未分类");
-    }
-  }
-
-  private renderProjectCard(container: HTMLElement, path: string, name: string, status: string): void {
-    const card = container.createEl("button", { cls: "btl-project-card" });
-    card.createSpan({ cls: "btl-project-card-title", text: name });
-    card.createSpan({ cls: "btl-project-card-status", text: status });
-    card.onclick = async () => {
-      const file = this.app.vault.getAbstractFileByPath(path);
-      if (file instanceof TFile) await this.app.workspace.getLeaf("tab").openFile(file);
-    };
-  }
-
-  private async renderHabitsPage(container: HTMLElement, requestId: number): Promise<void> {
-    const start = startOfWeek(this.date);
-    const dates = Array.from({ length: 7 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
-    const snapshots = await Promise.all(dates.map(date => this.plugin.repository.readDiaryDay(date)));
-    if (requestId !== this.renderId) return;
-    if (!this.plugin.settings.habits.length) {
-      container.createDiv({ cls: "btl-empty", text: "暂无习惯" });
-      return;
-    }
-    const table = container.createDiv({ cls: "btl-habit-week" });
-    const header = table.createDiv({ cls: "btl-habit-week-row is-header" });
-    header.createSpan({ text: "本周" });
-    dates.forEach(date => {
-      const cell = header.createSpan();
-      cell.createSpan({ text: weekdayLabel(date) });
-      cell.createEl("small", { text: String(date.getDate()) });
-    });
-    for (const habit of this.plugin.settings.habits) {
-      const row = table.createDiv({ cls: "btl-habit-week-row" });
-      row.createSpan({ cls: "btl-habit-name", text: habit });
-      dates.forEach((date, index) => {
-        const done = !!snapshots[index].habits[habit];
-        const button = row.createEl("button", {
-          cls: `btl-habit-cell${done ? " is-done" : ""}`,
-          attr: { "aria-label": `${habit} · ${date.getMonth() + 1}月${date.getDate()}日` }
-        });
-        button.onclick = async () => {
-          await this.plugin.repository.setHabit(date, habit, !done);
-          await this.render(false);
-        };
-      });
-    }
+  private async openProject(path: string): Promise<void> {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (file instanceof TFile) await this.app.workspace.getLeaf("tab").openFile(file);
   }
 
   private renderSimplePage(container: HTMLElement, page: "achievements" | "policy"): void {
@@ -507,19 +435,12 @@ export class BranchTimelineView extends ItemView {
   }
 
   private shiftDate(amount: number): void {
-    const step = this.page === "habits" ? amount * 7 : amount;
-    this.date = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate() + step);
+    this.date = shiftPageDate(this.date, this.page, amount);
     void this.render(false);
   }
 
   private dateTitle(): string {
-    if (this.page === "habits") {
-      const start = startOfWeek(this.date);
-      const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
-      return `${start.getMonth() + 1}/${start.getDate()}–${end.getMonth() + 1}/${end.getDate()}`;
-    }
-    const today = dateKey(this.date) === dateKey(logicalToday());
-    return `${this.date.getMonth() + 1}月${this.date.getDate()}日${today ? " · 今天" : ""}`;
+    return pageDateTitle(this.date, this.page);
   }
 
   private nowOnAxis(day: TimelineDayState): number | undefined {
@@ -563,13 +484,4 @@ function rhythmClamp(day: TimelineDayState, key: "wake" | "pivot" | "sleep", min
   if (key === "wake") return Math.max(0, Math.min(day.pivot - 30, minute));
   if (key === "pivot") return Math.max(day.wake + 30, Math.min(day.sleep - 30, minute));
   return Math.max(day.pivot + 30, Math.min(28 * 60, minute));
-}
-
-function startOfWeek(date: Date): Date {
-  const day = date.getDay() || 7;
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - day + 1);
-}
-
-function weekdayLabel(date: Date): string {
-  return ["日", "一", "二", "三", "四", "五", "六"][date.getDay()];
 }
