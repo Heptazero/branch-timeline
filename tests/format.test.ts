@@ -5,13 +5,23 @@ import {
   appendProjectLog,
   appendProjectTask,
   createWeekSkeleton,
+  dateKey,
   diaryFilePath,
   diaryHeading,
+  logicalToday,
   parseDiaryDay,
   setHabitInDiary,
   setProjectTaskDone
 } from "../src/vault/format";
 import { loadTags } from "../src/tags";
+import {
+  computeTimelineLayout,
+  itemDuration,
+  pickBranch,
+  snapMinute,
+  yToMinute
+} from "../src/timeline/model";
+import type { TimelineDayState } from "../src/types";
 
 const date = new Date(2026, 7, 13);
 
@@ -21,6 +31,11 @@ test("maps dates to the existing weekly diary format", () => {
   const skeleton = createWeekSkeleton(date, ["早睡", "阅读"]);
   assert.match(skeleton, /## Mon_26-08-10/);
   assert.match(skeleton, /## Sun_26-08-16/);
+});
+
+test("keeps the previous logical day before 02:00", () => {
+  assert.equal(dateKey(logicalToday(new Date(2026, 7, 13, 1, 30))), "2026-08-12");
+  assert.equal(dateKey(logicalToday(new Date(2026, 7, 13, 2, 0))), "2026-08-13");
 });
 
 test("toggles an exact habit without touching similarly named tasks", () => {
@@ -53,4 +68,27 @@ test("migrates legacy tag mappings without restoring deleted tags", () => {
   const migrated = loadTags(undefined, { 工作: "work", 探索: "explore" });
   assert.deepEqual(migrated.map(tag => [tag.name, tag.category]), [["工作", "work"], ["探索", "explore"]]);
   assert.deepEqual(loadTags([], { 工作: "work" }), []);
+});
+
+test("lays out overlapping branches in separate reusable lanes", () => {
+  const day: TimelineDayState = {
+    wake: 420, sleep: 1560, pivot: 840, items: [],
+    branches: [
+      { id: "a", name: "A", startMin: 480, endMin: 600, side: 1, color: "#000000" },
+      { id: "b", name: "B", startMin: 540, endMin: 660, side: 1, color: "#000000" },
+      { id: "c", name: "C", startMin: 660, endMin: 720, side: 1, color: "#000000" }
+    ]
+  };
+  const layout = computeTimelineLayout(day, 390, 1);
+  assert.equal(layout.branches.get("a")?.lane, 0);
+  assert.equal(layout.branches.get("b")?.lane, 1);
+  assert.equal(layout.branches.get("c")?.lane, 0);
+  assert.equal(pickBranch(layout, 570, layout.branches.get("b")?.x || 0), "b");
+});
+
+test("snaps timeline motion while preserving fact duration", () => {
+  const day: TimelineDayState = { wake: 420, sleep: 1560, pivot: 840, items: [], branches: [] };
+  assert.equal(snapMinute(487), 485);
+  assert.equal(yToMinute(day, 2, 194), 490);
+  assert.equal(itemDuration({ id: "fact", title: "实验", kind: "fact", startMin: 500, endMin: 575 }, day.wake), 75);
 });

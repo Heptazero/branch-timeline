@@ -22,6 +22,7 @@ export interface TimelineBranch {
   endMin: number | null;
   side: -1 | 1;
   color: string;
+  offsetX?: number;
 }
 
 export interface TimelineItem {
@@ -43,6 +44,9 @@ export interface TimelineDayState {
   wake: number;
   sleep: number;
   pivot: number;
+  wakeReal?: boolean;
+  pivotReal?: boolean;
+  sleepReal?: boolean;
   branches: TimelineBranch[];
   items: TimelineItem[];
 }

@@ -4,7 +4,7 @@ import { BranchTimelineSettingTab, DEFAULT_SETTINGS } from "./settings";
 import { loadTags } from "./tags";
 import { BRANCH_TIMELINE_VIEW, BranchTimelineView } from "./timeline-view";
 import type { BranchTimelineSettings, ProjectRef } from "./types";
-import { dateKey } from "./vault/format";
+import { dateKey, logicalToday } from "./vault/format";
 import { VaultRepository } from "./vault/repository";
 import { StateStore, defaultDay } from "./vault/state-store";
 
@@ -22,10 +22,10 @@ export default class BranchTimelinePlugin extends Plugin {
     this.addSettingTab(new BranchTimelineSettingTab(this.app, this));
     this.addRibbonIcon("git-branch", "打开分支时间线", () => void this.openTimeline());
     this.addCommand({ id: "open-timeline", name: "打开时间线", callback: () => void this.openTimeline() });
-    this.addCommand({ id: "toggle-habit", name: "打卡习惯", callback: () => void this.toggleHabit(new Date()) });
-    this.addCommand({ id: "record-project-work", name: "记录项目工时", callback: () => void this.recordProjectWork(new Date()) });
-    this.addCommand({ id: "record-category-duration", name: "记录分类时长", callback: () => void this.recordCategoryDuration(new Date()) });
-    this.addCommand({ id: "add-project-task", name: "添加项目待办", callback: () => void this.addProjectTask(new Date()) });
+    this.addCommand({ id: "toggle-habit", name: "打卡习惯", callback: () => void this.toggleHabit(logicalToday()) });
+    this.addCommand({ id: "record-project-work", name: "记录项目工时", callback: () => void this.recordProjectWork(logicalToday()) });
+    this.addCommand({ id: "record-category-duration", name: "记录分类时长", callback: () => void this.recordCategoryDuration(logicalToday()) });
+    this.addCommand({ id: "add-project-task", name: "添加项目待办", callback: () => void this.addProjectTask(logicalToday()) });
   }
 
   onunload(): void { this.app.workspace.detachLeavesOfType(BRANCH_TIMELINE_VIEW); }
@@ -160,7 +160,7 @@ export default class BranchTimelinePlugin extends Plugin {
   }
 
   private minuteNow(date: Date): number {
-    const today = dateKey(date) === dateKey(new Date());
+    const today = dateKey(date) === dateKey(logicalToday());
     if (!today) return Math.min(this.settings.dayEndMinute, 18 * 60);
     const now = new Date();
     const minute = now.getHours() * 60 + now.getMinutes();
@@ -171,4 +171,5 @@ export default class BranchTimelinePlugin extends Plugin {
   private uid(prefix: string): string {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   }
+
 }

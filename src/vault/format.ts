@@ -10,6 +10,12 @@ export function dateKey(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+export function logicalToday(now = new Date()): Date {
+  const date = new Date(now);
+  if (date.getHours() < 2) date.setDate(date.getDate() - 1);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 export function isoWeekParts(date: Date): { year: number; week: number } {
   const value = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const day = value.getUTCDay() || 7;

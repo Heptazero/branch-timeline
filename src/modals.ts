@@ -27,15 +27,16 @@ export class ChoiceSuggestModal extends FuzzySuggestModal<ChoiceItem> {
 }
 
 export class TextEntryModal extends Modal {
-  private value = "";
-  constructor(app: App, private title: string, private placeholder: string, private resolve: (value: string | null) => void) {
+  private value: string;
+  constructor(app: App, private title: string, private placeholder: string, private resolve: (value: string | null) => void, value = "") {
     super(app);
+    this.value = value;
   }
   onOpen(): void {
     this.contentEl.empty();
     this.contentEl.addClass("btl-modal");
     this.contentEl.createEl("h3", { text: this.title });
-    const input = this.contentEl.createEl("input", { cls: "btl-text-input", attr: { placeholder: this.placeholder } });
+    const input = this.contentEl.createEl("input", { cls: "btl-text-input", value: this.value, attr: { placeholder: this.placeholder } });
     input.addEventListener("input", () => { this.value = input.value; });
     input.addEventListener("keydown", event => { if (event.key === "Enter") this.submit(); });
     const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });

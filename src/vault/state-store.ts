@@ -57,5 +57,5 @@ export class StateStore {
 }
 
 export function defaultDay(wake: number, sleep: number): TimelineDayState {
-  return { wake, sleep, pivot: 14 * 60, branches: [], items: [] };
+  return { wake, sleep, pivot: 14 * 60, wakeReal: false, pivotReal: false, sleepReal: false, branches: [], items: [] };
 }
