@@ -13,7 +13,7 @@ import {
   setHabitInDiary,
   setProjectTaskDone
 } from "../src/vault/format";
-import { loadTags } from "../src/tags";
+import { loadTags, tagCategoryKey } from "../src/tags";
 import {
   computeTimelineLayout,
   itemDuration,
@@ -68,6 +68,7 @@ test("migrates legacy tag mappings without restoring deleted tags", () => {
   const migrated = loadTags(undefined, { 工作: "work", 探索: "explore" });
   assert.deepEqual(migrated.map(tag => [tag.name, tag.category]), [["工作", "work"], ["探索", "explore"]]);
   assert.deepEqual(loadTags([], { 工作: "work" }), []);
+  assert.equal(tagCategoryKey({ id: "tag-custom", name: "新标签", category: "", color: "#000000" }), "tag-custom");
 });
 
 test("lays out overlapping branches in separate reusable lanes", () => {

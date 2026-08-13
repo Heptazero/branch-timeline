@@ -37,6 +37,10 @@ export function createTag(existing: readonly TimelineTag[]): TimelineTag {
   };
 }
 
+export function tagCategoryKey(tag: TimelineTag): string {
+  return tag.category.trim() || tag.id;
+}
+
 function normalizeTag(value: unknown, index: number): TimelineTag[] {
   if (!value || typeof value !== "object") return [];
   const candidate = value as Partial<TimelineTag>;

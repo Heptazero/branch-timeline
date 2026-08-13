@@ -1,7 +1,7 @@
 import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
 import { ChoiceSuggestModal, DurationModal, ProjectSuggestModal, TextEntryModal } from "./modals";
 import { BranchTimelineSettingTab, DEFAULT_SETTINGS } from "./settings";
-import { loadTags } from "./tags";
+import { loadTags, tagCategoryKey } from "./tags";
 import { BRANCH_TIMELINE_VIEW, BranchTimelineView } from "./timeline-view";
 import type { BranchTimelineSettings, ProjectRef } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
@@ -87,17 +87,17 @@ export default class BranchTimelinePlugin extends Plugin {
   }
 
   async recordCategoryDuration(date: Date): Promise<void> {
-    const mapped = this.settings.tags.filter(tag => tag.name.trim() && tag.category.trim());
-    if (!mapped.length) { new Notice("请先在设置中配置标签映射。"); return; }
-    const choice = await this.choose("选择标签", mapped.map(tag => ({ id: tag.id, label: tag.name })));
+    const tags = this.settings.tags.filter(tag => tag.name.trim());
+    if (!tags.length) { new Notice("请先添加标签。"); return; }
+    const choice = await this.choose("选择标签", tags.map(tag => ({ id: tag.id, label: tag.name })));
     if (!choice) return;
-    const tag = mapped.find(item => item.id === choice.id);
+    const tag = tags.find(item => item.id === choice.id);
     if (!tag) return;
     const result = await this.duration(`记录 · ${choice.label}`);
     if (!result) return;
     const end = this.minuteNow(date);
     const start = Math.max(this.settings.dayStartMinute, end - result.minutes);
-    await this.repository.addCategoryDuration(date, tag.category, result.minutes);
+    await this.repository.addCategoryDuration(date, tagCategoryKey(tag), result.minutes);
     await this.store.update(state => {
       const day = state.days[dateKey(date)] ||= defaultDay(this.settings.dayStartMinute, this.settings.dayEndMinute);
       day.items.push({

@@ -45,21 +45,13 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
       }));
 
     for (const tag of this.plugin.settings.tags) {
-      const row = new Setting(containerEl).setName(tag.name).setClass("btl-tag-setting");
+      const row = new Setting(containerEl).setClass("btl-tag-setting");
       row.addText(text => {
-        text.setPlaceholder("名称").setValue(tag.name).onChange(async value => {
+        text.setPlaceholder("标签名称").setValue(tag.name).onChange(async value => {
           tag.name = value;
-          row.setName(value.trim() || "未命名标签");
           await this.plugin.saveSettings();
         });
         text.inputEl.setAttr("aria-label", "标签名称");
-      });
-      row.addText(text => {
-        text.setPlaceholder("周记键").setValue(tag.category).onChange(async value => {
-          tag.category = value.trim();
-          await this.plugin.saveSettings();
-        });
-        text.inputEl.setAttr("aria-label", "周记分类键");
       });
       row.addColorPicker(color => color.setValue(tag.color).onChange(async value => {
         tag.color = value;
