@@ -40,6 +40,8 @@ export interface TimelineItem {
   tag?: string;
   note?: string;
   branchId?: string | null;
+  projectBranchId?: string | null;
+  milestone?: boolean;
 }
 
 export interface TimelineDayState {
@@ -56,7 +58,23 @@ export interface TimelineDayState {
 export interface BranchTimelineState {
   version: 1;
   days: Record<string, TimelineDayState>;
+  projects: Record<string, ProjectTimelineState>;
   policyNodes: unknown[];
+}
+
+export interface ProjectTimelineBranch {
+  id: string;
+  name: string;
+  startAbs: number;
+  endAbs: number;
+  side: -1 | 1;
+  color: string;
+  offsetX?: number;
+  merged?: boolean;
+}
+
+export interface ProjectTimelineState {
+  branches: ProjectTimelineBranch[];
 }
 
 export interface ProjectRef {

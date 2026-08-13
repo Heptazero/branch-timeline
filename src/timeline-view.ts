@@ -1,8 +1,16 @@
-import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import type BranchTimelinePlugin from "./main";
 import { ConfirmModal, TextEntryModal } from "./modals";
 import { renderHabitsPage } from "./pages/habits";
 import { pageDateTitle, renderPageNavigation, shiftPageDate, type TimelinePage } from "./pages/navigation";
+import { ProjectTimelineActions } from "./pages/project-actions";
+import {
+  PROJECT_SCALE_MAX,
+  PROJECT_SCALE_MIN,
+  renderProjectDetail,
+  type ProjectScaleAnchor
+} from "./pages/project-detail";
+import { absoluteMinute } from "./pages/project-model";
 import { renderProjectsPage } from "./pages/projects";
 import { TimelineGestures } from "./timeline/gestures";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, clampMinute, minuteToY } from "./timeline/model";
@@ -29,6 +37,12 @@ export class BranchTimelineView extends ItemView {
   private pendingScaleAnchor: ScrollAnchor | null = null;
   private scaleButtonTimer: number | null = null;
   private clockTimer: number | null = null;
+  private selectedProjectPath: string | null = null;
+  private projectScale = clampProjectScale(Number(localStorage.getItem("branch-timeline-hz-project-scale")) || 120);
+  private projectAnchor: ProjectScaleAnchor | undefined;
+  private getProjectAnchor: (() => ProjectScaleAnchor) | null = null;
+  private destroyProjectDetail: (() => void) | null = null;
+  private projectActions: ProjectTimelineActions | null = null;
 
   constructor(leaf: WorkspaceLeaf, private plugin: BranchTimelinePlugin) { super(leaf); }
   getViewType(): string { return BRANCH_TIMELINE_VIEW; }
@@ -42,6 +56,7 @@ export class BranchTimelineView extends ItemView {
   }
   async onClose(): Promise<void> {
     this.gestures?.destroy();
+    this.destroyProjectDetail?.();
     if (this.clockTimer != null) window.clearInterval(this.clockTimer);
     if (this.scaleButtonTimer != null) window.clearTimeout(this.scaleButtonTimer);
   }
@@ -52,6 +67,10 @@ export class BranchTimelineView extends ItemView {
     const previousScroll = preserveScroll ? this.scroller?.scrollTop || 0 : 0;
     this.gestures?.destroy();
     this.gestures = null;
+    this.destroyProjectDetail?.();
+    this.destroyProjectDetail = null;
+    this.getProjectAnchor = null;
+    this.projectActions = null;
 
     const root = this.contentEl;
     root.empty();
@@ -67,6 +86,7 @@ export class BranchTimelineView extends ItemView {
 
     renderPageNavigation(root, this.page, page => {
       this.page = page;
+      if (page !== "projects") this.selectedProjectPath = null;
       void this.render(false);
     });
 
@@ -81,7 +101,53 @@ export class BranchTimelineView extends ItemView {
     if (this.page !== "day") {
       this.scroller = null;
       if (this.page === "projects") {
-        renderProjectsPage(pageContent, this.plugin.repository.listProjects(), path => void this.openProject(path));
+        const projects = this.plugin.repository.listProjects();
+        const project = this.selectedProjectPath ? projects.find(candidate => candidate.path === this.selectedProjectPath) : undefined;
+        if (project) {
+          const actions = new ProjectTimelineActions({
+            app: this.app,
+            plugin: this.plugin,
+            projectPath: project.path,
+            getAnchor: () => this.getProjectAnchor?.(),
+            setAnchor: anchorValue => { this.projectAnchor = anchorValue; },
+            refresh: () => this.render(false),
+            text: (title, placeholder, value) => this.text(title, placeholder, value)
+          });
+          this.projectActions = actions;
+          const detail = renderProjectDetail({
+            container: pageContent,
+            project,
+            state,
+            tags: this.plugin.settings.tags,
+            focusDate: this.date,
+            scale: this.projectScale,
+            anchor: this.projectAnchor,
+            onBack: () => { this.selectedProjectPath = null; this.projectAnchor = undefined; this.projectActions = null; void this.render(false); },
+            onScale: (scale, nextAnchor) => { this.projectScale = clampProjectScale(scale); this.projectAnchor = nextAnchor; localStorage.setItem("branch-timeline-hz-project-scale", String(this.projectScale)); void this.render(false); },
+            onMoveItem: (date, itemId, branchId) => void actions.moveItem(date, itemId, branchId),
+            onItemMenu: (entry, event) => actions.openItemMenu(entry, event),
+            onBranchMenu: (branch, event) => actions.openBranchMenu(branch, event),
+            onBranchOffset: (branchId, offsetX) => void actions.updateBranch(branchId, branch => { branch.offsetX = offsetX; }),
+            onBranchStart: (branchId, startAbs) => void actions.updateBranch(branchId, branch => { branch.startAbs = startAbs; }),
+            onBranchEnd: (branchId, endAbs, toggleMerge) => void actions.updateBranch(branchId, branch => {
+              if (toggleMerge) branch.merged = !branch.merged;
+              else branch.endAbs = endAbs;
+            }),
+            onBranchFlip: branchId => void actions.updateBranch(branchId, branch => { branch.side = branch.side > 0 ? -1 : 1; }),
+            onAddTodo: (abs, branchId) => void actions.addTodo(abs, branchId),
+            onAddBranch: (abs, side) => void actions.addBranch(abs, side)
+          });
+          this.destroyProjectDetail = detail.destroy;
+          this.getProjectAnchor = detail.getAnchor;
+          this.projectAnchor = undefined;
+        } else {
+          this.selectedProjectPath = null;
+          renderProjectsPage(pageContent, projects, path => {
+            this.selectedProjectPath = path;
+            this.projectAnchor = undefined;
+            void this.render(false);
+          });
+        }
       } else if (this.page === "habits") {
         await renderHabitsPage({
           container: pageContent,
@@ -239,6 +305,10 @@ export class BranchTimelineView extends ItemView {
       startTiming: () => void this.startTiming(item.id),
       stopTiming: () => void this.stopTiming(item.id),
       cancelTiming: () => void this.cancelTiming(item.id),
+      ...(item.projectPath ? { toggleMilestone: () => void this.updateDay(day => {
+        const target = day.items.find(candidate => candidate.id === item.id);
+        if (target) target.milestone = !target.milestone;
+      }) } : {}),
       rename: () => void this.renameItem(item),
       setTag: tagId => void this.setItemTag(item.id, tagId),
       remove: () => this.confirmRemoveItem(item)
@@ -396,11 +466,6 @@ export class BranchTimelineView extends ItemView {
     }, 120);
   }
 
-  private async openProject(path: string): Promise<void> {
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (file instanceof TFile) await this.app.workspace.getLeaf("tab").openFile(file);
-  }
-
   private renderSimplePage(container: HTMLElement, page: "achievements" | "policy"): void {
     container.createDiv({ cls: "btl-empty", text: page === "achievements" ? "暂无成就" : "暂无锚点" });
   }
@@ -409,6 +474,13 @@ export class BranchTimelineView extends ItemView {
     const menu = new Menu();
     const minute = this.day ? this.nowOnAxis(this.day) ?? this.day.pivot : 12 * 60;
     if (this.page === "projects") {
+      if (this.selectedProjectPath && this.projectActions) {
+        const at = absoluteMinute(dateKey(this.date), minute);
+        menu.addItem(item => item.setTitle("添加代办").setIcon("circle-plus").onClick(() => void this.projectActions?.addTodo(at, null)));
+        menu.addItem(item => item.setTitle("添加分支").setIcon("git-branch-plus").onClick(() => void this.projectActions?.addBranch(at, 1)));
+        menu.showAtMouseEvent(event);
+        return;
+      }
       menu.addItem(item => item.setTitle("添加项目待办").setIcon("list-plus").onClick(() => void this.plugin.addProjectTask(this.date)));
       menu.addItem(item => item.setTitle("记录项目工时").setIcon("timer").onClick(() => void this.plugin.recordProjectWork(this.date)));
       menu.showAtMouseEvent(event);
@@ -479,6 +551,7 @@ export class BranchTimelineView extends ItemView {
 }
 
 function clampScale(value: number): number { return Math.max(MIN_SCALE, Math.min(MAX_SCALE, value)); }
+function clampProjectScale(value: number): number { return Math.max(PROJECT_SCALE_MIN, Math.min(PROJECT_SCALE_MAX, value)); }
 
 function rhythmClamp(day: TimelineDayState, key: "wake" | "pivot" | "sleep", minute: number): number {
   if (key === "wake") return Math.max(0, Math.min(day.pivot - 30, minute));

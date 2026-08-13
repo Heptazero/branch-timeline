@@ -1,3 +1,4 @@
+import { setIcon } from "obsidian";
 import type { TimelineDayState, TimelineItem, TimelineTag } from "../types";
 import {
   branchPath,
@@ -188,6 +189,10 @@ function renderItem(
   }
 
   const head = timed ? card.createDiv({ cls: "btl-canvas-item-head" }) : card;
+  if (item.milestone) {
+    const milestone = head.createSpan({ cls: "btl-item-milestone" });
+    setIcon(milestone, "flag");
+  }
   if (item.kind === "todo") head.createEl("button", { cls: "btl-item-circle", attr: { "aria-label": "完成" } });
   head.createSpan({ cls: "btl-canvas-item-title", text: item.title });
   head.createEl("button", { cls: "btl-item-menu", text: "⋮", attr: { "aria-label": "事项菜单" } });

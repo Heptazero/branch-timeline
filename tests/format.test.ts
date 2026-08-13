@@ -16,13 +16,20 @@ import {
 import { loadTags, tagCategoryKey } from "../src/tags";
 import { pageDateTitle, shiftPageDate, startOfWeek } from "../src/pages/navigation";
 import {
+  absoluteMinute,
+  pickProjectBranch,
+  projectEntries,
+  projectTimelineRange,
+  splitAbsoluteMinute
+} from "../src/pages/project-model";
+import {
   computeTimelineLayout,
   itemDuration,
   pickBranch,
   snapMinute,
   yToMinute
 } from "../src/timeline/model";
-import type { TimelineDayState } from "../src/types";
+import type { BranchTimelineState, TimelineDayState } from "../src/types";
 
 const date = new Date(2026, 7, 13);
 
@@ -106,4 +113,27 @@ test("snaps timeline motion while preserving fact duration", () => {
 test("extends running todos and facts to the current minute", () => {
   assert.equal(itemDuration({ id: "todo", title: "写作", kind: "todo", plannedMin: 500, startedMin: 520 }, 420, 575), 55);
   assert.equal(itemDuration({ id: "fact", title: "阅读", kind: "fact", startMin: 480, endMin: 480, factTiming: true }, 420, 555), 75);
+});
+
+test("builds a multi-day project timeline without changing item dates", () => {
+  const state: BranchTimelineState = {
+    version: 1,
+    policyNodes: [],
+    projects: {
+      "21_project/test.md": {
+        branches: [{ id: "branch", name: "实验", startAbs: absoluteMinute("2026-08-12", 480), endAbs: absoluteMinute("2026-08-14", 600), side: 1, color: "#000000" }]
+      }
+    },
+    days: {
+      "2026-08-12": { wake: 420, sleep: 1560, pivot: 840, branches: [], items: [{ id: "a", title: "输入", kind: "fact", startMin: 500, endMin: 560, projectPath: "21_project/test.md" }] },
+      "2026-08-13": { wake: 420, sleep: 1560, pivot: 840, branches: [], items: [{ id: "b", title: "输出", kind: "todo", plannedMin: 600, projectPath: "21_project/test.md" }] }
+    }
+  };
+  const entries = projectEntries(state, "21_project/test.md");
+  assert.deepEqual(entries.map(entry => entry.date), ["2026-08-12", "2026-08-13"]);
+  assert.deepEqual(splitAbsoluteMinute(entries[1].abs), { date: "2026-08-13", minute: 600 });
+  const branch = state.projects["21_project/test.md"].branches[0];
+  const range = projectTimelineRange(entries, [branch], absoluteMinute("2026-08-13", 720));
+  assert.ok(range.start < entries[0].abs && range.end > entries[1].abs);
+  assert.equal(pickProjectBranch(entries[1].abs, 345, [branch], 195, 150), "branch");
 });

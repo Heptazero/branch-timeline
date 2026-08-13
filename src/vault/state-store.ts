@@ -1,7 +1,7 @@
 import { App, normalizePath } from "obsidian";
 import type { BranchTimelineState, TimelineDayState } from "../types";
 
-const EMPTY_STATE: BranchTimelineState = { version: 1, days: {}, policyNodes: [] };
+const EMPTY_STATE: BranchTimelineState = { version: 1, days: {}, projects: {}, policyNodes: [] };
 
 export class StateStore {
   private queue: Promise<void> = Promise.resolve();
@@ -18,6 +18,7 @@ export class StateStore {
       return {
         version: 1,
         days: parsed.days && typeof parsed.days === "object" ? parsed.days : {},
+        projects: parsed.projects && typeof parsed.projects === "object" ? parsed.projects : {},
         policyNodes: Array.isArray(parsed.policyNodes) ? parsed.policyNodes : []
       };
     } catch {
