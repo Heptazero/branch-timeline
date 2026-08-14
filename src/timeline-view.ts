@@ -1,6 +1,7 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import type BranchTimelinePlugin from "./main";
 import { ChoiceTextModal, ConfirmModal, TextEntryModal, type ChoiceItem, type ChoiceTextResult } from "./modals";
+import { AchievementActions } from "./pages/achievement-actions";
 import { renderAchievementsPage } from "./pages/achievements";
 import { renderHabitsPage } from "./pages/habits";
 import { pageDateTitle, renderPageNavigation, shiftPageDate, type TimelinePage } from "./pages/navigation";
@@ -13,14 +14,15 @@ import {
 } from "./pages/project-detail";
 import { absoluteMinute } from "./pages/project-model";
 import { renderProjectsPage } from "./pages/projects";
-import { renderPolicyPage } from "./pages/policy";
+import { policyPeriodAt, renderPolicyPage } from "./pages/policy";
+import { PolicyActions } from "./pages/policy-actions";
 import { countdownLabel, rhythmBounds, rhythmRealKey } from "./rhythm";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { TimelineGestures } from "./timeline/gestures";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, clampMinute, minuteToY } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
 import { applyTimelineLod, renderTimeline } from "./timeline/renderer";
-import type { Achievement, PolicyCard, PolicyMode, PolicyNode, RhythmKey, TimelineBranch, TimelineDayState, TimelineItem } from "./types";
+import type { RhythmKey, TimelineBranch, TimelineDayState, TimelineItem } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
 
@@ -41,6 +43,7 @@ export class BranchTimelineView extends ItemView {
   private pendingScaleAnchor: ScrollAnchor | null = null;
   private scaleButtonTimer: number | null = null;
   private clockTimer: number | null = null;
+  private followsToday = true;
   private selectedProjectPath: string | null = null;
   private projectScale = clampProjectScale(Number(localStorage.getItem("branch-timeline-hz-project-scale")) || 120);
   private projectAnchor: ProjectScaleAnchor | undefined;
@@ -48,14 +51,33 @@ export class BranchTimelineView extends ItemView {
   private destroyProjectDetail: (() => void) | null = null;
   private projectActions: ProjectTimelineActions | null = null;
   private countdownButton: HTMLButtonElement | null = null;
+  private achievementActions: AchievementActions;
+  private policyActions: PolicyActions;
 
-  constructor(leaf: WorkspaceLeaf, private plugin: BranchTimelinePlugin) { super(leaf); }
+  constructor(leaf: WorkspaceLeaf, private plugin: BranchTimelinePlugin) {
+    super(leaf);
+    const shared = {
+      app: this.app,
+      plugin: this.plugin,
+      getDate: () => this.date,
+      refresh: () => this.render(false),
+      text: (title: string, placeholder: string, value?: string) => this.text(title, placeholder, value)
+    };
+    this.achievementActions = new AchievementActions({ ...shared, colors: BRANCH_COLORS });
+    this.policyActions = new PolicyActions(shared);
+  }
   getViewType(): string { return BRANCH_TIMELINE_VIEW; }
   getDisplayText(): string { return "Branch Timeline"; }
   getIcon(): string { return "git-branch"; }
   async onOpen(): Promise<void> {
     await this.render(false);
     this.clockTimer = window.setInterval(() => {
+      const today = logicalToday();
+      if (this.followsToday && dateKey(this.date) !== dateKey(today)) {
+        this.date = today;
+        void this.render(false);
+        return;
+      }
       this.updateCountdown();
       if (this.page === "day" && this.day?.items.some(item => item.factTiming || item.startedMin != null)) void this.render(true);
     }, 60_000);
@@ -86,7 +108,7 @@ export class BranchTimelineView extends ItemView {
     const dateNav = toolbar.createDiv({ cls: "btl-date-nav" });
     this.iconButton(dateNav, "chevron-left", "前一天", () => this.shiftDate(-1));
     const dateButton = dateNav.createEl("button", { cls: "btl-date-button", text: this.dateTitle() });
-    dateButton.onclick = () => { this.date = logicalToday(); void this.render(false); };
+    dateButton.onclick = () => { this.followsToday = true; this.date = logicalToday(); void this.render(false); };
     this.iconButton(dateNav, "chevron-right", "后一天", () => this.shiftDate(1));
     const add = this.iconButton(toolbar, "plus", "添加", event => this.openAddMenu(event));
     add.addClass("btl-add-button");
@@ -178,21 +200,23 @@ export class BranchTimelineView extends ItemView {
           container: pageContent,
           date: this.date,
           achievements: state.achievements,
-          onAdd: () => void this.addAchievement(),
-          onToggle: (achievementId, date) => void this.toggleAchievement(achievementId, date),
-          onMenu: (achievement, event) => this.openAchievementMenu(achievement, event)
+          onAdd: () => void this.achievementActions.add(),
+          onToggle: (achievementId, date) => void this.achievementActions.toggle(achievementId, date),
+          onMenu: (achievement, event) => this.achievementActions.openMenu(achievement, event)
         });
       } else {
+        const currentPeriod = policyPeriodAt(new Date());
         renderPolicyPage({
           container: pageContent,
           cards: state.policyCards,
           nodes: state.policyNodes,
-          onAddRoot: () => void this.addPolicyCard(true, null),
-          onAddHand: () => void this.addPolicyCard(false, null),
-          onAddChild: parentId => void this.addPolicyCard(true, parentId),
-          onDeploy: cardId => void this.deployPolicyCard(cardId, null),
-          onNodeMenu: (node, card, event) => this.openPolicyNodeMenu(node, card, event),
-          onCardMenu: (card, event) => this.openPolicyCardMenu(card, event)
+          currentPeriod,
+          onAddRoot: period => void this.policyActions.add(true, null, period),
+          onAddHand: () => void this.policyActions.add(false, null, currentPeriod),
+          onAddChild: (parentId, period) => void this.policyActions.add(true, parentId, period),
+          onDeploy: (cardId, period) => void this.policyActions.deploy(cardId, null, period),
+          onNodeMenu: (node, card, event) => this.policyActions.openNodeMenu(node, card, event),
+          onCardMenu: (card, event) => this.policyActions.openCardMenu(card, event)
         });
       }
       return;
@@ -483,158 +507,12 @@ export class BranchTimelineView extends ItemView {
     }
   }
 
-  private async addAchievement(): Promise<void> {
-    const name = await this.text("添加成就", "成就名称");
-    if (!name) return;
-    await this.plugin.store.update(state => {
-      state.achievements.push({
-        id: this.uid("achievement"),
-        name,
-        color: BRANCH_COLORS[state.achievements.length % BRANCH_COLORS.length],
-        createdDate: dateKey(this.date),
-        manualDates: []
-      });
-    });
-    await this.render(false);
-  }
-
   private async addHabit(): Promise<void> {
     const name = await this.text("添加习惯", "习惯名称");
     if (!name || this.plugin.settings.habits.includes(name)) return;
     this.plugin.settings.habits.push(name);
     await this.plugin.saveSettings();
     await this.render(false);
-  }
-
-  private async toggleAchievement(achievementId: string, date: string): Promise<void> {
-    await this.plugin.store.update(state => {
-      const achievement = state.achievements.find(candidate => candidate.id === achievementId);
-      if (!achievement) return;
-      const index = achievement.manualDates.indexOf(date);
-      if (index >= 0) achievement.manualDates.splice(index, 1);
-      else achievement.manualDates.push(date);
-      achievement.manualDates.sort();
-    });
-    await this.render(false);
-  }
-
-  private openAchievementMenu(achievement: Achievement, event: PointerEvent): void {
-    const menu = new Menu();
-    menu.addItem(item => item.setTitle("重命名").setIcon("pencil").onClick(() => void this.renameAchievement(achievement)));
-    menu.addSeparator();
-    menu.addItem(item => item.setTitle("删除").setIcon("trash-2").setWarning(true).onClick(() => {
-      new ConfirmModal(this.app, `删除“${achievement.name}”？`, "只删除成就，其他记录不受影响。", async () => {
-        await this.plugin.store.update(state => {
-          state.achievements = state.achievements.filter(candidate => candidate.id !== achievement.id);
-        });
-        await this.render(false);
-      }).open();
-    }));
-    menu.showAtPosition({ x: event.clientX, y: event.clientY });
-  }
-
-  private async renameAchievement(achievement: Achievement): Promise<void> {
-    const name = await this.text("重命名成就", "成就名称", achievement.name);
-    if (!name) return;
-    await this.plugin.store.update(state => {
-      const target = state.achievements.find(candidate => candidate.id === achievement.id);
-      if (target) target.name = name;
-    });
-    await this.render(false);
-  }
-
-  private async addPolicyCard(deploy: boolean, parentId: string | null): Promise<void> {
-    const result = await this.choiceText(
-      parentId ? "添加子锚点" : deploy ? "添加根锚点" : "加入手牌",
-      "当……时，就……",
-      [
-        { id: "triggered", label: "条件" },
-        { id: "passive", label: "禁止" },
-        { id: "daily", label: "每日" },
-        { id: "mechanism", label: "机制" }
-      ],
-      "triggered"
-    );
-    if (!result) return;
-    await this.plugin.store.update(state => {
-      const cardId = this.uid("policy-card");
-      state.policyCards.push({
-        id: cardId,
-        name: result.text,
-        mode: result.choice as PolicyMode,
-        createdDate: dateKey(this.date),
-        deletedDate: null
-      });
-      if (deploy) {
-        state.policyNodes.push({
-          id: this.uid("policy-node"),
-          cardId,
-          parentId,
-          createdDate: dateKey(this.date)
-        });
-      }
-    });
-    await this.render(false);
-  }
-
-  private async deployPolicyCard(cardId: string, parentId: string | null): Promise<void> {
-    await this.plugin.store.update(state => {
-      if (state.policyNodes.some(node => node.cardId === cardId)) return;
-      state.policyNodes.push({ id: this.uid("policy-node"), cardId, parentId, createdDate: dateKey(this.date) });
-    });
-    await this.render(false);
-  }
-
-  private openPolicyNodeMenu(node: PolicyNode, card: PolicyCard, event: PointerEvent): void {
-    const menu = new Menu();
-    menu.addItem(item => item.setTitle("重命名").setIcon("pencil").onClick(() => void this.renamePolicyCard(card)));
-    menu.addItem(item => item.setTitle("退回手牌").setIcon("undo-2").onClick(() => this.confirmReturnPolicyNode(node, card)));
-    menu.showAtPosition({ x: event.clientX, y: event.clientY });
-  }
-
-  private openPolicyCardMenu(card: PolicyCard, event: PointerEvent): void {
-    const menu = new Menu();
-    menu.addItem(item => item.setTitle("重命名").setIcon("pencil").onClick(() => void this.renamePolicyCard(card)));
-    menu.addSeparator();
-    menu.addItem(item => item.setTitle("删除手牌").setIcon("trash-2").setWarning(true).onClick(() => {
-      new ConfirmModal(this.app, `删除“${card.name}”？`, "这张手牌会被删除。", async () => {
-        await this.plugin.store.update(state => {
-          state.policyCards = state.policyCards.filter(candidate => candidate.id !== card.id);
-        });
-        await this.render(false);
-      }).open();
-    }));
-    menu.showAtPosition({ x: event.clientX, y: event.clientY });
-  }
-
-  private async renamePolicyCard(card: PolicyCard): Promise<void> {
-    const name = await this.text("重命名锚点", "锚点内容", card.name);
-    if (!name) return;
-    await this.plugin.store.update(state => {
-      const target = state.policyCards.find(candidate => candidate.id === card.id);
-      if (target) target.name = name;
-    });
-    await this.render(false);
-  }
-
-  private confirmReturnPolicyNode(node: PolicyNode, card: PolicyCard): void {
-    new ConfirmModal(this.app, `退回“${card.name}”？`, "它及所有子节点会回到手牌。", async () => {
-      await this.plugin.store.update(state => {
-        const ids = new Set<string>([node.id]);
-        let changed = true;
-        while (changed) {
-          changed = false;
-          for (const candidate of state.policyNodes) {
-            if (candidate.parentId && ids.has(candidate.parentId) && !ids.has(candidate.id)) {
-              ids.add(candidate.id);
-              changed = true;
-            }
-          }
-        }
-        state.policyNodes = state.policyNodes.filter(candidate => !ids.has(candidate.id));
-      });
-      await this.render(false);
-    }, "退回").open();
   }
 
   private async previewScale(next: number, anchorClientY: number, commit: boolean): Promise<void> {
@@ -695,7 +573,7 @@ export class BranchTimelineView extends ItemView {
       return;
     }
     if (this.page === "achievements") {
-      void this.addAchievement();
+      void this.achievementActions.add();
       return;
     }
     if (this.page === "habits") {
@@ -703,8 +581,9 @@ export class BranchTimelineView extends ItemView {
       return;
     }
     if (this.page === "policy") {
-      menu.addItem(item => item.setTitle("添加根锚点").setIcon("circle-plus").onClick(() => void this.addPolicyCard(true, null)));
-      menu.addItem(item => item.setTitle("加入手牌").setIcon("layers").onClick(() => void this.addPolicyCard(false, null)));
+      const period = policyPeriodAt(new Date());
+      menu.addItem(item => item.setTitle("添加根锚点").setIcon("circle-plus").onClick(() => void this.policyActions.add(true, null, period)));
+      menu.addItem(item => item.setTitle("加入手牌").setIcon("layers").onClick(() => void this.policyActions.add(false, null, period)));
       menu.showAtMouseEvent(event);
       return;
     }
@@ -720,6 +599,7 @@ export class BranchTimelineView extends ItemView {
   }
 
   private shiftDate(amount: number): void {
+    this.followsToday = false;
     this.date = shiftPageDate(this.date, this.page, amount);
     void this.render(false);
   }

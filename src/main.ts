@@ -1,4 +1,4 @@
-import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
+import { Notice, Platform, Plugin, WorkspaceLeaf } from "obsidian";
 import { ChoiceSuggestModal, DurationModal, ProjectSuggestModal, TextEntryModal } from "./modals";
 import { normalizeRhythmSchedule } from "./rhythm";
 import { BranchTimelineSettingTab, DEFAULT_SETTINGS } from "./settings";
@@ -21,12 +21,15 @@ export default class BranchTimelinePlugin extends Plugin {
     await this.store.ensure();
     this.registerView(BRANCH_TIMELINE_VIEW, leaf => new BranchTimelineView(leaf, this));
     this.addSettingTab(new BranchTimelineSettingTab(this.app, this));
-    this.addRibbonIcon("git-branch", "打开分支时间线", () => void this.openTimeline());
-    this.addCommand({ id: "open-timeline", name: "打开时间线", callback: () => void this.openTimeline() });
+    this.addRibbonIcon("panel-right-open", "固定分支时间线到右侧", () => void this.openTimeline(true));
+    this.addCommand({ id: "open-timeline", name: "固定时间线到右侧", callback: () => void this.openTimeline(true) });
     this.addCommand({ id: "toggle-habit", name: "打卡习惯", callback: () => void this.toggleHabit(logicalToday()) });
     this.addCommand({ id: "record-project-work", name: "记录项目工时", callback: () => void this.recordProjectWork(logicalToday()) });
     this.addCommand({ id: "record-category-duration", name: "记录分类时长", callback: () => void this.recordCategoryDuration(logicalToday()) });
     this.addCommand({ id: "add-project-task", name: "添加项目待办", callback: () => void this.addProjectTask(logicalToday()) });
+    this.app.workspace.onLayoutReady(() => {
+      if (Platform.isDesktopApp) void this.openTimeline(false);
+    });
   }
 
   onunload(): void { this.app.workspace.detachLeavesOfType(BRANCH_TIMELINE_VIEW); }
@@ -54,13 +57,23 @@ export default class BranchTimelinePlugin extends Plugin {
     await this.refreshViews();
   }
 
-  async openTimeline(): Promise<void> {
+  async openTimeline(focus = true): Promise<void> {
+    if (Platform.isDesktopApp) {
+      const leaf = await this.app.workspace.ensureSideLeaf(BRANCH_TIMELINE_VIEW, "right", {
+        active: focus,
+        split: false,
+        reveal: true
+      });
+      leaf.setPinned(true);
+      if (focus) this.app.workspace.revealLeaf(leaf);
+      return;
+    }
     let leaf = this.app.workspace.getLeavesOfType(BRANCH_TIMELINE_VIEW)[0];
     if (!leaf) {
       leaf = this.app.workspace.getLeaf("tab");
       await leaf.setViewState({ type: BRANCH_TIMELINE_VIEW, active: true });
     }
-    this.app.workspace.revealLeaf(leaf);
+    if (focus) this.app.workspace.revealLeaf(leaf);
   }
 
   async toggleHabit(date: Date): Promise<void> {

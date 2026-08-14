@@ -1,6 +1,6 @@
 import { App, normalizePath } from "obsidian";
 import { normalizeTimelineDay } from "../rhythm";
-import type { BranchTimelineState, RhythmSchedule, TimelineDayState } from "../types";
+import type { BranchTimelineState, PolicyNode, PolicyPeriod, RhythmSchedule, TimelineDayState } from "../types";
 
 const EMPTY_STATE: BranchTimelineState = {
   version: 1,
@@ -31,7 +31,9 @@ export class StateStore {
         projects: parsed.projects && typeof parsed.projects === "object" ? parsed.projects : {},
         achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
         policyCards: Array.isArray(parsed.policyCards) ? parsed.policyCards : [],
-        policyNodes: Array.isArray(parsed.policyNodes) ? parsed.policyNodes : []
+        policyNodes: Array.isArray(parsed.policyNodes)
+          ? parsed.policyNodes.map(node => normalizePolicyNode(node))
+          : []
       };
     } catch {
       return structuredClone(EMPTY_STATE);
@@ -67,6 +69,14 @@ export class StateStore {
       if (!(await this.app.vault.adapter.exists(current))) await this.app.vault.adapter.mkdir(current);
     }
   }
+}
+
+function normalizePolicyNode(node: PolicyNode): PolicyNode {
+  return { ...node, period: isPolicyPeriod(node.period) ? node.period : "morning" };
+}
+
+function isPolicyPeriod(value: unknown): value is PolicyPeriod {
+  return value === "morning" || value === "afternoon" || value === "evening";
 }
 
 export function defaultDay(schedule: RhythmSchedule): TimelineDayState {

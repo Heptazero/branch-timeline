@@ -90,6 +90,7 @@ export interface Achievement {
 }
 
 export type PolicyMode = "triggered" | "passive" | "daily" | "mechanism";
+export type PolicyPeriod = "morning" | "afternoon" | "evening";
 
 export interface PolicyCard {
   id: string;
@@ -103,6 +104,7 @@ export interface PolicyNode {
   id: string;
   cardId: string;
   parentId: string | null;
+  period: PolicyPeriod;
   createdDate: string;
 }
 

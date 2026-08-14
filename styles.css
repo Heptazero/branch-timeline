@@ -126,7 +126,11 @@
 .btl-achievement-week button.is-current { box-shadow: 0 0 0 1px var(--text-muted); }
 
 .btl-policy-page { display: grid; min-height: 0; flex: 1 1 auto; grid-template-rows: minmax(0, 73fr) minmax(86px, 27fr); gap: 8px; overflow: hidden; }
-.btl-policy-tree { min-height: 0; overflow: auto; border-bottom: 1px solid var(--background-modifier-border); padding: 10px 12px 18px; user-select: none; -webkit-user-select: none; }
+.btl-policy-tree { min-height: 0; overflow: auto; border-bottom: 1px solid var(--background-modifier-border); user-select: none; -webkit-user-select: none; }
+.btl-policy-period { display: grid; min-width: max-content; min-height: 148px; grid-template-columns: 38px minmax(240px, 1fr); border-top: 1px dashed var(--background-modifier-border); }
+.btl-policy-period:first-child { border-top: 0; }
+.btl-policy-period-label { position: sticky; left: 0; z-index: 3; align-self: start; padding: 14px 2px 0 6px; color: var(--text-faint); font-size: 9px; font-weight: 750; letter-spacing: .06em; }
+.btl-policy-period-canvas { min-width: max-content; padding: 10px 12px 18px 0; }
 .btl-policy-roots, .btl-policy-children { display: flex; width: max-content; min-width: 100%; align-items: flex-start; justify-content: center; gap: 12px; }
 .btl-policy-node-wrap { position: relative; display: flex; min-width: 112px; flex-direction: column; align-items: center; }
 .btl-policy-node { position: relative; display: flex; width: 116px; min-height: 56px; flex-direction: column; align-items: center; justify-content: center; border: 1.5px solid var(--btl-policy-tone, var(--text-muted)); border-radius: 10px; padding: 12px 8px 8px; background: color-mix(in srgb, var(--btl-policy-tone, var(--text-muted)) 9%, var(--background-primary)); color: var(--text-normal); text-align: center; }
@@ -249,7 +253,8 @@
   .btl-achievement-grid { gap: 6px; }
   .btl-achievement-card { padding: 8px; }
   .btl-achievement-streak strong { font-size: 26px; }
-  .btl-policy-tree { padding-inline: 6px; }
+  .btl-policy-period { grid-template-columns: 34px minmax(220px, 1fr); }
+  .btl-policy-period-canvas { padding-right: 6px; }
   .btl-project-detail-head { grid-template-columns: 34px minmax(0, 1fr) auto; }
   .btl-project-detail-meta { font-size: 9px; }
   .btl-project-item-compact { width: 86px; }

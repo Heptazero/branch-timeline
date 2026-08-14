@@ -16,6 +16,7 @@ import {
 import { loadTags, tagCategoryKey } from "../src/tags";
 import { countdownLabel, normalizeRhythmSchedule, normalizeTimelineDay } from "../src/rhythm";
 import { pageDateTitle, shiftPageDate, startOfWeek } from "../src/pages/navigation";
+import { policyPeriodAt } from "../src/pages/policy";
 import {
   absoluteMinute,
   pickProjectBranch,
@@ -53,6 +54,13 @@ test("moves daily pages by day and the habit page by week", () => {
   assert.equal(dateKey(shiftPageDate(thursday, "habits", -1)), "2026-08-06");
   assert.equal(dateKey(startOfWeek(thursday)), "2026-08-10");
   assert.equal(pageDateTitle(thursday, "habits"), "8/10–8/16");
+});
+
+test("assigns anchors to morning afternoon and evening", () => {
+  assert.equal(policyPeriodAt(new Date(2026, 7, 13, 9, 0)), "morning");
+  assert.equal(policyPeriodAt(new Date(2026, 7, 13, 14, 0)), "afternoon");
+  assert.equal(policyPeriodAt(new Date(2026, 7, 13, 20, 0)), "evening");
+  assert.equal(policyPeriodAt(new Date(2026, 7, 14, 1, 0)), "evening");
 });
 
 test("toggles an exact habit without touching similarly named tasks", () => {
