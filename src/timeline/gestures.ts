@@ -97,6 +97,11 @@ export class TimelineGestures {
 
   private pointerDown = (event: PointerEvent): void => {
     const target = event.target as HTMLElement;
+    const complete = target.closest<HTMLElement>(".btl-item-circle");
+    if (complete) {
+      event.stopPropagation();
+      return;
+    }
     const menu = target.closest<HTMLElement>(".btl-item-menu");
     if (menu) {
       event.stopPropagation();
@@ -196,6 +201,14 @@ export class TimelineGestures {
 
   private click = (event: MouseEvent): void => {
     const target = event.target as HTMLElement;
+    const complete = target.closest<HTMLElement>(".btl-item-circle");
+    if (complete) {
+      event.preventDefault();
+      event.stopPropagation();
+      const itemId = complete.closest<HTMLElement>("[data-item-id]")?.dataset.itemId;
+      if (itemId) this.callbacks.onItemComplete(itemId);
+      return;
+    }
     const menu = target.closest<HTMLElement>(".btl-item-menu");
     if (menu) {
       event.preventDefault();
@@ -238,10 +251,8 @@ export class TimelineGestures {
   private pointerUp = (event: PointerEvent): void => {
     const drag = this.drag;
     if (drag && drag.pointerId === event.pointerId) {
-      const target = event.target as HTMLElement;
       if (drag.kind === "item") {
         if (drag.moved) this.callbacks.onItemMove(drag.item.id, snapMinute(drag.minute), pickBranch(this.layout, drag.minute, drag.xOffset));
-        else if (target.closest(".btl-item-circle")) this.callbacks.onItemComplete(drag.item.id);
       } else if (drag.kind === "span" && drag.moved) {
         this.callbacks.onItemResize(drag.item.id, drag.edge, snapMinute(drag.minute));
       } else if (drag.kind === "branch-grip" && drag.moved) {

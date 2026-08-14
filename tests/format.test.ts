@@ -25,6 +25,7 @@ import {
   splitAbsoluteMinute
 } from "../src/pages/project-model";
 import {
+  backfillItem,
   computeTimelineLayout,
   itemDuration,
   pickBranch,
@@ -122,6 +123,16 @@ test("snaps timeline motion while preserving fact duration", () => {
 test("extends running todos and facts to the current minute", () => {
   assert.equal(itemDuration({ id: "todo", title: "写作", kind: "todo", plannedMin: 500, startedMin: 520 }, 420, 575), 55);
   assert.equal(itemDuration({ id: "fact", title: "阅读", kind: "fact", startMin: 480, endMin: 480, factTiming: true }, 420, 555), 75);
+});
+
+test("backfills todos and facts upward from their end", () => {
+  const todo = { id: "todo", title: "写作", kind: "todo" as const, plannedMin: 600, startedMin: 620 };
+  backfillItem(todo, 700, 45, 420);
+  assert.deepEqual(todo, { id: "todo", title: "写作", kind: "fact", plannedMin: 600, startMin: 655, endMin: 700, factTiming: false });
+
+  const fact = { id: "fact", title: "阅读", kind: "fact" as const, startMin: 500, endMin: 560 };
+  backfillItem(fact, 800, 30, 420);
+  assert.deepEqual(fact, { id: "fact", title: "阅读", kind: "fact", startMin: 530, endMin: 560, factTiming: false });
 });
 
 test("migrates the legacy single nap marker and counts down to sleep preparation", () => {

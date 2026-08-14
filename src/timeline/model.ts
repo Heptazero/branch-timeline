@@ -62,6 +62,18 @@ export function itemDuration(item: TimelineItem, fallback: number, nowMinute?: n
   return Math.max(0, itemEnd(item, fallback, nowMinute) - itemStart(item, fallback));
 }
 
+export function backfillItem(item: TimelineItem, fallbackEnd: number, minutes: number, lowerBound: number): void {
+  const duration = Math.max(1, Math.round(minutes));
+  const end = item.kind === "fact" && !item.factTiming
+    ? item.endMin ?? item.startMin ?? item.plannedMin ?? fallbackEnd
+    : fallbackEnd;
+  item.kind = "fact";
+  item.startMin = Math.max(lowerBound, end - duration);
+  item.endMin = end;
+  item.factTiming = false;
+  delete item.startedMin;
+}
+
 export function effectiveBranchEnd(day: TimelineDayState, branch: TimelineBranch, nowMinute?: number): number {
   if (branch.endMin != null) return Math.max(branch.startMin + 30, branch.endMin);
   let end = branch.startMin + 45;

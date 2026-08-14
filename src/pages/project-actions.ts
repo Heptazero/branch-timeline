@@ -1,6 +1,7 @@
 import { App, Menu, Notice } from "obsidian";
 import type BranchTimelinePlugin from "../main";
-import { ConfirmModal } from "../modals";
+import { ConfirmModal, MinuteEntryModal } from "../modals";
+import { backfillItem as applyBackfill } from "../timeline/model";
 import { showItemMenu } from "../timeline/menu";
 import type { ProjectTimelineBranch, TimelineDayState, TimelineItem } from "../types";
 import { dateKey, logicalToday } from "../vault/format";
@@ -102,13 +103,15 @@ export class ProjectTimelineActions {
 
   openItemMenu(entry: ProjectTimelineEntry, event: MouseEvent): void {
     const { date, item } = entry;
-    showItemMenu(event, item, this.options.plugin.settings.tags, {
+    showItemMenu(event, item, this.options.plugin.settings.tags, this.options.plugin.repository.listProjects(), {
       complete: () => void this.completeItem(date, item.id),
       startTiming: () => void this.startItemTiming(date, item.id),
       stopTiming: () => void this.stopItemTiming(date, item.id),
       cancelTiming: () => void this.cancelItemTiming(date, item.id),
+      backfill: () => void this.backfillItem(date, item.id),
       toggleMilestone: () => void this.updateItem(date, item.id, target => { target.milestone = !target.milestone; }),
       rename: () => void this.renameItem(date, item),
+      setProject: projectPath => void this.setItemProject(date, item.id, projectPath),
       setTag: tagId => void this.setItemTag(date, item.id, tagId),
       remove: () => this.confirmRemoveItem(date, item)
     });
@@ -187,6 +190,22 @@ export class ProjectTimelineActions {
     await this.updateItem(date, itemId, target => { delete target.startedMin; });
   }
 
+  private async backfillItem(date: string, itemId: string): Promise<void> {
+    const state = await this.options.plugin.store.load();
+    const item = state.days[date]?.items.find(candidate => candidate.id === itemId);
+    if (!item) return;
+    const minutes = await new Promise<number | null>(resolve => new MinuteEntryModal(this.options.app, `补记 · ${item.title}`, resolve).open());
+    if (minutes == null) return;
+    if (item.kind === "todo" && item.projectPath && item.projectTaskId) {
+      try { await this.options.plugin.repository.setProjectTaskDone(item.projectPath, item.projectTaskId, true); }
+      catch (error) { new Notice(error instanceof Error ? error.message : "项目待办更新失败"); return; }
+    }
+    await this.updateItem(date, itemId, (target, day) => {
+      const end = this.minuteForDate(date, day, target.endMin ?? target.plannedMin ?? day.napEnd);
+      applyBackfill(target, end, minutes, day.wake);
+    });
+  }
+
   private async renameItem(date: string, item: TimelineItem): Promise<void> {
     const title = await this.options.text("重命名", "标题", item.title);
     if (title == null) return;
@@ -198,6 +217,16 @@ export class ProjectTimelineActions {
     await this.updateItem(date, itemId, target => {
       target.tagId = tag?.id;
       target.tag = tag?.name;
+    });
+  }
+
+  private async setItemProject(date: string, itemId: string, projectPath: string | null): Promise<void> {
+    await this.updateItem(date, itemId, target => {
+      if (target.projectPath === projectPath) return;
+      target.projectPath = projectPath || undefined;
+      target.projectBranchId = null;
+      target.projectTaskId = undefined;
+      if (!projectPath) target.milestone = false;
     });
   }
 

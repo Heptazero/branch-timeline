@@ -1,6 +1,6 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import type BranchTimelinePlugin from "./main";
-import { ChoiceTextModal, ConfirmModal, TextEntryModal, type ChoiceItem, type ChoiceTextResult } from "./modals";
+import { ChoiceTextModal, ConfirmModal, MinuteEntryModal, TextEntryModal, type ChoiceItem, type ChoiceTextResult } from "./modals";
 import { AchievementActions } from "./pages/achievement-actions";
 import { renderAchievementsPage } from "./pages/achievements";
 import { renderHabitsPage } from "./pages/habits";
@@ -19,7 +19,7 @@ import { PolicyActions } from "./pages/policy-actions";
 import { countdownLabel, rhythmBounds, rhythmRealKey } from "./rhythm";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { TimelineGestures } from "./timeline/gestures";
-import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, clampMinute, minuteToY } from "./timeline/model";
+import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, backfillItem as applyBackfill, clampMinute, minuteToY } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
 import { applyTimelineLod, renderTimeline } from "./timeline/renderer";
 import type { RhythmKey, TimelineBranch, TimelineDayState, TimelineItem } from "./types";
@@ -359,16 +359,18 @@ export class BranchTimelineView extends ItemView {
   private openItemMenu(itemId: string, event: MouseEvent): void {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
     if (!item) return;
-    showItemMenu(event, item, this.plugin.settings.tags, {
+    showItemMenu(event, item, this.plugin.settings.tags, this.plugin.repository.listProjects(), {
       complete: () => void this.completeItem(item.id),
       startTiming: () => void this.startTiming(item.id),
       stopTiming: () => void this.stopTiming(item.id),
       cancelTiming: () => void this.cancelTiming(item.id),
+      backfill: () => void this.backfillItem(item.id),
       ...(item.projectPath ? { toggleMilestone: () => void this.updateDay(day => {
         const target = day.items.find(candidate => candidate.id === item.id);
         if (target) target.milestone = !target.milestone;
       }) } : {}),
       rename: () => void this.renameItem(item),
+      setProject: projectPath => void this.setItemProject(item.id, projectPath),
       setTag: tagId => void this.setItemTag(item.id, tagId),
       remove: () => this.confirmRemoveItem(item)
     });
@@ -391,6 +393,34 @@ export class BranchTimelineView extends ItemView {
       if (!item) return;
       item.tagId = tag?.id;
       item.tag = tag?.name;
+    });
+  }
+
+  private async setItemProject(itemId: string, projectPath: string | null): Promise<void> {
+    await this.updateDay(day => {
+      const item = day.items.find(candidate => candidate.id === itemId);
+      if (!item || item.projectPath === projectPath) return;
+      item.projectPath = projectPath || undefined;
+      item.projectBranchId = null;
+      item.projectTaskId = undefined;
+      if (!projectPath) item.milestone = false;
+    });
+  }
+
+  private async backfillItem(itemId: string): Promise<void> {
+    const item = this.day?.items.find(candidate => candidate.id === itemId);
+    if (!item) return;
+    const minutes = await this.minutes(`补记 · ${item.title}`);
+    if (minutes == null) return;
+    if (item.kind === "todo" && item.projectPath && item.projectTaskId) {
+      try { await this.plugin.repository.setProjectTaskDone(item.projectPath, item.projectTaskId, true); }
+      catch (error) { new Notice(error instanceof Error ? error.message : "项目待办更新失败"); return; }
+    }
+    await this.updateDay(day => {
+      const target = day.items.find(candidate => candidate.id === itemId);
+      if (!target) return;
+      const end = this.nowOnAxis(day) ?? target.endMin ?? target.plannedMin ?? day.napEnd;
+      applyBackfill(target, end, minutes, day.wake);
     });
   }
 
@@ -654,6 +684,10 @@ export class BranchTimelineView extends ItemView {
     value = ""
   ): Promise<ChoiceTextResult | null> {
     return new Promise(resolve => new ChoiceTextModal(this.app, title, placeholder, choices, selected, resolve, value).open());
+  }
+
+  private minutes(title: string): Promise<number | null> {
+    return new Promise(resolve => new MinuteEntryModal(this.app, title, resolve).open());
   }
 
   private iconButton(parent: HTMLElement, icon: string, label: string, action: (event: MouseEvent) => void): HTMLButtonElement {

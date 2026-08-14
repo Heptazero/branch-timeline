@@ -56,6 +56,49 @@ export class TextEntryModal extends Modal {
   }
 }
 
+export class MinuteEntryModal extends Modal {
+  private value = "30";
+  private resolved = false;
+
+  constructor(app: App, private title: string, private resolve: (minutes: number | null) => void) { super(app); }
+
+  onOpen(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("btl-modal");
+    this.contentEl.createEl("h3", { text: this.title });
+    const row = this.contentEl.createDiv({ cls: "btl-minute-entry" });
+    const input = row.createEl("input", {
+      cls: "btl-text-input",
+      value: this.value,
+      attr: { type: "number", min: "1", step: "1", inputmode: "numeric", "aria-label": "补记分钟数" }
+    });
+    row.createSpan({ text: "分钟" });
+    input.oninput = () => { this.value = input.value; };
+    input.onkeydown = event => { if (event.key === "Enter") this.submit(input); };
+    const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
+    actions.createEl("button", { text: "取消" }).onclick = () => this.close();
+    actions.createEl("button", { text: "补记", cls: "mod-cta" }).onclick = () => this.submit(input);
+    window.setTimeout(() => { input.focus(); input.select(); }, 30);
+  }
+
+  onClose(): void {
+    if (!this.resolved) this.resolve(null);
+    this.contentEl.empty();
+  }
+
+  private submit(input: HTMLInputElement): void {
+    const minutes = Math.round(Number(this.value));
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      input.focus();
+      input.select();
+      return;
+    }
+    this.resolved = true;
+    this.resolve(minutes);
+    this.close();
+  }
+}
+
 export class ChoiceTextModal extends Modal {
   private value: string;
   private selected: string;
