@@ -8,6 +8,7 @@
 
 - 插件显示名：`Branch Timeline`；ID：`branch-timeline-hz`，已核实未与社区插件列表重名。
 - 插件直接位于 `.obsidian/plugins/branch-timeline-hz/`，桌面与移动端均可加载。
+- `0.2.0` 已发布为首个 GitHub Release，标签为 `0.2.0`，附件包含 `main.js`、`manifest.json`、`styles.css`。
 - 桌面端在 Obsidian 布局就绪后自动固定到右侧边栏；侧栏按钮和命令会聚焦同一个固定叶片。移动端仍以普通标签页打开，避免挤占窄屏。
 - ItemView 已从简化列表重建为主线/左右分支画布，按重叠区间自动分配车道。
 - 已支持双击/移动端双点添加代办、长按添加分支、事项二维拖动、事实起止拉伸、分支起止与横向调整、滚轮/双指/按钮缩放。
