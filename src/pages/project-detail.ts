@@ -38,8 +38,8 @@ export interface ProjectDetailOptions {
   onBack: () => void;
   onScale: (scale: number, anchor: ProjectScaleAnchor) => void;
   onMoveItem: (date: string, itemId: string, branchId: string | null) => void;
-  onItemMenu: (entry: ProjectTimelineEntry, event: PointerEvent) => void;
-  onBranchMenu: (branch: ProjectTimelineBranch, event: PointerEvent) => void;
+  onItemMenu: (entry: ProjectTimelineEntry, event: MouseEvent) => void;
+  onBranchMenu: (branch: ProjectTimelineBranch, event: MouseEvent) => void;
   onBranchOffset: (branchId: string, offsetX: number) => void;
   onBranchStart: (branchId: string, startAbs: number) => void;
   onBranchEnd: (branchId: string, endAbs: number, toggleMerge: boolean) => void;
@@ -175,6 +175,7 @@ class ProjectDetailGestures {
     options.canvas.addEventListener("pointermove", this.pointerMove);
     options.canvas.addEventListener("pointerup", this.pointerUp);
     options.canvas.addEventListener("pointercancel", this.pointerCancel);
+    options.canvas.addEventListener("click", this.click);
     options.canvas.addEventListener("dblclick", this.doubleClick);
     options.scroller.addEventListener("wheel", this.wheel, { passive: false });
     options.scroller.addEventListener("touchstart", this.touchStart, { passive: true });
@@ -190,6 +191,7 @@ class ProjectDetailGestures {
     canvas.removeEventListener("pointermove", this.pointerMove);
     canvas.removeEventListener("pointerup", this.pointerUp);
     canvas.removeEventListener("pointercancel", this.pointerCancel);
+    canvas.removeEventListener("click", this.click);
     canvas.removeEventListener("dblclick", this.doubleClick);
     scroller.removeEventListener("wheel", this.wheel);
     scroller.removeEventListener("touchstart", this.touchStart);
@@ -206,19 +208,12 @@ class ProjectDetailGestures {
     const target = event.target as HTMLElement;
     const itemMenu = target.closest<HTMLElement>(".btl-project-item-menu");
     if (itemMenu) {
-      event.preventDefault();
       event.stopPropagation();
-      const itemElement = itemMenu.closest<HTMLElement>(".btl-project-item");
-      const entry = this.entry(itemElement?.dataset.date, itemElement?.dataset.itemId);
-      if (entry) this.options.onItemMenu(entry, event);
       return;
     }
     const branchMenu = target.closest<HTMLElement>(".btl-project-branch-menu");
     if (branchMenu?.dataset.branchId) {
-      event.preventDefault();
       event.stopPropagation();
-      const branch = this.branch(branchMenu.dataset.branchId);
-      if (branch) this.options.onBranchMenu(branch, event);
       return;
     }
     const end = target.closest<HTMLElement>(".btl-project-branch-end");
@@ -262,6 +257,26 @@ class ProjectDetailGestures {
         this.addBranchAt(hold.x, hold.y);
       }, 550)
     };
+  };
+
+  private click = (event: MouseEvent): void => {
+    const target = event.target as HTMLElement;
+    const itemMenu = target.closest<HTMLElement>(".btl-project-item-menu");
+    if (itemMenu) {
+      event.preventDefault();
+      event.stopPropagation();
+      const itemElement = itemMenu.closest<HTMLElement>(".btl-project-item");
+      const entry = this.entry(itemElement?.dataset.date, itemElement?.dataset.itemId);
+      if (entry) this.options.onItemMenu(entry, event);
+      return;
+    }
+    const branchMenu = target.closest<HTMLElement>(".btl-project-branch-menu");
+    if (branchMenu?.dataset.branchId) {
+      event.preventDefault();
+      event.stopPropagation();
+      const branch = this.branch(branchMenu.dataset.branchId);
+      if (branch) this.options.onBranchMenu(branch, event);
+    }
   };
 
   private pointerMove = (event: PointerEvent): void => {

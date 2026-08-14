@@ -13,7 +13,7 @@ export interface ItemMenuActions {
 }
 
 export function showItemMenu(
-  event: PointerEvent,
+  event: MouseEvent,
   item: TimelineItem,
   tags: readonly TimelineTag[],
   actions: ItemMenuActions
@@ -51,7 +51,7 @@ export interface BranchMenuActions {
   remove: () => void;
 }
 
-export function showBranchMenu(event: PointerEvent, branch: TimelineBranch, actions: BranchMenuActions): void {
+export function showBranchMenu(event: MouseEvent, branch: TimelineBranch, actions: BranchMenuActions): void {
   const menu = new Menu();
   menu.addItem(entry => entry.setTitle("重命名").setIcon("pencil").onClick(actions.rename));
   menu.addItem(entry => entry.setTitle(branch.side > 0 ? "挪到左侧" : "挪到右侧").setIcon("arrow-left-right").onClick(actions.flip));

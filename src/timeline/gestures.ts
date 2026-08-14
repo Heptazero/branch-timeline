@@ -22,12 +22,12 @@ export interface TimelineGestureCallbacks {
   onItemMove: (itemId: string, startMin: number, branchId: string | null) => void;
   onItemResize: (itemId: string, edge: "start" | "end", minute: number) => void;
   onItemComplete: (itemId: string) => void;
-  onItemMenu: (itemId: string, event: PointerEvent) => void;
+  onItemMenu: (itemId: string, event: MouseEvent) => void;
   onBranchOffset: (branchId: string, offsetX: number) => void;
   onBranchStart: (branchId: string, minute: number) => void;
   onBranchEnd: (branchId: string, minute: number | null) => void;
   onBranchFlip: (branchId: string) => void;
-  onBranchMenu: (branchId: string, event: PointerEvent) => void;
+  onBranchMenu: (branchId: string, event: MouseEvent) => void;
   onRhythm: (key: RhythmKey, minute: number, moved: boolean) => void;
   onAddTodo: (minute: number, branchId: string | null) => void;
   onAddBranch: (minute: number) => void;
@@ -72,6 +72,7 @@ export class TimelineGestures {
     canvas.addEventListener("pointermove", this.pointerMove);
     canvas.addEventListener("pointerup", this.pointerUp);
     canvas.addEventListener("pointercancel", this.pointerCancel);
+    canvas.addEventListener("click", this.click);
     canvas.addEventListener("dblclick", this.doubleClick);
     scroller.addEventListener("wheel", this.wheel, { passive: false });
     scroller.addEventListener("touchstart", this.touchStart, { passive: true });
@@ -86,6 +87,7 @@ export class TimelineGestures {
     this.canvas.removeEventListener("pointermove", this.pointerMove);
     this.canvas.removeEventListener("pointerup", this.pointerUp);
     this.canvas.removeEventListener("pointercancel", this.pointerCancel);
+    this.canvas.removeEventListener("click", this.click);
     this.canvas.removeEventListener("dblclick", this.doubleClick);
     this.scroller.removeEventListener("wheel", this.wheel);
     this.scroller.removeEventListener("touchstart", this.touchStart);
@@ -97,18 +99,12 @@ export class TimelineGestures {
     const target = event.target as HTMLElement;
     const menu = target.closest<HTMLElement>(".btl-item-menu");
     if (menu) {
-      event.preventDefault();
       event.stopPropagation();
-      const itemId = menu.closest<HTMLElement>("[data-item-id]")?.dataset.itemId;
-      if (itemId) this.callbacks.onItemMenu(itemId, event);
       return;
     }
     const branchMenu = target.closest<HTMLElement>(".btl-branch-menu");
     if (branchMenu) {
-      event.preventDefault();
       event.stopPropagation();
-      const branchId = branchMenu.closest<HTMLElement>("[data-branch-id]")?.dataset.branchId;
-      if (branchId) this.callbacks.onBranchMenu(branchId, event);
       return;
     }
 
@@ -196,6 +192,25 @@ export class TimelineGestures {
         this.callbacks.onAddBranch(point.minute);
       }, 550)
     };
+  };
+
+  private click = (event: MouseEvent): void => {
+    const target = event.target as HTMLElement;
+    const menu = target.closest<HTMLElement>(".btl-item-menu");
+    if (menu) {
+      event.preventDefault();
+      event.stopPropagation();
+      const itemId = menu.closest<HTMLElement>("[data-item-id]")?.dataset.itemId;
+      if (itemId) this.callbacks.onItemMenu(itemId, event);
+      return;
+    }
+    const branchMenu = target.closest<HTMLElement>(".btl-branch-menu");
+    if (branchMenu) {
+      event.preventDefault();
+      event.stopPropagation();
+      const branchId = branchMenu.closest<HTMLElement>("[data-branch-id]")?.dataset.branchId;
+      if (branchId) this.callbacks.onBranchMenu(branchId, event);
+    }
   };
 
   private pointerMove = (event: PointerEvent): void => {

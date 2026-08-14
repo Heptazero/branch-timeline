@@ -100,7 +100,7 @@ export class ProjectTimelineActions {
     await this.options.refresh();
   }
 
-  openItemMenu(entry: ProjectTimelineEntry, event: PointerEvent): void {
+  openItemMenu(entry: ProjectTimelineEntry, event: MouseEvent): void {
     const { date, item } = entry;
     showItemMenu(event, item, this.options.plugin.settings.tags, {
       complete: () => void this.completeItem(date, item.id),
@@ -114,7 +114,7 @@ export class ProjectTimelineActions {
     });
   }
 
-  openBranchMenu(branch: ProjectTimelineBranch, event: PointerEvent): void {
+  openBranchMenu(branch: ProjectTimelineBranch, event: MouseEvent): void {
     const menu = new Menu();
     menu.addItem(item => item.setTitle("重命名").setIcon("pencil").onClick(() => void this.renameBranch(branch)));
     menu.addItem(item => item

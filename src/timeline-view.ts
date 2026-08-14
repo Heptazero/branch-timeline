@@ -356,7 +356,7 @@ export class BranchTimelineView extends ItemView {
     });
   }
 
-  private openItemMenu(itemId: string, event: PointerEvent): void {
+  private openItemMenu(itemId: string, event: MouseEvent): void {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
     if (!item) return;
     showItemMenu(event, item, this.plugin.settings.tags, {
@@ -374,7 +374,7 @@ export class BranchTimelineView extends ItemView {
     });
   }
 
-  private openBranchMenu(branchId: string, event: PointerEvent): void {
+  private openBranchMenu(branchId: string, event: MouseEvent): void {
     const branch = this.day?.branches.find(candidate => candidate.id === branchId);
     if (!branch) return;
     showBranchMenu(event, branch, {
