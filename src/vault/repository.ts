@@ -5,6 +5,7 @@ import {
   appendProjectLog,
   appendProjectTask,
   createWeekSkeleton,
+  dateKey,
   diaryFilePath,
   diaryHeading,
   parseDiaryDay,
@@ -62,6 +63,29 @@ export class VaultRepository {
   async setProjectTaskDone(projectPath: string, id: string, done: boolean): Promise<void> {
     const file = this.projectFile(projectPath);
     await this.app.vault.process(file, content => setProjectTaskDone(content, id, done));
+  }
+
+  async createProject(name: string, status: string, date: Date): Promise<ProjectRef> {
+    const folder = normalizePath(this.settings.projectFolder).replace(/\/$/, "");
+    if (!(await this.app.vault.adapter.exists(folder))) await this.app.vault.createFolder(folder);
+    const safeName = name.trim().replace(/[\\/:*?"<>|#\[\]]/g, "-");
+    const mmdd = `${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+    const basename = /^\d{4}_/.test(safeName) ? safeName : `${mmdd}_${safeName}`;
+    const path = normalizePath(`${folder}/${basename}.md`);
+    if (this.app.vault.getAbstractFileByPath(path)) throw new Error("已有同名项目");
+    await this.app.vault.create(path, [
+      "---",
+      "type: project",
+      `status: ${status}`,
+      `started: ${dateKey(date)}`,
+      "---",
+      "",
+      "## 任务",
+      "",
+      "## log",
+      ""
+    ].join("\n"));
+    return { path, name: basename, status };
   }
 
   private projectFile(path: string): TFile {

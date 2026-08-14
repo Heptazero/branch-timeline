@@ -130,6 +130,8 @@ test("migrates the legacy single nap marker and counts down to sleep preparation
 test("builds a multi-day project timeline without changing item dates", () => {
   const state: BranchTimelineState = {
     version: 1,
+    achievements: [],
+    policyCards: [],
     policyNodes: [],
     projects: {
       "21_project/test.md": {

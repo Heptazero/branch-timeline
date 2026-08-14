@@ -2,7 +2,14 @@ import { App, normalizePath } from "obsidian";
 import { normalizeTimelineDay } from "../rhythm";
 import type { BranchTimelineState, RhythmSchedule, TimelineDayState } from "../types";
 
-const EMPTY_STATE: BranchTimelineState = { version: 1, days: {}, projects: {}, policyNodes: [] };
+const EMPTY_STATE: BranchTimelineState = {
+  version: 1,
+  days: {},
+  projects: {},
+  achievements: [],
+  policyCards: [],
+  policyNodes: []
+};
 
 export class StateStore {
   private queue: Promise<void> = Promise.resolve();
@@ -22,6 +29,8 @@ export class StateStore {
           ? Object.fromEntries(Object.entries(parsed.days).map(([date, day]) => [date, normalizeTimelineDay(day)]))
           : {},
         projects: parsed.projects && typeof parsed.projects === "object" ? parsed.projects : {},
+        achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
+        policyCards: Array.isArray(parsed.policyCards) ? parsed.policyCards : [],
         policyNodes: Array.isArray(parsed.policyNodes) ? parsed.policyNodes : []
       };
     } catch {

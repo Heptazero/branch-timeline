@@ -9,10 +9,14 @@ export interface HabitPageOptions {
   setHabit: (date: Date, habit: string, done: boolean) => Promise<void>;
   isCurrent: () => boolean;
   refresh: () => Promise<void>;
+  onAdd: () => void;
 }
 
 export async function renderHabitsPage(options: HabitPageOptions): Promise<void> {
   const { container, date, habits, readDay, setHabit, isCurrent, refresh } = options;
+  container.ondblclick = event => {
+    if (!(event.target as HTMLElement).closest(".btl-habit-week, button")) options.onAdd();
+  };
   const start = startOfWeek(date);
   const dates = Array.from({ length: 7 }, (_, index) =>
     new Date(start.getFullYear(), start.getMonth(), start.getDate() + index)

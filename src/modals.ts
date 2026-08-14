@@ -14,6 +14,8 @@ export class ProjectSuggestModal extends FuzzySuggestModal<ProjectRef> {
 
 export interface ChoiceItem { id: string; label: string }
 
+export interface ChoiceTextResult { text: string; choice: string }
+
 export class ChoiceSuggestModal extends FuzzySuggestModal<ChoiceItem> {
   private chosen = false;
   constructor(app: App, private title: string, private items: ChoiceItem[], private resolve: (item: ChoiceItem | null) => void) {
@@ -54,6 +56,61 @@ export class TextEntryModal extends Modal {
   }
 }
 
+export class ChoiceTextModal extends Modal {
+  private value: string;
+  private selected: string;
+  private resolved = false;
+
+  constructor(
+    app: App,
+    private title: string,
+    private placeholder: string,
+    private choices: readonly ChoiceItem[],
+    selected: string,
+    private resolve: (value: ChoiceTextResult | null) => void,
+    value = ""
+  ) {
+    super(app);
+    this.value = value;
+    this.selected = selected;
+  }
+
+  onOpen(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("btl-modal");
+    this.contentEl.createEl("h3", { text: this.title });
+    const input = this.contentEl.createEl("input", { cls: "btl-text-input", value: this.value, attr: { placeholder: this.placeholder } });
+    input.oninput = () => { this.value = input.value; };
+    input.onkeydown = event => { if (event.key === "Enter") this.submit(); };
+    const pills = this.contentEl.createDiv({ cls: "btl-choice-pills" });
+    for (const choice of this.choices) {
+      const button = pills.createEl("button", { text: choice.label, attr: { type: "button" } });
+      button.toggleClass("is-selected", choice.id === this.selected);
+      button.onclick = () => {
+        this.selected = choice.id;
+        pills.querySelectorAll("button").forEach(item => item.toggleClass("is-selected", item === button));
+      };
+    }
+    const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
+    actions.createEl("button", { text: "取消" }).onclick = () => this.close();
+    actions.createEl("button", { text: "添加", cls: "mod-cta" }).onclick = () => this.submit();
+    window.setTimeout(() => input.focus(), 30);
+  }
+
+  onClose(): void {
+    if (!this.resolved) this.resolve(null);
+    this.contentEl.empty();
+  }
+
+  private submit(): void {
+    const text = this.value.trim();
+    if (!text) return;
+    this.resolved = true;
+    this.resolve({ text, choice: this.selected });
+    this.close();
+  }
+}
+
 export interface DurationResult { minutes: number; note: string }
 
 export class ConfirmModal extends Modal {
@@ -61,7 +118,8 @@ export class ConfirmModal extends Modal {
     app: App,
     private title: string,
     private message: string,
-    private confirm: () => void | Promise<void>
+    private confirm: () => void | Promise<void>,
+    private confirmLabel = "删除"
   ) { super(app); }
 
   onOpen(): void {
@@ -71,7 +129,7 @@ export class ConfirmModal extends Modal {
     this.contentEl.createEl("p", { text: this.message });
     const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
     actions.createEl("button", { text: "取消" }).onclick = () => this.close();
-    actions.createEl("button", { text: "删除", cls: "mod-warning" }).onclick = () => {
+    actions.createEl("button", { text: this.confirmLabel, cls: "mod-warning" }).onclick = () => {
       this.close();
       void this.confirm();
     };

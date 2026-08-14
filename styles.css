@@ -110,6 +110,49 @@
 .btl-project-card-title { font-size: 13px; font-weight: 750; }
 .btl-project-card-status { color: var(--text-faint); font-size: 10px; }
 
+.btl-achievement-grid { display: grid; min-height: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 8px; padding-bottom: 12px; }
+.btl-achievement-card { position: relative; min-width: 0; border: 1px solid color-mix(in srgb, var(--btl-achievement-color) 52%, var(--background-modifier-border)); border-radius: 12px; padding: 10px; background: color-mix(in srgb, var(--btl-achievement-color) 9%, var(--background-secondary)); }
+.btl-achievement-head { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 3px; }
+.btl-achievement-head h3 { min-width: 0; margin: 1px 0 0; overflow: hidden; color: var(--btl-achievement-color); font-size: 12px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.btl-achievement-head button { width: 32px; height: 32px; flex: 0 0 auto; border: 0; border-radius: 8px; margin: -8px -8px 0 0; padding: 0; background: transparent; color: var(--text-faint); font-size: 18px; }
+.btl-achievement-head button:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.btl-achievement-streak { display: flex; width: 100%; align-items: baseline; justify-content: center; border: 0; padding: 8px 0 9px; background: transparent; color: var(--btl-achievement-color); }
+.btl-achievement-streak strong { font-size: 30px; font-weight: 790; font-variant-numeric: tabular-nums; line-height: 1; }
+.btl-achievement-streak span { margin-left: 3px; color: var(--text-faint); font-size: 9px; }
+.btl-achievement-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.btl-achievement-week button { aspect-ratio: 1; min-width: 0; border: 1px solid var(--background-modifier-border); border-radius: 5px; padding: 0; background: var(--background-primary); color: var(--text-faint); }
+.btl-achievement-week button span { font-size: 7px; }
+.btl-achievement-week button.is-done { border-color: var(--btl-achievement-color); background: var(--btl-achievement-color); color: var(--text-on-accent); }
+.btl-achievement-week button.is-current { box-shadow: 0 0 0 1px var(--text-muted); }
+
+.btl-policy-page { display: grid; min-height: 0; flex: 1 1 auto; grid-template-rows: minmax(0, 73fr) minmax(86px, 27fr); gap: 8px; overflow: hidden; }
+.btl-policy-tree { min-height: 0; overflow: auto; border-bottom: 1px solid var(--background-modifier-border); padding: 10px 12px 18px; user-select: none; -webkit-user-select: none; }
+.btl-policy-roots, .btl-policy-children { display: flex; width: max-content; min-width: 100%; align-items: flex-start; justify-content: center; gap: 12px; }
+.btl-policy-node-wrap { position: relative; display: flex; min-width: 112px; flex-direction: column; align-items: center; }
+.btl-policy-node { position: relative; display: flex; width: 116px; min-height: 56px; flex-direction: column; align-items: center; justify-content: center; border: 1.5px solid var(--btl-policy-tone, var(--text-muted)); border-radius: 10px; padding: 12px 8px 8px; background: color-mix(in srgb, var(--btl-policy-tone, var(--text-muted)) 9%, var(--background-primary)); color: var(--text-normal); text-align: center; }
+.btl-policy-node.is-triggered, .btl-policy-hand-card.is-triggered { --btl-policy-tone: var(--color-blue); }
+.btl-policy-node.is-passive, .btl-policy-hand-card.is-passive { --btl-policy-tone: var(--text-muted); }
+.btl-policy-node.is-daily, .btl-policy-hand-card.is-daily { --btl-policy-tone: var(--color-green); }
+.btl-policy-node.is-mechanism, .btl-policy-hand-card.is-mechanism { --btl-policy-tone: var(--color-purple); }
+.btl-policy-node > strong { max-width: 100%; overflow: hidden; color: var(--text-normal); font-size: 10px; line-height: 1.25; text-overflow: ellipsis; }
+.btl-policy-mode { position: absolute; top: 4px; left: 7px; color: var(--btl-policy-tone); font-size: 7px; font-weight: 750; }
+.btl-policy-node-menu { position: absolute; z-index: 2; top: -5px; right: -5px; width: 32px; height: 32px; border: 0; border-radius: 8px; padding: 0; background: transparent; color: var(--text-faint); font-size: 17px; }
+.btl-policy-node-menu:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.btl-policy-child-add { z-index: 2; width: 24px; height: 24px; border: 1px solid var(--background-modifier-border); border-radius: 50%; margin: 5px 0 12px; padding: 0; background: var(--background-primary); color: var(--text-muted); }
+.btl-policy-node-wrap.has-children > .btl-policy-child-add { margin-bottom: 0; }
+.btl-policy-children { position: relative; padding-top: 9px; }
+.btl-policy-children::before { content: ""; position: absolute; top: 0; right: 56px; left: 56px; border-top: 1px solid var(--background-modifier-border); }
+.btl-policy-children::after { content: ""; position: absolute; top: -29px; left: 50%; height: 29px; border-left: 1px solid var(--background-modifier-border); }
+.btl-policy-children.is-single::before { right: 50%; left: 50%; }
+.btl-policy-children > .btl-policy-node-wrap::before { content: ""; position: absolute; top: -9px; left: 50%; height: 9px; border-left: 1px solid var(--background-modifier-border); }
+.btl-policy-hand { position: relative; z-index: 2; min-height: 0; overflow: hidden; border: 1px solid var(--background-modifier-border); border-radius: 11px 11px 0 0; background: var(--background-secondary); }
+.btl-policy-hand-head { display: flex; height: 28px; align-items: center; gap: 5px; padding: 0 9px; color: var(--text-muted); font-size: 10px; font-weight: 750; }
+.btl-policy-hand-head strong { color: var(--text-faint); font-size: 9px; }
+.btl-policy-hand-list { display: flex; min-height: calc(100% - 28px); align-content: flex-start; gap: 5px; overflow: auto; padding: 4px 7px 9px; }
+.btl-policy-hand-card { position: relative; display: flex; width: 104px; min-width: 104px; height: 46px; align-items: center; border: 1px solid color-mix(in srgb, var(--btl-policy-tone) 55%, var(--background-modifier-border)); border-radius: 9px; padding: 6px 26px 6px 8px; background: color-mix(in srgb, var(--btl-policy-tone) 7%, var(--background-primary)); }
+.btl-policy-hand-card > span { overflow: hidden; color: var(--text-normal); font-size: 9px; font-weight: 680; line-height: 1.2; text-overflow: ellipsis; }
+.btl-policy-hand-card > button { position: absolute; top: 6px; right: 0; width: 28px; height: 32px; border: 0; padding: 0; background: transparent; color: var(--text-faint); font-size: 17px; }
+
 .btl-project-detail-head { display: grid; flex: 0 0 auto; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 5px; padding: 0 0 7px; }
 .btl-project-detail-head h2 { overflow: hidden; margin: 0; color: var(--text-normal); font-size: 14px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .btl-project-back { display: grid; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 9px; padding: 0; background: transparent; color: var(--text-normal); }
@@ -161,6 +204,9 @@
 .btl-modal h3 { margin: 0 0 12px; }
 .btl-text-input { width: 100%; height: 40px; border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 0 11px; background: var(--background-primary); color: var(--text-normal); }
 .btl-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.btl-choice-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.btl-choice-pills button { border: 1px solid var(--background-modifier-border); border-radius: 999px; padding: 5px 10px; background: var(--background-secondary); color: var(--text-muted); font-size: 10px; }
+.btl-choice-pills button.is-selected { border-color: var(--interactive-accent); background: color-mix(in srgb, var(--interactive-accent) 16%, var(--background-primary)); color: var(--interactive-accent); font-weight: 750; }
 .btl-duration-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .btl-duration-head strong { color: var(--interactive-accent); font-variant-numeric: tabular-nums; }
 .btl-duration-wheel { height: 150px; margin: 8px 0 12px; padding-block: 55px; overflow-y: auto; scroll-snap-type: y mandatory; border-block: 1px solid var(--background-modifier-border); scrollbar-width: none; background: linear-gradient(var(--background-primary), transparent 38%, transparent 62%, var(--background-primary)); }
@@ -200,6 +246,10 @@
   .btl-page-content { overflow-x: auto; }
   .btl-project-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .btl-project-card { min-height: 72px; }
+  .btl-achievement-grid { gap: 6px; }
+  .btl-achievement-card { padding: 8px; }
+  .btl-achievement-streak strong { font-size: 26px; }
+  .btl-policy-tree { padding-inline: 6px; }
   .btl-project-detail-head { grid-template-columns: 34px minmax(0, 1fr) auto; }
   .btl-project-detail-meta { font-size: 9px; }
   .btl-project-item-compact { width: 86px; }

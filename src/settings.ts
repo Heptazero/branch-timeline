@@ -48,14 +48,6 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     }
 
     new Setting(containerEl)
-      .setName("习惯")
-      .setDesc("逗号分隔，需与日记任务名称完全一致。")
-      .addText(text => text.setValue(this.plugin.settings.habits.join(", ")).onChange(async value => {
-        this.plugin.settings.habits = value.split(/[,，]/).map(item => item.trim()).filter(Boolean);
-        await this.plugin.saveSettings();
-      }));
-
-    new Setting(containerEl)
       .setName("标签")
       .setHeading()
       .addButton(button => button.setButtonText("添加").setIcon("plus").onClick(async () => {

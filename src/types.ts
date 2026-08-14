@@ -76,7 +76,34 @@ export interface BranchTimelineState {
   version: 1;
   days: Record<string, TimelineDayState>;
   projects: Record<string, ProjectTimelineState>;
-  policyNodes: unknown[];
+  achievements: Achievement[];
+  policyCards: PolicyCard[];
+  policyNodes: PolicyNode[];
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  color: string;
+  createdDate: string;
+  manualDates: string[];
+}
+
+export type PolicyMode = "triggered" | "passive" | "daily" | "mechanism";
+
+export interface PolicyCard {
+  id: string;
+  name: string;
+  mode: PolicyMode;
+  createdDate: string;
+  deletedDate?: string | null;
+}
+
+export interface PolicyNode {
+  id: string;
+  cardId: string;
+  parentId: string | null;
+  createdDate: string;
 }
 
 export interface ProjectTimelineBranch {
