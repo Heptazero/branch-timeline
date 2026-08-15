@@ -38,6 +38,7 @@ export interface ProjectDetailOptions {
   onBack: () => void;
   onScale: (scale: number, anchor: ProjectScaleAnchor) => void;
   onMoveItem: (date: string, itemId: string, branchId: string | null) => void;
+  onItemNote: (entry: ProjectTimelineEntry) => void;
   onItemMenu: (entry: ProjectTimelineEntry, event: MouseEvent) => void;
   onBranchMenu: (branch: ProjectTimelineBranch, event: MouseEvent) => void;
   onBranchOffset: (branchId: string, offsetX: number) => void;
@@ -320,6 +321,8 @@ class ProjectDetailGestures {
       if (drag.kind === "item" && drag.moved) {
         const branchId = pickProjectBranch(drag.entry.abs, drag.x, this.options.branches, this.options.center, this.options.gap);
         this.options.onMoveItem(drag.entry.date, drag.entry.item.id, branchId);
+      } else if (drag.kind === "item") {
+        this.options.onItemNote(drag.entry);
       } else if (drag.kind === "branch" && drag.moved) {
         this.options.onBranchOffset(drag.branch.id, Math.round(drag.offset));
       } else if (drag.kind === "start" && drag.moved) {
@@ -392,6 +395,7 @@ class ProjectDetailGestures {
     const offset = clientY - rect.top;
     canvas.style.transformOrigin = `50% ${scroller.scrollTop + offset}px`;
     canvas.style.transform = `scaleY(${this.previewScale / scale})`;
+    canvas.style.setProperty("--btl-preview-inverse", String(scale / this.previewScale));
     applyProjectLod(canvas, this.previewScale);
     if (immediate) {
       this.commitScale(this.previewScale, clientY);
@@ -576,7 +580,7 @@ function renderEntries(
   for (const entry of entries) {
     const item = entry.item;
     const tag = item.tagId ? tags.find(candidate => candidate.id === item.tagId) : tags.find(candidate => candidate.name === item.tag);
-    const color = tag?.color || "var(--interactive-accent)";
+    const color = tag?.color || "var(--text-faint)";
     const card = canvas.createDiv({
       cls: `btl-project-item is-${item.kind}${item.milestone ? " is-milestone" : ""}`,
       attr: {

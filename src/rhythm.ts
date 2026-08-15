@@ -78,6 +78,19 @@ export function countdownLabel(schedule: RhythmSchedule, now: Date): string {
   return `${value.elapsed ? "+" : ""}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
+export function rhythmProgress(schedule: RhythmSchedule, now: Date): { minutes: number; mode: "elapsed" | "remaining" } {
+  const nowMinute = now.getHours() * 60 + now.getMinutes() + (now.getHours() < 2 ? 1440 : 0);
+  if (nowMinute < schedule.napEnd) {
+    return { minutes: Math.max(0, nowMinute - schedule.wake), mode: "elapsed" };
+  }
+  return { minutes: Math.max(0, schedule.sleepPrep - nowMinute), mode: "remaining" };
+}
+
+export function rhythmProgressLabel(schedule: RhythmSchedule, now: Date): string {
+  const value = rhythmProgress(schedule, now);
+  return `${String(Math.floor(value.minutes / 60)).padStart(2, "0")}:${String(value.minutes % 60).padStart(2, "0")}`;
+}
+
 function orderedSchedule(value: RhythmSchedule): RhythmSchedule {
   const wake = clamp(value.wake, 0, 24 * 60);
   const napStart = clamp(value.napStart, wake + 30, 24 * 60);

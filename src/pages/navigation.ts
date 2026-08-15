@@ -1,6 +1,6 @@
 import { dateKey, logicalToday } from "../vault/format";
-
-export type TimelinePage = "day" | "projects" | "habits" | "achievements" | "policy";
+import type { TimelinePage } from "../types";
+export type { TimelinePage } from "../types";
 
 const PAGES: ReadonlyArray<{ id: TimelinePage; label: string }> = [
   { id: "day", label: "今天" },
@@ -13,10 +13,13 @@ const PAGES: ReadonlyArray<{ id: TimelinePage; label: string }> = [
 export function renderPageNavigation(
   container: HTMLElement,
   activePage: TimelinePage,
-  onSelect: (page: TimelinePage) => void
+  onSelect: (page: TimelinePage) => void,
+  visiblePages: readonly TimelinePage[] = PAGES.map(page => page.id)
 ): void {
   const navigation = container.createDiv({ cls: "btl-page-nav" });
-  for (const page of PAGES) {
+  const visible = new Set(visiblePages);
+  visible.add("day");
+  for (const page of PAGES.filter(page => visible.has(page.id))) {
     const button = navigation.createEl("button", {
       text: page.label,
       cls: activePage === page.id ? "is-active" : ""

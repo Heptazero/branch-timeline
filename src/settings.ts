@@ -6,13 +6,26 @@ import { DEFAULT_RHYTHM, RHYTHM_KEYS, rhythmLabel } from "./rhythm";
 import { cloneDefaultTags, createTag } from "./tags";
 import type { BranchTimelineSettings } from "./types";
 
+const OPTIONAL_PAGES: ReadonlyArray<{ id: "projects" | "habits" | "achievements" | "policy"; label: string }> = [
+  { id: "projects", label: "项目" },
+  { id: "habits", label: "习惯" },
+  { id: "achievements", label: "成就" },
+  { id: "policy", label: "锚点" }
+];
+
 export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   statePath: "99_assets/branch-timeline/state.json",
   diaryFolder: "20_self/22-diary",
   projectFolder: "21_project",
   habits: ["早睡", "阅读", "对话训练", "写日记"],
   tags: cloneDefaultTags(),
-  rhythm: { ...DEFAULT_RHYTHM }
+  rhythm: { ...DEFAULT_RHYTHM },
+  rhythmElapsedMark: "↑",
+  rhythmRemainingMark: "↓",
+  visiblePages: ["day", "projects", "habits", "achievements", "policy"],
+  projectOrder: [],
+  pinnedProjects: [],
+  collapsedProjectGroups: []
 };
 
 export class BranchTimelineSettingTab extends PluginSettingTab {
@@ -45,6 +58,23 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
             key
           ));
         });
+    }
+    this.textSetting("经过标记", "午休结束前显示在计时左侧。", "rhythmElapsedMark");
+    this.textSetting("剩余标记", "午休结束后显示在计时左侧。", "rhythmRemainingMark");
+
+    new Setting(containerEl).setName("页面").setHeading();
+    for (const page of OPTIONAL_PAGES) {
+      new Setting(containerEl)
+        .setName(page.label)
+        .addToggle(toggle => toggle
+          .setValue(this.plugin.settings.visiblePages.includes(page.id))
+          .onChange(async visible => {
+            const pages = new Set(this.plugin.settings.visiblePages);
+            if (visible) pages.add(page.id);
+            else pages.delete(page.id);
+            this.plugin.settings.visiblePages = ["day", ...OPTIONAL_PAGES.map(item => item.id).filter(id => pages.has(id))];
+            await this.plugin.saveSettings();
+          }));
     }
 
     new Setting(containerEl)
@@ -85,7 +115,11 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     }
   }
 
-  private textSetting(name: string, description: string, key: "statePath" | "diaryFolder" | "projectFolder"): void {
+  private textSetting(
+    name: string,
+    description: string,
+    key: "statePath" | "diaryFolder" | "projectFolder" | "rhythmElapsedMark" | "rhythmRemainingMark"
+  ): void {
     new Setting(this.containerEl)
       .setName(name)
       .setDesc(description)

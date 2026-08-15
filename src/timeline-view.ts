@@ -1,5 +1,6 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import type BranchTimelinePlugin from "./main";
+import { openDateHeatmapPopover } from "./date-heatmap-popover";
 import { ChoiceTextModal, ConfirmModal, MinuteEntryModal, TextEntryModal, type ChoiceItem, type ChoiceTextResult } from "./modals";
 import { AchievementActions } from "./pages/achievement-actions";
 import { renderAchievementsPage } from "./pages/achievements";
@@ -16,7 +17,7 @@ import { absoluteMinute } from "./pages/project-model";
 import { renderProjectsPage } from "./pages/projects";
 import { policyPeriodAt, renderPolicyPage } from "./pages/policy";
 import { PolicyActions } from "./pages/policy-actions";
-import { countdownLabel, rhythmBounds, rhythmRealKey } from "./rhythm";
+import { rhythmBounds, rhythmProgress, rhythmProgressLabel, rhythmRealKey } from "./rhythm";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { TimelineGestures } from "./timeline/gestures";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, backfillItem as applyBackfill, clampMinute, minuteToY } from "./timeline/model";
@@ -100,6 +101,10 @@ export class BranchTimelineView extends ItemView {
     this.getProjectAnchor = null;
     this.projectActions = null;
     this.countdownButton = null;
+    if (!this.plugin.settings.visiblePages.includes(this.page)) {
+      this.page = "day";
+      this.selectedProjectPath = null;
+    }
 
     const root = this.contentEl;
     root.empty();
@@ -108,7 +113,7 @@ export class BranchTimelineView extends ItemView {
     const dateNav = toolbar.createDiv({ cls: "btl-date-nav" });
     this.iconButton(dateNav, "chevron-left", "前一天", () => this.shiftDate(-1));
     const dateButton = dateNav.createEl("button", { cls: "btl-date-button", text: this.dateTitle() });
-    dateButton.onclick = () => { this.followsToday = true; this.date = logicalToday(); void this.render(false); };
+    dateButton.onclick = () => void this.openDatePicker(dateButton);
     this.iconButton(dateNav, "chevron-right", "后一天", () => this.shiftDate(1));
     const add = this.iconButton(toolbar, "plus", "添加", event => this.openAddMenu(event));
     add.addClass("btl-add-button");
@@ -118,9 +123,9 @@ export class BranchTimelineView extends ItemView {
       this.page = page;
       if (page !== "projects") this.selectedProjectPath = null;
       void this.render(false);
-    });
+    }, this.plugin.settings.visiblePages);
     this.countdownButton = navigationRow.createEl("button", { cls: "btl-day-countdown", attr: { "aria-label": "设置节律" } });
-    this.countdownButton.createSpan({ text: "距睡眠准备" });
+    this.countdownButton.createSpan();
     this.countdownButton.createEl("strong");
     this.countdownButton.onclick = () => this.openRhythmSettings(this.countdownButton!);
     this.updateCountdown();
@@ -160,6 +165,7 @@ export class BranchTimelineView extends ItemView {
             onBack: () => { this.selectedProjectPath = null; this.projectAnchor = undefined; this.projectActions = null; void this.render(false); },
             onScale: (scale, nextAnchor) => { this.projectScale = clampProjectScale(scale); this.projectAnchor = nextAnchor; localStorage.setItem("branch-timeline-hz-project-scale", String(this.projectScale)); void this.render(false); },
             onMoveItem: (date, itemId, branchId) => void actions.moveItem(date, itemId, branchId),
+            onItemNote: entry => void actions.editNote(entry.date, entry.item),
             onItemMenu: (entry, event) => actions.openItemMenu(entry, event),
             onBranchMenu: (branch, event) => actions.openBranchMenu(branch, event),
             onBranchOffset: (branchId, offsetX) => void actions.updateBranch(branchId, branch => { branch.offsetX = offsetX; }),
@@ -177,10 +183,21 @@ export class BranchTimelineView extends ItemView {
           this.projectAnchor = undefined;
         } else {
           this.selectedProjectPath = null;
-          renderProjectsPage(pageContent, projects, path => {
-            this.selectedProjectPath = path;
-            this.projectAnchor = undefined;
-            void this.render(false);
+          renderProjectsPage({
+            container: pageContent,
+            projects,
+            state,
+            projectOrder: this.plugin.settings.projectOrder,
+            pinnedProjects: this.plugin.settings.pinnedProjects,
+            collapsedGroups: this.plugin.settings.collapsedProjectGroups,
+            openProject: path => {
+              this.selectedProjectPath = path;
+              this.projectAnchor = undefined;
+              void this.render(false);
+            },
+            onTogglePin: path => void this.toggleProjectPin(path),
+            onToggleGroup: label => void this.toggleProjectGroup(label),
+            onReorder: paths => void this.reorderProjects(paths)
           });
         }
       } else if (this.page === "habits") {
@@ -237,6 +254,7 @@ export class BranchTimelineView extends ItemView {
       onItemMove: (itemId, startMin, branchId) => void this.moveItem(itemId, startMin, branchId),
       onItemResize: (itemId, edge, minute) => void this.resizeItem(itemId, edge, minute),
       onItemComplete: itemId => void this.completeItem(itemId),
+      onItemNote: itemId => void this.editItemNote(itemId),
       onItemMenu: (itemId, event) => this.openItemMenu(itemId, event),
       onBranchOffset: (branchId, offsetX) => void this.updateBranch(branchId, branch => { branch.offsetX = offsetX; }),
       onBranchStart: (branchId, minute) => void this.updateBranch(branchId, branch => { branch.startMin = minute; }),
@@ -433,6 +451,17 @@ export class BranchTimelineView extends ItemView {
     });
   }
 
+  private async editItemNote(itemId: string): Promise<void> {
+    const item = this.day?.items.find(candidate => candidate.id === itemId);
+    if (!item) return;
+    const note = await this.text("备注", "写点什么", item.note || "");
+    if (note == null) return;
+    await this.updateDay(day => {
+      const target = day.items.find(candidate => candidate.id === itemId);
+      if (target) target.note = note.trim() || undefined;
+    });
+  }
+
   private async renameBranch(branch: TimelineBranch): Promise<void> {
     const value = await this.text("重命名分支", "分支名称", branch.name);
     if (value == null) return;
@@ -562,6 +591,7 @@ export class BranchTimelineView extends ItemView {
     if (canvas) {
       canvas.style.transformOrigin = `50% ${this.scroller.scrollTop + this.pendingScaleAnchor.offset}px`;
       canvas.style.transform = `scaleY(${next / this.scale})`;
+      canvas.style.setProperty("--btl-preview-inverse", String(this.scale / next));
       applyTimelineLod(canvas, next);
     }
     if (commit) await this.commitScale();
@@ -638,6 +668,15 @@ export class BranchTimelineView extends ItemView {
     return pageDateTitle(this.date, this.page);
   }
 
+  private async openDatePicker(anchor: HTMLElement): Promise<void> {
+    const state = await this.plugin.store.load();
+    openDateHeatmapPopover(anchor, this.date, state, date => {
+      this.date = date;
+      this.followsToday = dateKey(date) === dateKey(logicalToday());
+      void this.render(false);
+    });
+  }
+
   private nowOnAxis(day: TimelineDayState): number | undefined {
     if (dateKey(this.date) !== dateKey(logicalToday())) return undefined;
     const now = new Date();
@@ -653,9 +692,35 @@ export class BranchTimelineView extends ItemView {
   private updateCountdown(): void {
     const button = this.countdownButton;
     if (!button) return;
-    const value = countdownLabel(this.plugin.settings.rhythm, new Date());
-    button.querySelector("strong")?.setText(value);
-    button.toggleClass("is-elapsed", value.startsWith("+"));
+    const now = new Date();
+    const progress = rhythmProgress(this.plugin.settings.rhythm, now);
+    button.querySelector("span")?.setText(progress.mode === "elapsed"
+      ? this.plugin.settings.rhythmElapsedMark
+      : this.plugin.settings.rhythmRemainingMark);
+    button.querySelector("strong")?.setText(rhythmProgressLabel(this.plugin.settings.rhythm, now));
+    button.toggleClass("is-elapsed", progress.mode === "elapsed");
+  }
+
+  private async toggleProjectPin(path: string): Promise<void> {
+    const pinned = new Set(this.plugin.settings.pinnedProjects);
+    if (pinned.has(path)) pinned.delete(path);
+    else pinned.add(path);
+    this.plugin.settings.pinnedProjects = [...pinned];
+    await this.plugin.saveSettings();
+  }
+
+  private async toggleProjectGroup(label: string): Promise<void> {
+    const collapsed = new Set(this.plugin.settings.collapsedProjectGroups);
+    if (collapsed.has(label)) collapsed.delete(label);
+    else collapsed.add(label);
+    this.plugin.settings.collapsedProjectGroups = [...collapsed];
+    await this.plugin.saveSettings();
+  }
+
+  private async reorderProjects(paths: string[]): Promise<void> {
+    const moved = new Set(paths);
+    this.plugin.settings.projectOrder = [...this.plugin.settings.projectOrder.filter(path => !moved.has(path)), ...paths];
+    await this.plugin.saveSettings();
   }
 
   private openRhythmSettings(anchor: HTMLElement): void {

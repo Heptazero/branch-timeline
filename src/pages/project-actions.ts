@@ -101,6 +101,12 @@ export class ProjectTimelineActions {
     await this.options.refresh();
   }
 
+  async editNote(date: string, item: TimelineItem): Promise<void> {
+    const note = await this.options.text("备注", "写点什么", item.note || "");
+    if (note == null) return;
+    await this.updateItem(date, item.id, target => { target.note = note.trim() || undefined; });
+  }
+
   openItemMenu(entry: ProjectTimelineEntry, event: MouseEvent): void {
     const { date, item } = entry;
     showItemMenu(event, item, this.options.plugin.settings.tags, this.options.plugin.repository.listProjects(), {

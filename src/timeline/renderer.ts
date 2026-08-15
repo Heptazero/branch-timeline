@@ -39,7 +39,7 @@ export function applyTimelineLod(canvas: HTMLElement, scale: number): void {
   canvas.style.setProperty("--btl-todo-bottom", `${lerp(0, 16, detail)}px`);
   canvas.style.setProperty("--btl-item-gap", `${lerp(0, 7, detail)}px`);
   canvas.style.setProperty("--btl-head-height", `${lerp(7, 31, detail)}px`);
-  canvas.style.setProperty("--btl-title-size", `${lerp(8, 11, text)}px`);
+  canvas.style.setProperty("--btl-title-size", "11px");
   canvas.style.setProperty("--btl-detail-opacity", String(text));
   canvas.style.setProperty("--btl-compact-opacity", String(1 - text));
   canvas.style.setProperty("--btl-menu-opacity", String(Math.max(0.12, text)));
@@ -167,7 +167,7 @@ function renderItem(
   const x = layout.center + xOffset;
   const branch = item.branchId ? layout.branches.get(item.branchId)?.branch : undefined;
   const tag = item.tagId ? tags.find(candidate => candidate.id === item.tagId) : tags.find(candidate => candidate.name === item.tag);
-  const color = tag?.color || branch?.color || "var(--interactive-accent)";
+  const color = tag?.color || "var(--text-faint)";
   const card = canvas.createDiv({
     cls: `btl-canvas-item is-${item.kind}${timed ? " is-timed" : ""}${running ? " is-running" : ""}${!branch || branch.side < 0 ? " compact-left" : ""}`,
     attr: { "data-item-id": item.id }

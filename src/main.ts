@@ -21,14 +21,16 @@ export default class BranchTimelinePlugin extends Plugin {
     await this.store.ensure();
     this.registerView(BRANCH_TIMELINE_VIEW, leaf => new BranchTimelineView(leaf, this));
     this.addSettingTab(new BranchTimelineSettingTab(this.app, this));
-    this.addRibbonIcon("panel-right-open", "固定分支时间线到右侧", () => void this.openTimeline(true));
-    this.addCommand({ id: "open-timeline", name: "固定时间线到右侧", callback: () => void this.openTimeline(true) });
+    this.addRibbonIcon("panel-right-open", "固定分支时间线到右侧", () => void this.openTimelineRight(true));
+    this.addRibbonIcon("git-branch", "在中间打开分支时间线", () => void this.openTimelineCenter());
+    this.addCommand({ id: "open-timeline", name: "固定时间线到右侧", callback: () => void this.openTimelineRight(true) });
+    this.addCommand({ id: "open-timeline-center", name: "在中间打开时间线", callback: () => void this.openTimelineCenter() });
     this.addCommand({ id: "toggle-habit", name: "打卡习惯", callback: () => void this.toggleHabit(logicalToday()) });
     this.addCommand({ id: "record-project-work", name: "记录项目工时", callback: () => void this.recordProjectWork(logicalToday()) });
     this.addCommand({ id: "record-category-duration", name: "记录分类时长", callback: () => void this.recordCategoryDuration(logicalToday()) });
     this.addCommand({ id: "add-project-task", name: "添加项目待办", callback: () => void this.addProjectTask(logicalToday()) });
     this.app.workspace.onLayoutReady(() => {
-      if (Platform.isDesktopApp) void this.openTimeline(false);
+      if (Platform.isDesktopApp) void this.openTimelineRight(false);
     });
   }
 
@@ -46,7 +48,11 @@ export default class BranchTimelinePlugin extends Plugin {
       ...settings,
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
       tags: loadTags(saved?.tags, tagMap),
-      rhythm: normalizeRhythmSchedule(saved?.rhythm, dayStartMinute, dayEndMinute)
+      rhythm: normalizeRhythmSchedule(saved?.rhythm, dayStartMinute, dayEndMinute),
+      visiblePages: Array.isArray(saved?.visiblePages) ? ["day", ...saved.visiblePages.filter(page => page !== "day")] : DEFAULT_SETTINGS.visiblePages,
+      projectOrder: Array.isArray(saved?.projectOrder) ? saved.projectOrder : [],
+      pinnedProjects: Array.isArray(saved?.pinnedProjects) ? saved.pinnedProjects : [],
+      collapsedProjectGroups: Array.isArray(saved?.collapsedProjectGroups) ? saved.collapsedProjectGroups : []
     };
   }
 
@@ -57,7 +63,7 @@ export default class BranchTimelinePlugin extends Plugin {
     await this.refreshViews();
   }
 
-  async openTimeline(focus = true): Promise<void> {
+  async openTimelineRight(focus = true): Promise<void> {
     if (Platform.isDesktopApp) {
       const leaf = await this.app.workspace.ensureSideLeaf(BRANCH_TIMELINE_VIEW, "right", {
         active: focus,
@@ -74,6 +80,12 @@ export default class BranchTimelinePlugin extends Plugin {
       await leaf.setViewState({ type: BRANCH_TIMELINE_VIEW, active: true });
     }
     if (focus) this.app.workspace.revealLeaf(leaf);
+  }
+
+  async openTimelineCenter(): Promise<void> {
+    const leaf = this.app.workspace.getLeaf("tab");
+    await leaf.setViewState({ type: BRANCH_TIMELINE_VIEW, active: true });
+    this.app.workspace.revealLeaf(leaf);
   }
 
   async toggleHabit(date: Date): Promise<void> {

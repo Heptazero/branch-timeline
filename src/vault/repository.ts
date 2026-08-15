@@ -23,7 +23,12 @@ export class VaultRepository {
     return this.app.vault.getMarkdownFiles().filter(file => file.path.startsWith(prefix)).flatMap(file => {
       const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
       if (frontmatter?.type !== "project") return [];
-      return [{ path: file.path, name: file.basename, status: String(frontmatter.status || "") }];
+      return [{
+        path: file.path,
+        name: file.basename,
+        status: String(frontmatter.status || ""),
+        color: typeof frontmatter.color === "string" ? frontmatter.color : undefined
+      }];
     }).sort((a, b) => {
       const rank = (status: string) => status === "active" ? 0 : status === "todo" ? 1 : 2;
       return rank(a.status) - rank(b.status) || a.name.localeCompare(b.name, "zh-CN");

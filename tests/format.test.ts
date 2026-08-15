@@ -14,7 +14,7 @@ import {
   setProjectTaskDone
 } from "../src/vault/format";
 import { loadTags, tagCategoryKey } from "../src/tags";
-import { countdownLabel, normalizeRhythmSchedule, normalizeTimelineDay } from "../src/rhythm";
+import { countdownLabel, normalizeRhythmSchedule, normalizeTimelineDay, rhythmProgress, rhythmProgressLabel } from "../src/rhythm";
 import { pageDateTitle, shiftPageDate, startOfWeek } from "../src/pages/navigation";
 import { policyPeriodAt } from "../src/pages/policy";
 import {
@@ -144,6 +144,14 @@ test("migrates the legacy single nap marker and counts down to sleep preparation
   const rhythm = normalizeRhythmSchedule(undefined, 420, 1560);
   assert.equal(countdownLabel(rhythm, new Date(2026, 7, 13, 23, 0)), "02:00");
   assert.equal(countdownLabel(rhythm, new Date(2026, 7, 14, 1, 15)), "+00:15");
+});
+
+test("shows elapsed time from wake before nap end and remaining time afterwards", () => {
+  const rhythm = normalizeRhythmSchedule();
+  assert.deepEqual(rhythmProgress(rhythm, new Date(2026, 7, 13, 10, 0)), { minutes: 180, mode: "elapsed" });
+  assert.equal(rhythmProgressLabel(rhythm, new Date(2026, 7, 13, 10, 0)), "03:00");
+  assert.deepEqual(rhythmProgress(rhythm, new Date(2026, 7, 13, 15, 0)), { minutes: 600, mode: "remaining" });
+  assert.equal(rhythmProgressLabel(rhythm, new Date(2026, 7, 13, 15, 0)), "10:00");
 });
 
 test("builds a multi-day project timeline without changing item dates", () => {

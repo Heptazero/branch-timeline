@@ -5,7 +5,15 @@ export interface BranchTimelineSettings {
   habits: string[];
   tags: TimelineTag[];
   rhythm: RhythmSchedule;
+  rhythmElapsedMark: string;
+  rhythmRemainingMark: string;
+  visiblePages: TimelinePage[];
+  projectOrder: string[];
+  pinnedProjects: string[];
+  collapsedProjectGroups: string[];
 }
+
+export type TimelinePage = "day" | "projects" | "habits" | "achievements" | "policy";
 
 export type RhythmKey = "wake" | "napStart" | "napEnd" | "sleepPrep" | "sleep";
 
@@ -127,6 +135,7 @@ export interface ProjectRef {
   path: string;
   name: string;
   status: string;
+  color?: string;
 }
 
 export interface DiaryDaySnapshot {

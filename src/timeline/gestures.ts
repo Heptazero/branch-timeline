@@ -22,6 +22,7 @@ export interface TimelineGestureCallbacks {
   onItemMove: (itemId: string, startMin: number, branchId: string | null) => void;
   onItemResize: (itemId: string, edge: "start" | "end", minute: number) => void;
   onItemComplete: (itemId: string) => void;
+  onItemNote: (itemId: string) => void;
   onItemMenu: (itemId: string, event: MouseEvent) => void;
   onBranchOffset: (branchId: string, offsetX: number) => void;
   onBranchStart: (branchId: string, minute: number) => void;
@@ -253,6 +254,7 @@ export class TimelineGestures {
     if (drag && drag.pointerId === event.pointerId) {
       if (drag.kind === "item") {
         if (drag.moved) this.callbacks.onItemMove(drag.item.id, snapMinute(drag.minute), pickBranch(this.layout, drag.minute, drag.xOffset));
+        else this.callbacks.onItemNote(drag.item.id);
       } else if (drag.kind === "span" && drag.moved) {
         this.callbacks.onItemResize(drag.item.id, drag.edge, snapMinute(drag.minute));
       } else if (drag.kind === "branch-grip" && drag.moved) {
