@@ -11,7 +11,8 @@ import {
   logicalToday,
   parseDiaryDay,
   setHabitInDiary,
-  setProjectTaskDone
+  setProjectTaskDone,
+  upsertProjectNote
 } from "../src/vault/format";
 import { loadTags, tagCategoryKey } from "../src/tags";
 import { countdownLabel, normalizeRhythmSchedule, normalizeTimelineDay, rhythmProgress, rhythmProgressLabel } from "../src/rhythm";
@@ -82,6 +83,18 @@ test("groups project work below the MMDD log line", () => {
   const source = "---\ntype: project\n---\n\n## log\n- 0812\n\t- old\n";
   const next = appendProjectLog(source, "0813", "14:20", 0.5, "实验");
   assert.match(next, /- 0813\n\t- \[14:20\] \[\+0.5\] 实验/);
+  const ordered = appendProjectLog("## log\n- 0814\n\t- [12:00] [+1] 中午\n- 0812\n", "0813", "09:00", 0.5, "早上");
+  assert.match(ordered, /- 0812\n- 0813\n\t- \[09:00\] \[\+0.5\] 早上\n- 0814/);
+});
+
+test("inserts and updates project notes in date and time order", () => {
+  let source = "## log\n- 0710\n\t- 09:00 后一天\n- 0708\n\t- 08:00 前一天\n";
+  source = upsertProjectNote(source, "0709", "12:00", "", "中午");
+  source = upsertProjectNote(source, "0709", "07:00", "", "早上");
+  assert.match(source, /- 0709\n\t- 07:00 早上\n\t- 12:00 中午\n- 0710/);
+  source = upsertProjectNote(source, "0709", "07:00", "早上", "更新");
+  assert.doesNotMatch(source, /07:00 早上/);
+  assert.match(source, /\t- 07:00 更新/);
 });
 
 test("uses a stable block id to complete project tasks", () => {
@@ -160,6 +173,8 @@ test("builds a multi-day project timeline without changing item dates", () => {
     achievements: [],
     policyCards: [],
     policyNodes: [],
+    policySides: [{ id: "policy-side-routine", name: "作息", mode: "dayparts" }],
+    policyEvents: [],
     projects: {
       "21_project/test.md": {
         branches: [{ id: "branch", name: "实验", startAbs: absoluteMinute("2026-08-12", 480), endAbs: absoluteMinute("2026-08-14", 600), side: 1, color: "#000000" }]

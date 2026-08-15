@@ -1,6 +1,7 @@
 import { App, normalizePath } from "obsidian";
 import { normalizeTimelineDay } from "../rhythm";
 import type { BranchTimelineState, PolicyNode, PolicyPeriod, RhythmSchedule, TimelineDayState } from "../types";
+import type { UndoAction } from "../undo-manager";
 
 const EMPTY_STATE: BranchTimelineState = {
   version: 1,
@@ -8,15 +9,19 @@ const EMPTY_STATE: BranchTimelineState = {
   projects: {},
   achievements: [],
   policyCards: [],
-  policyNodes: []
+  policyNodes: [],
+  policySides: [{ id: "policy-side-routine", name: "作息", mode: "dayparts" }],
+  policyEvents: []
 };
 
 export class StateStore {
   private queue: Promise<void> = Promise.resolve();
+  private recordUndo: ((action: UndoAction) => void) | null = null;
 
   constructor(private app: App, private path: string) {}
 
   setPath(path: string): void { this.path = path; }
+  setUndoRecorder(record: (action: UndoAction) => void): void { this.recordUndo = record; }
 
   async load(): Promise<BranchTimelineState> {
     const path = normalizePath(this.path);
@@ -30,10 +35,16 @@ export class StateStore {
           : {},
         projects: parsed.projects && typeof parsed.projects === "object" ? parsed.projects : {},
         achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
-        policyCards: Array.isArray(parsed.policyCards) ? parsed.policyCards : [],
+        policySides: Array.isArray(parsed.policySides) && parsed.policySides.length
+          ? parsed.policySides
+          : [{ id: "policy-side-routine", name: "作息", mode: "dayparts" }],
+        policyCards: Array.isArray(parsed.policyCards)
+          ? parsed.policyCards.map(card => ({ ...card, sideId: card.sideId || "policy-side-routine" }))
+          : [],
         policyNodes: Array.isArray(parsed.policyNodes)
           ? parsed.policyNodes.map(node => normalizePolicyNode(node))
-          : []
+          : [],
+        policyEvents: Array.isArray(parsed.policyEvents) ? parsed.policyEvents : []
       };
     } catch {
       return structuredClone(EMPTY_STATE);
@@ -44,8 +55,10 @@ export class StateStore {
     let result = structuredClone(EMPTY_STATE);
     this.queue = this.queue.then(async () => {
       result = await this.load();
+      const before = structuredClone(result);
       mutator(result);
       await this.write(result);
+      this.recordUndo?.(() => this.write(before));
     });
     await this.queue;
     return result;

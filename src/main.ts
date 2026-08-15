@@ -8,16 +8,20 @@ import type { BranchTimelineSettings, ProjectRef } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { VaultRepository } from "./vault/repository";
 import { StateStore, defaultDay } from "./vault/state-store";
+import { UndoManager } from "./undo-manager";
 
 export default class BranchTimelinePlugin extends Plugin {
   settings: BranchTimelineSettings = DEFAULT_SETTINGS;
   store!: StateStore;
   repository!: VaultRepository;
+  readonly undoManager = new UndoManager();
 
   async onload(): Promise<void> {
     await this.loadSettings();
     this.store = new StateStore(this.app, this.settings.statePath);
     this.repository = new VaultRepository(this.app, this.settings);
+    this.store.setUndoRecorder(action => this.undoManager.record(action));
+    this.repository.setUndoRecorder(action => this.undoManager.record(action));
     await this.store.ensure();
     this.registerView(BRANCH_TIMELINE_VIEW, leaf => new BranchTimelineView(leaf, this));
     this.addSettingTab(new BranchTimelineSettingTab(this.app, this));
@@ -49,17 +53,34 @@ export default class BranchTimelinePlugin extends Plugin {
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
       tags: loadTags(saved?.tags, tagMap),
       rhythm: normalizeRhythmSchedule(saved?.rhythm, dayStartMinute, dayEndMinute),
+      rhythmLabels: { ...DEFAULT_SETTINGS.rhythmLabels, ...(saved?.rhythmLabels || {}) },
       visiblePages: Array.isArray(saved?.visiblePages) ? ["day", ...saved.visiblePages.filter(page => page !== "day")] : DEFAULT_SETTINGS.visiblePages,
       projectOrder: Array.isArray(saved?.projectOrder) ? saved.projectOrder : [],
       pinnedProjects: Array.isArray(saved?.pinnedProjects) ? saved.pinnedProjects : [],
-      collapsedProjectGroups: Array.isArray(saved?.collapsedProjectGroups) ? saved.collapsedProjectGroups : []
+      collapsedProjectGroups: Array.isArray(saved?.collapsedProjectGroups) ? saved.collapsedProjectGroups : [],
+      policySceneWidths: saved?.policySceneWidths && typeof saved.policySceneWidths === "object" ? saved.policySceneWidths : {},
+      habitCardOrder: Array.isArray(saved?.habitCardOrder) ? saved.habitCardOrder : DEFAULT_SETTINGS.habitCardOrder
     };
   }
 
   async saveSettings(): Promise<void> {
+    const before = await this.loadData();
     await this.saveData(this.settings);
+    this.undoManager.record(async () => {
+      await this.saveData(before);
+      await this.loadSettings();
+      this.store.setPath(this.settings.statePath);
+      this.repository.updateSettings(this.settings);
+    });
     this.store?.setPath(this.settings.statePath);
     this.repository?.updateSettings(this.settings);
+    await this.refreshViews();
+  }
+
+  async undoLast(): Promise<void> {
+    if (!(await this.undoManager.undo())) return;
+    this.store.setPath(this.settings.statePath);
+    this.repository.updateSettings(this.settings);
     await this.refreshViews();
   }
 

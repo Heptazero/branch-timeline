@@ -1,5 +1,6 @@
 import { App, TFile, normalizePath } from "obsidian";
 import type { BranchTimelineSettings, DiaryDaySnapshot, ProjectRef } from "../types";
+import type { UndoAction } from "../undo-manager";
 import {
   appendCategoryDuration,
   appendProjectLog,
@@ -10,13 +11,16 @@ import {
   diaryHeading,
   parseDiaryDay,
   setHabitInDiary,
-  setProjectTaskDone
+  setProjectTaskDone,
+  upsertProjectNote
 } from "./format";
 
 export class VaultRepository {
+  private recordUndo: ((action: UndoAction) => void) | null = null;
   constructor(private app: App, private settings: BranchTimelineSettings) {}
 
   updateSettings(settings: BranchTimelineSettings): void { this.settings = settings; }
+  setUndoRecorder(record: (action: UndoAction) => void): void { this.recordUndo = record; }
 
   listProjects(): ProjectRef[] {
     const prefix = `${normalizePath(this.settings.projectFolder).replace(/\/$/, "")}/`;
@@ -43,12 +47,12 @@ export class VaultRepository {
 
   async setHabit(date: Date, habit: string, done: boolean): Promise<void> {
     const file = await this.ensureDiaryFile(date);
-    await this.app.vault.process(file, content => setHabitInDiary(content, diaryHeading(date), habit, done));
+    await this.process(file, content => setHabitInDiary(content, diaryHeading(date), habit, done));
   }
 
   async addCategoryDuration(date: Date, category: string, minutes: number): Promise<void> {
     const file = await this.ensureDiaryFile(date);
-    await this.app.vault.process(file, content =>
+    await this.process(file, content =>
       appendCategoryDuration(content, diaryHeading(date), category, minutes / 60)
     );
   }
@@ -57,17 +61,33 @@ export class VaultRepository {
     const file = this.projectFile(projectPath);
     const mmdd = `${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
     const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
-    await this.app.vault.process(file, content => appendProjectLog(content, mmdd, time, minutes / 60, note));
+    await this.process(file, content => appendProjectLog(content, mmdd, time, minutes / 60, note));
+  }
+
+  async syncProjectNote(
+    projectPath: string,
+    date: Date | string,
+    minute: number,
+    previousNote: string,
+    nextNote: string
+  ): Promise<void> {
+    const file = this.projectFile(projectPath);
+    const mmdd = typeof date === "string"
+      ? `${date.slice(5, 7)}${date.slice(8, 10)}`
+      : `${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+    const normalized = ((minute % 1440) + 1440) % 1440;
+    const time = `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+    await this.process(file, content => upsertProjectNote(content, mmdd, time, previousNote, nextNote));
   }
 
   async addProjectTask(projectPath: string, title: string, id: string): Promise<void> {
     const file = this.projectFile(projectPath);
-    await this.app.vault.process(file, content => appendProjectTask(content, title, id));
+    await this.process(file, content => appendProjectTask(content, title, id));
   }
 
   async setProjectTaskDone(projectPath: string, id: string, done: boolean): Promise<void> {
     const file = this.projectFile(projectPath);
-    await this.app.vault.process(file, content => setProjectTaskDone(content, id, done));
+    await this.process(file, content => setProjectTaskDone(content, id, done));
   }
 
   async createProject(name: string, status: string, date: Date): Promise<ProjectRef> {
@@ -78,7 +98,7 @@ export class VaultRepository {
     const basename = /^\d{4}_/.test(safeName) ? safeName : `${mmdd}_${safeName}`;
     const path = normalizePath(`${folder}/${basename}.md`);
     if (this.app.vault.getAbstractFileByPath(path)) throw new Error("已有同名项目");
-    await this.app.vault.create(path, [
+    const created = await this.app.vault.create(path, [
       "---",
       "type: project",
       `status: ${status}`,
@@ -90,7 +110,11 @@ export class VaultRepository {
       "## log",
       ""
     ].join("\n"));
-    return { path, name: basename, status };
+    this.recordUndo?.(async () => {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (file instanceof TFile) await this.app.vault.trash(file, true);
+    });
+    return { path: created.path, name: basename, status };
   }
 
   private projectFile(path: string): TFile {
@@ -105,6 +129,20 @@ export class VaultRepository {
     if (existing instanceof TFile) return existing;
     const folder = path.split("/").slice(0, -1).join("/");
     if (folder && !(await this.app.vault.adapter.exists(folder))) await this.app.vault.createFolder(folder);
-    return this.app.vault.create(path, createWeekSkeleton(date, this.settings.habits));
+    const created = await this.app.vault.create(path, createWeekSkeleton(date, this.settings.habits));
+    this.recordUndo?.(async () => {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (file instanceof TFile) await this.app.vault.trash(file, true);
+    });
+    return created;
+  }
+
+  private async process(file: TFile, transform: (content: string) => string): Promise<void> {
+    const before = await this.app.vault.read(file);
+    await this.app.vault.process(file, transform);
+    this.recordUndo?.(async () => {
+      const current = this.app.vault.getAbstractFileByPath(file.path);
+      if (current instanceof TFile) await this.app.vault.modify(current, before);
+    });
   }
 }

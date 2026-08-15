@@ -128,20 +128,121 @@ export function appendProjectLog(
   note: string
 ): string {
   const { lines, range } = ensureNamedSection(content, "log");
+  sortProjectLogDateBlocks(lines, range.headingLine + 1, range.endLine);
   let dateLine = -1;
+  let sectionEnd = range.endLine;
   for (let index = range.headingLine + 1; index < range.endLine; index += 1) {
-    if (lines[index].trim() === `- ${mmdd}` && !/^\s/.test(lines[index])) { dateLine = index; break; }
+    const match = lines[index].match(/^-\s+(\d{4})\s*$/);
+    if (!match) continue;
+    if (match[1] === mmdd) { dateLine = index; break; }
+    if (dateLine < 0 && match[1].localeCompare(mmdd) > 0) {
+      dateLine = index;
+      lines.splice(index, 0, `- ${mmdd}`);
+      sectionEnd += 1;
+      break;
+    }
   }
   if (dateLine < 0) {
-    dateLine = range.endLine;
+    dateLine = sectionEnd;
     lines.splice(dateLine, 0, `- ${mmdd}`);
+    sectionEnd += 1;
   }
-  let insertAt = dateLine + 1;
-  while (insertAt < lines.length && (/^\s+/.test(lines[insertAt]) || lines[insertAt].trim() === "")) insertAt += 1;
+  let blockEnd = dateLine + 1;
+  while (blockEnd < sectionEnd && !/^-\s+\d{4}\s*$/.test(lines[blockEnd])) blockEnd += 1;
+  let insertAt = blockEnd;
+  for (let index = dateLine + 1; index < blockEnd; index += 1) {
+    const match = lines[index].trim().match(/^-\s+\[?(\d{2}:\d{2})\]?/);
+    if (match && match[1].localeCompare(time) > 0) { insertAt = index; break; }
+  }
+  while (insertAt > dateLine + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
   const value = Number(hours.toFixed(2));
   const suffix = note.trim() ? ` ${note.trim()}` : "";
   lines.splice(insertAt, 0, `\t- [${time}] [+${value}]${suffix}`);
+  sortProjectLogEntries(lines, dateLine, blockEnd + 1);
   return lines.join("\n");
+}
+
+export function upsertProjectNote(
+  content: string,
+  mmdd: string,
+  time: string,
+  previousNote: string,
+  nextNote: string
+): string {
+  const { lines, range } = ensureNamedSection(content, "log");
+  sortProjectLogDateBlocks(lines, range.headingLine + 1, range.endLine);
+  let sectionEnd = range.endLine;
+  let dateLine = -1;
+  for (let index = range.headingLine + 1; index < sectionEnd; index += 1) {
+    const match = lines[index].match(/^-\s+(\d{4})\s*$/);
+    if (!match) continue;
+    if (match[1] === mmdd) { dateLine = index; break; }
+    if (dateLine < 0 && match[1].localeCompare(mmdd) > 0) {
+      dateLine = index;
+      lines.splice(dateLine, 0, `- ${mmdd}`);
+      sectionEnd += 1;
+      break;
+    }
+  }
+  if (dateLine < 0) {
+    dateLine = sectionEnd;
+    lines.splice(dateLine, 0, `- ${mmdd}`);
+    sectionEnd += 1;
+  }
+
+  let blockEnd = dateLine + 1;
+  while (blockEnd < sectionEnd && !/^-\s+\d{4}\s*$/.test(lines[blockEnd])) blockEnd += 1;
+  const old = previousNote.trim();
+  if (old) {
+    const expected = `${time} ${old}`;
+    for (let index = dateLine + 1; index < blockEnd; index += 1) {
+      const body = lines[index].trim().replace(/^-\s*/, "");
+      if (body !== expected) continue;
+      lines.splice(index, 1);
+      blockEnd -= 1;
+      sectionEnd -= 1;
+      break;
+    }
+  }
+
+  const note = nextNote.trim();
+  if (!note) return lines.join("\n");
+  let insertAt = blockEnd;
+  for (let index = dateLine + 1; index < blockEnd; index += 1) {
+    const match = lines[index].trim().match(/^-\s+\[?(\d{2}:\d{2})\]?/);
+    if (match && match[1].localeCompare(time) > 0) { insertAt = index; break; }
+  }
+  while (insertAt > dateLine + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
+  lines.splice(insertAt, 0, `\t- ${time} ${note}`);
+  sortProjectLogEntries(lines, dateLine, blockEnd + 1);
+  return lines.join("\n");
+}
+
+function sortProjectLogDateBlocks(lines: string[], start: number, end: number): void {
+  const starts: number[] = [];
+  for (let index = start; index < end; index += 1) if (/^-\s+\d{4}\s*$/.test(lines[index])) starts.push(index);
+  if (starts.length < 2) return;
+  const prefix = lines.slice(start, starts[0]);
+  const blocks = starts.map((line, index) => {
+    const block = lines.slice(line, starts[index + 1] ?? end);
+    while (block.length > 1 && !block[block.length - 1].trim()) block.pop();
+    return block;
+  });
+  blocks.sort((a, b) => a[0].localeCompare(b[0]));
+  lines.splice(start, end - start, ...prefix, ...blocks.flat());
+}
+
+function sortProjectLogEntries(lines: string[], dateLine: number, blockEnd: number): void {
+  const entries = lines.slice(dateLine + 1, blockEnd);
+  entries.sort((a, b) => {
+    const at = a.trim().match(/^-\s+\[?(\d{2}:\d{2})\]?/)?.[1];
+    const bt = b.trim().match(/^-\s+\[?(\d{2}:\d{2})\]?/)?.[1];
+    if (at && bt) return at.localeCompare(bt);
+    if (at) return -1;
+    if (bt) return 1;
+    return 0;
+  });
+  lines.splice(dateLine + 1, blockEnd - dateLine - 1, ...entries);
 }
 
 export function appendProjectTask(content: string, title: string, id: string): string {

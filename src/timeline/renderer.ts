@@ -21,6 +21,7 @@ export interface TimelineRenderOptions {
   scale: number;
   width: number;
   nowMinute?: number;
+  rhythmLabels?: Partial<Record<RhythmKey, string>>;
 }
 
 export interface TimelineRenderResult {
@@ -61,7 +62,7 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
 
   renderTicks(canvas, day, scale);
   renderNow(canvas, day, scale, nowMinute);
-  renderRhythm(canvas, day, scale);
+  renderRhythm(canvas, day, scale, options.rhythmLabels);
   renderBranches(canvas, svg, day, layout);
 
   const orderedItems = [...day.items].sort((a, b) => itemDuration(b, day.wake, nowMinute) - itemDuration(a, day.wake, nowMinute));
@@ -91,14 +92,14 @@ function renderNow(canvas: HTMLElement, day: TimelineDayState, scale: number, no
   dot.style.top = `${top}px`;
 }
 
-function renderRhythm(canvas: HTMLElement, day: TimelineDayState, scale: number): void {
+function renderRhythm(canvas: HTMLElement, day: TimelineDayState, scale: number, labels?: Partial<Record<RhythmKey, string>>): void {
   for (const key of RHYTHM_KEYS) {
     const minute = day[key];
     const real = !!day[rhythmRealKey(key as RhythmKey)];
     const element = canvas.createDiv({ cls: "btl-rhythm-marker", attr: { "data-rhythm-key": key } });
     element.style.top = `${minuteToY(day, scale, minute)}px`;
     element.createSpan({ cls: `btl-rhythm-dot${real ? " is-real" : ""}` });
-    element.createSpan({ text: `${rhythmLabel(key)} ${formatTime(minute)}` });
+    element.createSpan({ text: `${rhythmLabel(key, labels)} ${formatTime(minute)}` });
   }
 }
 

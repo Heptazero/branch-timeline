@@ -13,7 +13,8 @@ export function openRhythmSchedulePopover(
   anchor: HTMLElement,
   initial: RhythmSchedule,
   onChange: (schedule: RhythmSchedule) => void | Promise<void>,
-  initialKey?: RhythmKey
+  initialKey?: RhythmKey,
+  labels?: Partial<Record<RhythmKey, string>>
 ): void {
   closeCurrent?.();
   let schedule = { ...initial };
@@ -54,7 +55,7 @@ export function openRhythmSchedulePopover(
     closeButton.onclick = close;
     for (const key of RHYTHM_KEYS) {
       const row = panel.createEl("button", { cls: "btl-rhythm-row", attr: { type: "button" } });
-      row.createSpan({ text: rhythmLabel(key) });
+      row.createSpan({ text: rhythmLabel(key, labels) });
       row.createEl("strong", { text: timeLabel(schedule[key]) });
       row.onclick = () => renderWheel(key);
     }
@@ -67,7 +68,7 @@ export function openRhythmSchedulePopover(
     const back = head.createEl("button", { attr: { "aria-label": "返回" } });
     setIcon(back, "chevron-left");
     back.onclick = initialKey ? close : renderList;
-    head.createEl("strong", { text: rhythmLabel(key) });
+    head.createEl("strong", { text: rhythmLabel(key, labels) });
     const current = head.createEl("span", { text: timeLabel(schedule[key]) });
 
     const [lower, upper] = rhythmBounds(schedule, key);

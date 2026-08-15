@@ -1,6 +1,7 @@
 import { Menu, setIcon } from "obsidian";
 import { itemDuration } from "../timeline/model";
 import type { BranchTimelineState, ProjectRef } from "../types";
+import { installLongPressSort } from "../interactions/long-press-sort";
 
 interface ProjectGroup {
   label: string;
@@ -108,60 +109,11 @@ function renderProjectSection(
       if (event.key === "Enter" || event.key === " ") options.openProject(project.path);
     };
   }
-  installLongPressSorting(grid, options.onReorder);
-}
-
-function installLongPressSorting(grid: HTMLElement, onReorder: (paths: string[]) => void): void {
-  let timer: number | null = null;
-  let active: HTMLElement | null = null;
-  let pointerId = -1;
-  let x0 = 0;
-  let y0 = 0;
-  const clear = () => {
-    if (timer != null) window.clearTimeout(timer);
-    timer = null;
-  };
-  grid.onpointerdown = event => {
-    const card = (event.target as HTMLElement).closest<HTMLElement>(".btl-project-card");
-    if (!card || (event.target as HTMLElement).closest("button")) return;
-    clear();
-    pointerId = event.pointerId;
-    x0 = event.clientX;
-    y0 = event.clientY;
-    timer = window.setTimeout(() => {
-      active = card;
-      active.dataset.suppressClick = "true";
-      active.addClass("is-sorting");
-      grid.addClass("is-sorting");
-      active.setPointerCapture(pointerId);
-    }, 420);
-  };
-  grid.onpointermove = event => {
-    if (!active) {
-      if (Math.hypot(event.clientX - x0, event.clientY - y0) > 8) clear();
-      return;
-    }
-    event.preventDefault();
-    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>(".btl-project-card");
-    if (!target || target === active || target.parentElement !== grid) return;
-    const rect = target.getBoundingClientRect();
-    const before = event.clientY < rect.top + rect.height / 2
-      || (Math.abs(event.clientY - (rect.top + rect.height / 2)) < rect.height / 3 && event.clientX < rect.left + rect.width / 2);
-    grid.insertBefore(active, before ? target : target.nextSibling);
-  };
-  const finish = () => {
-    clear();
-    if (!active) return;
-    active.removeClass("is-sorting");
-    grid.removeClass("is-sorting");
-    const moved = active;
-    active = null;
-    onReorder([...grid.querySelectorAll<HTMLElement>(".btl-project-card")].map(card => card.dataset.projectPath!).filter(Boolean));
-    window.setTimeout(() => { delete moved.dataset.suppressClick; }, 0);
-  };
-  grid.onpointerup = finish;
-  grid.onpointercancel = finish;
-  grid.onpointerleave = () => { if (!active) clear(); };
+  installLongPressSort(grid, {
+    itemSelector: ".btl-project-card",
+    idAttribute: "data-project-path",
+    onOrder: options.onReorder
+  });
 }
 
 function projectMinutes(state: BranchTimelineState, path: string): number {

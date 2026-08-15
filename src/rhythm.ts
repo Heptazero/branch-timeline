@@ -10,7 +10,8 @@ export const DEFAULT_RHYTHM: RhythmSchedule = {
 
 export const RHYTHM_KEYS: readonly RhythmKey[] = ["wake", "napStart", "napEnd", "sleepPrep", "sleep"];
 
-export function rhythmLabel(key: RhythmKey): string {
+export function rhythmLabel(key: RhythmKey, labels?: Partial<Record<RhythmKey, string>>): string {
+  if (labels?.[key]) return labels[key]!;
   if (key === "wake") return "起床";
   if (key === "napStart") return "午休开始";
   if (key === "napEnd") return "午休结束";

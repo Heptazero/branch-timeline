@@ -54,6 +54,8 @@ export class BranchTimelineView extends ItemView {
   private countdownButton: HTMLButtonElement | null = null;
   private achievementActions: AchievementActions;
   private policyActions: PolicyActions;
+  private policySideId = localStorage.getItem("branch-timeline-hz-policy-side") || "policy-side-routine";
+  private policyPeriod = policyPeriodAt(new Date());
 
   constructor(leaf: WorkspaceLeaf, private plugin: BranchTimelinePlugin) {
     super(leaf);
@@ -110,6 +112,9 @@ export class BranchTimelineView extends ItemView {
     root.empty();
     root.addClass("branch-timeline-hz");
     const toolbar = root.createDiv({ cls: "btl-toolbar" });
+    const undo = this.iconButton(toolbar, "undo-2", "撤回", () => void this.plugin.undoLast());
+    undo.addClass("btl-undo-button");
+    undo.disabled = !this.plugin.undoManager.canUndo;
     const dateNav = toolbar.createDiv({ cls: "btl-date-nav" });
     this.iconButton(dateNav, "chevron-left", "前一天", () => this.shiftDate(-1));
     const dateButton = dateNav.createEl("button", { cls: "btl-date-button", text: this.dateTitle() });
@@ -205,11 +210,18 @@ export class BranchTimelineView extends ItemView {
           container: pageContent,
           date: this.date,
           habits: this.plugin.settings.habits,
+          tags: this.plugin.settings.tags,
+          state,
+          cardOrder: this.plugin.settings.habitCardOrder,
           readDay: date => this.plugin.repository.readDiaryDay(date),
           setHabit: (date, habit, done) => this.plugin.repository.setHabit(date, habit, done),
+          togglePolicyHabit: (cardId, date) => this.policyActions.toggleHabitOn(cardId, date),
           isCurrent: () => requestId === this.renderId,
           refresh: () => this.render(false),
-          onAdd: () => void this.addHabit()
+          onAdd: () => void this.addHabit(),
+          onReorderHabits: names => void this.reorderHabits(names),
+          onReorderCards: ids => void this.reorderHabitCards(ids),
+          onEditTags: () => this.openPluginSettings()
         });
       }
       else if (this.page === "achievements") {
@@ -222,16 +234,33 @@ export class BranchTimelineView extends ItemView {
           onMenu: (achievement, event) => this.achievementActions.openMenu(achievement, event)
         });
       } else {
-        const currentPeriod = policyPeriodAt(new Date());
+        const activeSide = state.policySides.find(side => side.id === this.policySideId) || state.policySides[0];
+        this.policySideId = activeSide?.id || "policy-side-routine";
         renderPolicyPage({
           container: pageContent,
           cards: state.policyCards,
           nodes: state.policyNodes,
-          currentPeriod,
-          onAddRoot: period => void this.policyActions.add(true, null, period),
-          onAddHand: () => void this.policyActions.add(false, null, currentPeriod),
-          onAddChild: (parentId, period) => void this.policyActions.add(true, parentId, period),
-          onDeploy: (cardId, period) => void this.policyActions.deploy(cardId, null, period),
+          sides: state.policySides,
+          events: state.policyEvents,
+          date: key,
+          activeSideId: this.policySideId,
+          activePeriod: this.policyPeriod,
+          sceneWidths: this.plugin.settings.policySceneWidths,
+          onSelectSide: sideId => {
+            this.policySideId = sideId;
+            localStorage.setItem("branch-timeline-hz-policy-side", sideId);
+            void this.render(false);
+          },
+          onSelectPeriod: period => { this.policyPeriod = period; void this.render(false); },
+          onAddSide: () => void this.policyActions.addSide(),
+          onSideMenu: (side, event) => this.openPolicySideMenu(side, event),
+          onSceneWidth: (sideId, width) => void this.setPolicySceneWidth(sideId, width),
+          onAddRoot: (period, sideId) => void this.policyActions.add(true, null, period, sideId),
+          onAddHand: sideId => void this.policyActions.add(false, null, this.policyPeriod, sideId),
+          onAddChild: (parentId, period, sideId) => void this.policyActions.add(true, parentId, period, sideId),
+          onDeploy: (cardId, parentId, period, sideId) => void this.policyActions.deployTo(cardId, parentId, period, sideId),
+          onMoveNode: (nodeId, parentId, period, sideId) => void this.policyActions.moveNode(nodeId, parentId, period, sideId),
+          onToggleNode: (node, card) => void this.policyActions.toggleSettlement(node, card),
           onNodeMenu: (node, card, event) => this.policyActions.openNodeMenu(node, card, event),
           onCardMenu: (card, event) => this.policyActions.openCardMenu(card, event)
         });
@@ -248,7 +277,8 @@ export class BranchTimelineView extends ItemView {
       tags: this.plugin.settings.tags,
       scale: this.scale,
       width,
-      nowMinute
+      nowMinute,
+      rhythmLabels: this.plugin.settings.rhythmLabels
     });
     this.gestures = new TimelineGestures(scroller, rendered.canvas, day, rendered.layout, {
       onItemMove: (itemId, startMin, branchId) => void this.moveItem(itemId, startMin, branchId),
@@ -456,6 +486,15 @@ export class BranchTimelineView extends ItemView {
     if (!item) return;
     const note = await this.text("备注", "写点什么", item.note || "");
     if (note == null) return;
+    if (item.projectPath) {
+      try {
+        const minute = item.startMin ?? item.startedMin ?? item.plannedMin ?? item.endMin ?? this.day?.wake ?? 0;
+        await this.plugin.repository.syncProjectNote(item.projectPath, this.date, minute, item.note || "", note);
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : "项目备注同步失败");
+        return;
+      }
+    }
     await this.updateDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
       if (target) target.note = note.trim() || undefined;
@@ -641,9 +680,8 @@ export class BranchTimelineView extends ItemView {
       return;
     }
     if (this.page === "policy") {
-      const period = policyPeriodAt(new Date());
-      menu.addItem(item => item.setTitle("添加根锚点").setIcon("circle-plus").onClick(() => void this.policyActions.add(true, null, period)));
-      menu.addItem(item => item.setTitle("加入手牌").setIcon("layers").onClick(() => void this.policyActions.add(false, null, period)));
+      menu.addItem(item => item.setTitle("添加根锚点").setIcon("circle-plus").onClick(() => void this.policyActions.add(true, null, this.policyPeriod, this.policySideId)));
+      menu.addItem(item => item.setTitle("加入手牌").setIcon("layers").onClick(() => void this.policyActions.add(false, null, this.policyPeriod, this.policySideId)));
       menu.showAtMouseEvent(event);
       return;
     }
@@ -723,11 +761,42 @@ export class BranchTimelineView extends ItemView {
     await this.plugin.saveSettings();
   }
 
+  private async reorderHabits(names: string[]): Promise<void> {
+    const moved = new Set(names);
+    this.plugin.settings.habits = [...names, ...this.plugin.settings.habits.filter(name => !moved.has(name))];
+    await this.plugin.saveSettings();
+  }
+
+  private async reorderHabitCards(ids: string[]): Promise<void> {
+    this.plugin.settings.habitCardOrder = ids;
+    await this.plugin.saveSettings();
+  }
+
+  private openPluginSettings(): void {
+    const settings = (this.app as unknown as { setting: { open: () => void; openTabById: (id: string) => void } }).setting;
+    settings.open();
+    settings.openTabById(this.plugin.manifest.id);
+  }
+
+  private openPolicySideMenu(side: import("./types").PolicySide, event: MouseEvent): void {
+    const menu = new Menu();
+    menu.addItem(item => item.setTitle("重命名").setIcon("pencil").onClick(() => void this.policyActions.renameSide(side)));
+    menu.addItem(item => item.setTitle(side.mode === "dayparts" ? "改为普通场景" : "启用时段").setIcon("columns-3").onClick(() => void this.policyActions.toggleSideMode(side)));
+    menu.addSeparator();
+    menu.addItem(item => item.setTitle("删除场景").setIcon("trash-2").setWarning(true).onClick(() => void this.policyActions.deleteSide(side)));
+    menu.showAtMouseEvent(event);
+  }
+
+  private async setPolicySceneWidth(sideId: string, width: number): Promise<void> {
+    this.plugin.settings.policySceneWidths = { ...this.plugin.settings.policySceneWidths, [sideId]: width };
+    await this.plugin.saveSettings();
+  }
+
   private openRhythmSettings(anchor: HTMLElement): void {
     openRhythmSchedulePopover(anchor, this.plugin.settings.rhythm, async next => {
       this.plugin.settings.rhythm = next;
       await this.plugin.saveSettings();
-    });
+    }, undefined, this.plugin.settings.rhythmLabels);
   }
 
   private text(title: string, placeholder: string, value = ""): Promise<string | null> {

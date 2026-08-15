@@ -104,6 +104,15 @@ export class ProjectTimelineActions {
   async editNote(date: string, item: TimelineItem): Promise<void> {
     const note = await this.options.text("备注", "写点什么", item.note || "");
     if (note == null) return;
+    try {
+      const state = await this.options.plugin.store.load();
+      const day = state.days[date];
+      const minute = item.startMin ?? item.startedMin ?? item.plannedMin ?? item.endMin ?? day?.wake ?? 0;
+      await this.options.plugin.repository.syncProjectNote(this.options.projectPath, date, minute, item.note || "", note);
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : "项目备注同步失败");
+      return;
+    }
     await this.updateItem(date, item.id, target => { target.note = note.trim() || undefined; });
   }
 

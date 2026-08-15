@@ -20,12 +20,15 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   habits: ["早睡", "阅读", "对话训练", "写日记"],
   tags: cloneDefaultTags(),
   rhythm: { ...DEFAULT_RHYTHM },
+  rhythmLabels: { wake: "起床", napStart: "午休开始", napEnd: "午休结束", sleepPrep: "睡眠准备", sleep: "入睡" },
   rhythmElapsedMark: "↑",
   rhythmRemainingMark: "↓",
   visiblePages: ["day", "projects", "habits", "achievements", "policy"],
   projectOrder: [],
   pinnedProjects: [],
-  collapsedProjectGroups: []
+  collapsedProjectGroups: [],
+  policySceneWidths: {},
+  habitCardOrder: ["week", "month", "sleep", "tags"]
 };
 
 export class BranchTimelineSettingTab extends PluginSettingTab {
@@ -43,7 +46,14 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("节律").setHeading();
     for (const key of RHYTHM_KEYS) {
       new Setting(containerEl)
-        .setName(rhythmLabel(key))
+        .setName(rhythmLabel(key, this.plugin.settings.rhythmLabels))
+        .addText(text => text
+          .setValue(this.plugin.settings.rhythmLabels[key])
+          .setPlaceholder(rhythmLabel(key))
+          .onChange(async value => {
+            this.plugin.settings.rhythmLabels = { ...this.plugin.settings.rhythmLabels, [key]: value.trim() || rhythmLabel(key) };
+            await this.plugin.saveSettings();
+          }))
         .addButton(button => {
           const refresh = () => button.setButtonText(this.timeLabel(this.plugin.settings.rhythm[key]));
           refresh();
@@ -55,7 +65,8 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
               refresh();
               await this.plugin.saveSettings();
             },
-            key
+            key,
+            this.plugin.settings.rhythmLabels
           ));
         });
     }

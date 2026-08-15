@@ -5,12 +5,15 @@ export interface BranchTimelineSettings {
   habits: string[];
   tags: TimelineTag[];
   rhythm: RhythmSchedule;
+  rhythmLabels: Record<RhythmKey, string>;
   rhythmElapsedMark: string;
   rhythmRemainingMark: string;
   visiblePages: TimelinePage[];
   projectOrder: string[];
   pinnedProjects: string[];
   collapsedProjectGroups: string[];
+  policySceneWidths: Record<string, number>;
+  habitCardOrder: string[];
 }
 
 export type TimelinePage = "day" | "projects" | "habits" | "achievements" | "policy";
@@ -87,6 +90,8 @@ export interface BranchTimelineState {
   achievements: Achievement[];
   policyCards: PolicyCard[];
   policyNodes: PolicyNode[];
+  policySides: PolicySide[];
+  policyEvents: PolicyEvent[];
 }
 
 export interface Achievement {
@@ -106,6 +111,8 @@ export interface PolicyCard {
   mode: PolicyMode;
   createdDate: string;
   deletedDate?: string | null;
+  sideId?: string;
+  habit?: boolean;
 }
 
 export interface PolicyNode {
@@ -114,6 +121,20 @@ export interface PolicyNode {
   parentId: string | null;
   period: PolicyPeriod;
   createdDate: string;
+}
+
+export interface PolicySide {
+  id: string;
+  name: string;
+  mode: "plain" | "dayparts";
+}
+
+export interface PolicyEvent {
+  id: string;
+  cardId: string;
+  nodeId: string;
+  date: string;
+  result: "success" | "violation" | "used";
 }
 
 export interface ProjectTimelineBranch {
