@@ -3,26 +3,38 @@ import { itemDuration } from "./timeline/model";
 import type { BranchTimelineState } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 
+let activeCleanup: (() => void) | null = null;
+
 export function openDateHeatmapPopover(
   anchor: HTMLElement,
   selectedDate: Date,
   state: BranchTimelineState,
   onSelect: (date: Date) => void
 ): void {
+  activeCleanup?.();
   document.querySelectorAll(".btl-date-popover").forEach(element => element.remove());
   let month = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
   const popover = document.body.createDiv({ cls: "btl-date-popover" });
+  popover.setAttrs({ role: "dialog", "aria-label": "选择日期" });
+  let placeFrame = 0;
+  const visualViewport = window.visualViewport;
+  const schedulePlace = () => {
+    window.cancelAnimationFrame(placeFrame);
+    placeFrame = window.requestAnimationFrame(() => placePopover(popover, anchor));
+  };
   const render = () => {
     popover.empty();
     const head = popover.createDiv({ cls: "btl-date-popover-head" });
     iconButton(head, "chevron-left", "上个月", () => {
       month = new Date(month.getFullYear(), month.getMonth() - 1, 1);
       render();
+      schedulePlace();
     });
     head.createEl("strong", { text: `${month.getFullYear()}年${month.getMonth() + 1}月` });
     iconButton(head, "chevron-right", "下个月", () => {
       month = new Date(month.getFullYear(), month.getMonth() + 1, 1);
       render();
+      schedulePlace();
     });
 
     const grid = popover.createDiv({ cls: "btl-date-grid" });
@@ -52,17 +64,26 @@ export function openDateHeatmapPopover(
   };
 
   const cleanup = () => {
+    window.cancelAnimationFrame(placeFrame);
     popover.remove();
     document.removeEventListener("pointerdown", outside, true);
     document.removeEventListener("keydown", escape, true);
+    window.removeEventListener("resize", schedulePlace);
+    visualViewport?.removeEventListener("resize", schedulePlace);
+    visualViewport?.removeEventListener("scroll", schedulePlace);
+    if (activeCleanup === cleanup) activeCleanup = null;
   };
   const outside = (event: Event) => {
     const target = event.target as Node;
     if (!popover.contains(target) && !anchor.contains(target)) cleanup();
   };
   const escape = (event: KeyboardEvent) => { if (event.key === "Escape") cleanup(); };
+  activeCleanup = cleanup;
   render();
-  placePopover(popover, anchor);
+  schedulePlace();
+  window.addEventListener("resize", schedulePlace);
+  visualViewport?.addEventListener("resize", schedulePlace);
+  visualViewport?.addEventListener("scroll", schedulePlace);
   window.setTimeout(() => {
     document.addEventListener("pointerdown", outside, true);
     document.addEventListener("keydown", escape, true);
@@ -88,11 +109,28 @@ function iconButton(container: HTMLElement, icon: string, label: string, onClick
 
 function placePopover(popover: HTMLElement, anchor: HTMLElement): void {
   const rect = anchor.getBoundingClientRect();
-  const width = Math.min(286, window.innerWidth - 16);
+  const viewport = window.visualViewport;
+  const viewportLeft = viewport?.offsetLeft ?? 0;
+  const viewportTop = viewport?.offsetTop ?? 0;
+  const viewportWidth = viewport?.width ?? document.documentElement.clientWidth;
+  const viewportHeight = viewport?.height ?? document.documentElement.clientHeight;
+  const inset = 8;
+  const gap = 6;
+  const width = Math.min(296, Math.max(0, viewportWidth - inset * 2));
   popover.style.width = `${width}px`;
-  const left = Math.max(8, Math.min(window.innerWidth - width - 8, rect.left + rect.width / 2 - width / 2));
+  popover.style.maxHeight = `${Math.max(0, viewportHeight - inset * 2)}px`;
+  const leftEdge = viewportLeft + inset;
+  const rightEdge = viewportLeft + viewportWidth - inset;
+  const left = Math.max(leftEdge, Math.min(rightEdge - width, rect.left + rect.width / 2 - width / 2));
   popover.style.left = `${left}px`;
   const height = popover.getBoundingClientRect().height;
-  const below = rect.bottom + 6;
-  popover.style.top = `${below + height <= window.innerHeight - 8 ? below : Math.max(8, rect.top - height - 6)}px`;
+  const topEdge = viewportTop + inset;
+  const bottomEdge = viewportTop + viewportHeight - inset;
+  const below = rect.bottom + gap;
+  const above = rect.top - gap - height;
+  const spaceBelow = bottomEdge - below;
+  const spaceAbove = rect.top - gap - topEdge;
+  const preferred = height <= spaceBelow || spaceBelow >= spaceAbove ? below : above;
+  const top = Math.max(topEdge, Math.min(bottomEdge - height, preferred));
+  popover.style.top = `${top}px`;
 }
