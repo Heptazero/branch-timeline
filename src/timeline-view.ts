@@ -1,7 +1,17 @@
 import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import type BranchTimelinePlugin from "./main";
 import { openDateHeatmapPopover } from "./date-heatmap-popover";
-import { ChoiceTextModal, ConfirmModal, MinuteEntryModal, TextEntryModal, type ChoiceItem, type ChoiceTextResult } from "./modals";
+import {
+  ChoiceTextModal,
+  ConfirmModal,
+  MinuteEntryModal,
+  TextareaEntryModal,
+  TextEntryModal,
+  TimelineItemDraftModal,
+  type ChoiceItem,
+  type ChoiceTextResult,
+  type TimelineItemDraftResult
+} from "./modals";
 import { AchievementActions } from "./pages/achievement-actions";
 import { renderAchievementsPage } from "./pages/achievements";
 import { renderHabitsPage } from "./pages/habits";
@@ -23,7 +33,7 @@ import { TimelineGestures } from "./timeline/gestures";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, backfillItem as applyBackfill, clampMinute, minuteToY } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
 import { applyTimelineLod, renderTimeline } from "./timeline/renderer";
-import type { RhythmKey, TimelineBranch, TimelineDayState, TimelineItem } from "./types";
+import type { ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineItem } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
 
@@ -156,7 +166,8 @@ export class BranchTimelineView extends ItemView {
             getAnchor: () => this.getProjectAnchor?.(),
             setAnchor: anchorValue => { this.projectAnchor = anchorValue; },
             refresh: () => this.render(false),
-            text: (title, placeholder, value) => this.text(title, placeholder, value)
+            text: (title, placeholder, value) => this.text(title, placeholder, value),
+            note: (title, placeholder, value) => this.note(title, placeholder, value)
           });
           this.projectActions = actions;
           const detail = renderProjectDetail({
@@ -484,7 +495,7 @@ export class BranchTimelineView extends ItemView {
   private async editItemNote(itemId: string): Promise<void> {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
     if (!item) return;
-    const note = await this.text("备注", "写点什么", item.note || "");
+    const note = await this.note("备注", "写点什么", item.note || "");
     if (note == null) return;
     if (item.projectPath) {
       try {
@@ -555,10 +566,32 @@ export class BranchTimelineView extends ItemView {
   }
 
   private async addTimelineTodo(minute: number, branchId: string | null): Promise<void> {
-    const title = await this.text("添加代办", "代办内容");
-    if (!title) return;
+    const projects = this.plugin.repository.listProjects().filter(project =>
+      ["active", "doing", "进行中"].includes(project.status.trim().toLowerCase())
+    );
+    const draft = await this.timelineItemDraft(projects);
+    if (!draft) return;
+    const tag = draft.tagId ? this.plugin.settings.tags.find(candidate => candidate.id === draft.tagId) : undefined;
+    if (draft.projectPath && draft.note) {
+      try {
+        await this.plugin.repository.syncProjectNote(draft.projectPath, this.date, minute, "", draft.note);
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : "项目备注同步失败");
+        return;
+      }
+    }
     await this.updateDay(day => {
-      day.items.push({ id: this.uid("todo"), title, kind: "todo", plannedMin: minute, branchId });
+      day.items.push({
+        id: this.uid("todo"),
+        title: draft.title,
+        kind: "todo",
+        plannedMin: minute,
+        branchId,
+        projectPath: draft.projectPath || undefined,
+        tagId: tag?.id,
+        tag: tag?.name,
+        note: draft.note || undefined
+      });
     });
   }
 
@@ -808,6 +841,20 @@ export class BranchTimelineView extends ItemView {
       modal.onClose = () => { close(); finish(null); };
       modal.open();
     });
+  }
+
+  private note(title: string, placeholder: string, value = ""): Promise<string | null> {
+    return new Promise(resolve => new TextareaEntryModal(this.app, title, placeholder, resolve, value).open());
+  }
+
+  private timelineItemDraft(projects: readonly ProjectRef[]): Promise<TimelineItemDraftResult | null> {
+    return new Promise(resolve => new TimelineItemDraftModal(
+      this.app,
+      projects,
+      this.plugin.settings.tags,
+      this.plugin.settings.requireItemMetadata,
+      resolve
+    ).open());
   }
 
   private choiceText(

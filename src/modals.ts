@@ -1,5 +1,5 @@
-import { App, FuzzySuggestModal, Modal, Setting } from "obsidian";
-import type { ProjectRef } from "./types";
+import { App, FuzzySuggestModal, Menu, Modal } from "obsidian";
+import type { ProjectRef, TimelineTag } from "./types";
 
 export class ProjectSuggestModal extends FuzzySuggestModal<ProjectRef> {
   constructor(app: App, private projects: ProjectRef[], private resolve: (project: ProjectRef | null) => void) {
@@ -52,6 +52,180 @@ export class TextEntryModal extends Modal {
     if (!value) return;
     this.resolve(value);
     this.resolve = () => undefined;
+    this.close();
+  }
+}
+
+export class TextareaEntryModal extends Modal {
+  private value: string;
+  private resolved = false;
+
+  constructor(app: App, private title: string, private placeholder: string, private resolve: (value: string | null) => void, value = "") {
+    super(app);
+    this.value = value;
+  }
+
+  onOpen(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("btl-modal");
+    this.contentEl.createEl("h3", { text: this.title });
+    const input = this.contentEl.createEl("textarea", {
+      cls: "btl-textarea",
+      text: this.value,
+      attr: { placeholder: this.placeholder, rows: "5" }
+    });
+    input.value = this.value;
+    input.oninput = () => { this.value = input.value; };
+    input.onkeydown = event => {
+      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) this.submit();
+    };
+    const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
+    actions.createEl("button", { text: "取消" }).onclick = () => this.close();
+    actions.createEl("button", { text: "保存", cls: "mod-cta" }).onclick = () => this.submit();
+    window.setTimeout(() => input.focus(), 30);
+  }
+
+  onClose(): void {
+    if (!this.resolved) this.resolve(null);
+    this.contentEl.empty();
+  }
+
+  private submit(): void {
+    this.resolved = true;
+    this.resolve(this.value.trim());
+    this.close();
+  }
+}
+
+export interface TimelineItemDraftResult {
+  title: string;
+  note: string;
+  projectPath: string | null;
+  tagId: string | null;
+}
+
+export class TimelineItemDraftModal extends Modal {
+  private titleValue = "";
+  private noteValue = "";
+  private projectPath: string | null = null;
+  private tagId: string | null = null;
+  private resolved = false;
+  private projectButton!: HTMLButtonElement;
+  private tagButton!: HTMLButtonElement;
+  private submitButton!: HTMLButtonElement;
+
+  constructor(
+    app: App,
+    private projects: readonly ProjectRef[],
+    private tags: readonly TimelineTag[],
+    private requireMetadata: boolean,
+    private resolve: (value: TimelineItemDraftResult | null) => void
+  ) { super(app); }
+
+  onOpen(): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("btl-modal");
+    this.contentEl.addClass("btl-item-compose");
+    this.contentEl.createEl("h3", { text: "添加代办" });
+    const title = this.contentEl.createEl("input", {
+      cls: "btl-text-input",
+      attr: { placeholder: "代办内容", "aria-label": "代办内容" }
+    });
+    title.oninput = () => { this.titleValue = title.value; this.refreshSubmit(); };
+    title.onkeydown = event => { if (event.key === "Enter") this.submit(); };
+    const note = this.contentEl.createEl("textarea", {
+      cls: "btl-textarea btl-item-compose-note",
+      attr: { placeholder: "备注（可选）", rows: "4", "aria-label": "备注" }
+    });
+    note.oninput = () => { this.noteValue = note.value; };
+
+    const selectors = this.contentEl.createDiv({ cls: "btl-item-compose-selectors" });
+    this.projectButton = selectors.createEl("button", { attr: { type: "button" } });
+    this.projectButton.onclick = event => this.openProjectMenu(event);
+    this.tagButton = selectors.createEl("button", { attr: { type: "button" } });
+    this.tagButton.onclick = event => this.openTagMenu(event);
+    this.refreshSelectors();
+
+    const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
+    actions.createEl("button", { text: "取消" }).onclick = () => this.close();
+    this.submitButton = actions.createEl("button", { text: "添加", cls: "mod-cta" });
+    this.submitButton.onclick = () => this.submit();
+    this.refreshSubmit();
+    window.setTimeout(() => title.focus(), 30);
+  }
+
+  onClose(): void {
+    if (!this.resolved) this.resolve(null);
+    this.contentEl.empty();
+  }
+
+  private openProjectMenu(event: MouseEvent): void {
+    const menu = new Menu();
+    if (!this.requireMetadata) {
+      menu.addItem(item => item.setTitle("无项目").setChecked(!this.projectPath).onClick(() => {
+        this.projectPath = null;
+        this.refreshSelectors();
+        this.refreshSubmit();
+      }));
+      menu.addSeparator();
+    }
+    if (!this.projects.length) menu.addItem(item => item.setTitle("没有进行中的项目").setDisabled(true));
+    for (const project of this.projects) {
+      menu.addItem(item => item.setTitle(project.name).setChecked(this.projectPath === project.path).onClick(() => {
+        this.projectPath = project.path;
+        this.refreshSelectors();
+        this.refreshSubmit();
+      }));
+    }
+    menu.showAtMouseEvent(event);
+  }
+
+  private openTagMenu(event: MouseEvent): void {
+    const menu = new Menu();
+    if (!this.requireMetadata) {
+      menu.addItem(item => item.setTitle("无标签").setChecked(!this.tagId).onClick(() => {
+        this.tagId = null;
+        this.refreshSelectors();
+        this.refreshSubmit();
+      }));
+      menu.addSeparator();
+    }
+    if (!this.tags.length) menu.addItem(item => item.setTitle("没有标签").setDisabled(true));
+    for (const tag of this.tags) {
+      menu.addItem(item => item.setTitle(tag.name).setChecked(this.tagId === tag.id).onClick(() => {
+        this.tagId = tag.id;
+        this.refreshSelectors();
+        this.refreshSubmit();
+      }));
+    }
+    menu.showAtMouseEvent(event);
+  }
+
+  private refreshSelectors(): void {
+    const project = this.projects.find(item => item.path === this.projectPath);
+    const tag = this.tags.find(item => item.id === this.tagId);
+    this.projectButton.setText(project ? `@${project.name}` : "选择项目");
+    this.tagButton.setText(tag ? `#${tag.name}` : "选择标签");
+    this.projectButton.toggleClass("is-selected", !!project);
+    this.tagButton.toggleClass("is-selected", !!tag);
+    this.projectButton.style.setProperty("--btl-choice-color", project?.color || "var(--interactive-accent)");
+    this.tagButton.style.setProperty("--btl-choice-color", tag?.color || "var(--interactive-accent)");
+  }
+
+  private refreshSubmit(): void {
+    if (!this.submitButton) return;
+    this.submitButton.disabled = !this.titleValue.trim() || (this.requireMetadata && (!this.projectPath || !this.tagId));
+  }
+
+  private submit(): void {
+    if (!this.titleValue.trim() || (this.requireMetadata && (!this.projectPath || !this.tagId))) return;
+    this.resolved = true;
+    this.resolve({
+      title: this.titleValue.trim(),
+      note: this.noteValue.trim(),
+      projectPath: this.projectPath,
+      tagId: this.tagId
+    });
     this.close();
   }
 }
@@ -218,7 +392,11 @@ export class DurationModal extends Modal {
         if (closest) closest.click();
       }, 80));
     }, { passive: true });
-    new Setting(this.contentEl).setName("备注").addText(text => text.onChange(next => { this.note = next; }));
+    const note = this.contentEl.createEl("textarea", {
+      cls: "btl-textarea btl-duration-note",
+      attr: { placeholder: "备注（可选）", rows: "3", "aria-label": "备注" }
+    });
+    note.oninput = () => { this.note = note.value; };
     const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
     actions.createEl("button", { text: "取消" }).onclick = () => this.close();
     actions.createEl("button", { text: "记录", cls: "mod-cta" }).onclick = () => {

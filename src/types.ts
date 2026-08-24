@@ -2,6 +2,7 @@ export interface BranchTimelineSettings {
   statePath: string;
   diaryFolder: string;
   projectFolder: string;
+  requireItemMetadata: boolean;
   habits: string[];
   tags: TimelineTag[];
   rhythm: RhythmSchedule;

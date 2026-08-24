@@ -19,6 +19,7 @@ export interface ProjectActionsOptions {
   setAnchor: (anchor: ProjectScaleAnchor | undefined) => void;
   refresh: () => Promise<void>;
   text: (title: string, placeholder: string, value?: string) => Promise<string | null>;
+  note: (title: string, placeholder: string, value?: string) => Promise<string | null>;
 }
 
 export class ProjectTimelineActions {
@@ -102,7 +103,7 @@ export class ProjectTimelineActions {
   }
 
   async editNote(date: string, item: TimelineItem): Promise<void> {
-    const note = await this.options.text("备注", "写点什么", item.note || "");
+    const note = await this.options.note("备注", "写点什么", item.note || "");
     if (note == null) return;
     try {
       const state = await this.options.plugin.store.load();

@@ -1,7 +1,7 @@
 {
   "id": "branch-timeline-hz",
   "name": "Branch Timeline",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "minAppVersion": "1.7.2",
   "description": "把日记、项目工时、习惯与分支时间线连接起来。",
   "author": "Hzero",

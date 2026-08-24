@@ -168,6 +168,7 @@ function renderItem(
   const x = layout.center + xOffset;
   const branch = item.branchId ? layout.branches.get(item.branchId)?.branch : undefined;
   const tag = item.tagId ? tags.find(candidate => candidate.id === item.tagId) : tags.find(candidate => candidate.name === item.tag);
+  const project = projectName(item.projectPath);
   const color = tag?.color || "var(--text-faint)";
   const card = canvas.createDiv({
     cls: `btl-canvas-item is-${item.kind}${timed ? " is-timed" : ""}${running ? " is-running" : ""}${!branch || branch.side < 0 ? " compact-left" : ""}`,
@@ -182,7 +183,7 @@ function renderItem(
     card.style.top = `${startY}px`;
     card.style.height = `${Math.max(32, endY - startY)}px`;
     if (endY - startY >= 72) card.addClass("has-room");
-    if (endY - startY >= 108 && item.note) card.addClass("has-note-room");
+    if (endY - startY >= (project ? 82 : 70) && item.note) card.addClass("has-note-room");
   } else {
     card.style.top = `${minuteToY(day, layout.scale, item.kind === "fact" ? end : start)}px`;
   }
@@ -197,8 +198,7 @@ function renderItem(
   head.createEl("button", { cls: "btl-item-menu", text: "⋮", attr: { "aria-label": "事项菜单" } });
 
   if (timed) {
-    const body = card.createDiv({ cls: "btl-canvas-item-body" });
-    const project = projectName(item.projectPath);
+    const body = card.createDiv({ cls: `btl-canvas-item-body${project ? " has-project" : ""}` });
     if (project) body.createDiv({ cls: "btl-canvas-item-project", text: `@${project}` });
     if (item.note) body.createDiv({ cls: "btl-canvas-item-note", text: item.note });
     if (tag?.name || item.tag) body.createDiv({ cls: "btl-canvas-item-tag", text: `#${tag?.name || item.tag}` });
@@ -211,7 +211,6 @@ function renderItem(
   if (!timed) {
     const compact = card.createDiv({ cls: "btl-canvas-item-compact" });
     compact.createSpan({ text: item.title });
-    const project = projectName(item.projectPath);
     if (project) compact.createSpan({ cls: "btl-canvas-item-project", text: `@${project}` });
   }
 

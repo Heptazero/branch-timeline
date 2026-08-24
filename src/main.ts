@@ -50,6 +50,7 @@ export default class BranchTimelinePlugin extends Plugin {
     this.settings = {
       ...DEFAULT_SETTINGS,
       ...settings,
+      requireItemMetadata: saved?.requireItemMetadata === true,
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
       tags: loadTags(saved?.tags, tagMap),
       rhythm: normalizeRhythmSchedule(saved?.rhythm, dayStartMinute, dayEndMinute),
