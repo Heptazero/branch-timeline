@@ -45,8 +45,9 @@ export default class BranchTimelinePlugin extends Plugin {
       tagMap?: Record<string, string>;
       dayStartMinute?: number;
       dayEndMinute?: number;
+      requireItemMetadata?: boolean;
     }) | null;
-    const { tagMap, dayStartMinute, dayEndMinute, ...settings } = saved || {};
+    const { tagMap, dayStartMinute, dayEndMinute, requireItemMetadata, ...settings } = saved || {};
     this.settings = {
       ...DEFAULT_SETTINGS,
       ...settings,
@@ -56,7 +57,7 @@ export default class BranchTimelinePlugin extends Plugin {
           .map(item => ({ type: item.type.trim(), color: item.color }))
         : DEFAULT_SETTINGS.projectTypes.map(item => ({ ...item })),
       showProjectLogHeatmap: saved?.showProjectLogHeatmap !== false,
-      requireItemMetadata: saved?.requireItemMetadata === true,
+      itemMetadataRequirement: this.metadataRequirement(saved),
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
       tags: loadTags(saved?.tags, tagMap),
       rhythm: normalizeRhythmSchedule(saved?.rhythm, dayStartMinute, dayEndMinute),
@@ -68,6 +69,12 @@ export default class BranchTimelinePlugin extends Plugin {
       policySceneWidths: saved?.policySceneWidths && typeof saved.policySceneWidths === "object" ? saved.policySceneWidths : {},
       habitCardOrder: Array.isArray(saved?.habitCardOrder) ? saved.habitCardOrder : DEFAULT_SETTINGS.habitCardOrder
     };
+  }
+
+  private metadataRequirement(saved: (Partial<BranchTimelineSettings> & { requireItemMetadata?: boolean }) | null): BranchTimelineSettings["itemMetadataRequirement"] {
+    const requirement = saved?.itemMetadataRequirement;
+    if (requirement === "none" || requirement === "project" || requirement === "tag" || requirement === "both") return requirement;
+    return saved?.requireItemMetadata === true ? "both" : "none";
   }
 
   async saveSettings(): Promise<void> {

@@ -4,7 +4,7 @@ export interface BranchTimelineSettings {
   projectFolder: string;
   projectTypes: ProjectTypeConfig[];
   showProjectLogHeatmap: boolean;
-  requireItemMetadata: boolean;
+  itemMetadataRequirement: ItemMetadataRequirement;
   habits: string[];
   tags: TimelineTag[];
   rhythm: RhythmSchedule;
@@ -18,6 +18,8 @@ export interface BranchTimelineSettings {
   policySceneWidths: Record<string, number>;
   habitCardOrder: string[];
 }
+
+export type ItemMetadataRequirement = "none" | "project" | "tag" | "both";
 
 export type TimelinePage = "day" | "projects" | "habits" | "achievements" | "policy";
 

@@ -1,5 +1,5 @@
 import { App, FuzzySuggestModal, Menu, Modal } from "obsidian";
-import type { ProjectRef, TimelineTag } from "./types";
+import type { ItemMetadataRequirement, ProjectRef, TimelineTag } from "./types";
 
 export class ProjectSuggestModal extends FuzzySuggestModal<ProjectRef> {
   constructor(app: App, private projects: ProjectRef[], private resolve: (project: ProjectRef | null) => void) {
@@ -118,7 +118,7 @@ export class TimelineItemDraftModal extends Modal {
     app: App,
     private projects: readonly ProjectRef[],
     private tags: readonly TimelineTag[],
-    private requireMetadata: boolean,
+    private metadataRequirement: ItemMetadataRequirement,
     private resolve: (value: TimelineItemDraftResult | null) => void
   ) { super(app); }
 
@@ -161,7 +161,7 @@ export class TimelineItemDraftModal extends Modal {
 
   private openProjectMenu(event: MouseEvent): void {
     const menu = new Menu();
-    if (!this.requireMetadata) {
+    if (!this.requiresProject()) {
       menu.addItem(item => item.setTitle("无项目").setChecked(!this.projectPath).onClick(() => {
         this.projectPath = null;
         this.refreshSelectors();
@@ -182,7 +182,7 @@ export class TimelineItemDraftModal extends Modal {
 
   private openTagMenu(event: MouseEvent): void {
     const menu = new Menu();
-    if (!this.requireMetadata) {
+    if (!this.requiresTag()) {
       menu.addItem(item => item.setTitle("无标签").setChecked(!this.tagId).onClick(() => {
         this.tagId = null;
         this.refreshSelectors();
@@ -214,11 +214,13 @@ export class TimelineItemDraftModal extends Modal {
 
   private refreshSubmit(): void {
     if (!this.submitButton) return;
-    this.submitButton.disabled = !this.titleValue.trim() || (this.requireMetadata && (!this.projectPath || !this.tagId));
+    this.submitButton.disabled = !this.titleValue.trim()
+      || (this.requiresProject() && !this.projectPath)
+      || (this.requiresTag() && !this.tagId);
   }
 
   private submit(): void {
-    if (!this.titleValue.trim() || (this.requireMetadata && (!this.projectPath || !this.tagId))) return;
+    if (!this.titleValue.trim() || (this.requiresProject() && !this.projectPath) || (this.requiresTag() && !this.tagId)) return;
     this.resolved = true;
     this.resolve({
       title: this.titleValue.trim(),
@@ -227,6 +229,14 @@ export class TimelineItemDraftModal extends Modal {
       tagId: this.tagId
     });
     this.close();
+  }
+
+  private requiresProject(): boolean {
+    return this.metadataRequirement === "project" || this.metadataRequirement === "both";
+  }
+
+  private requiresTag(): boolean {
+    return this.metadataRequirement === "tag" || this.metadataRequirement === "both";
   }
 }
 

@@ -361,6 +361,33 @@
 .btl-tag-setting input[type="text"], .btl-project-type-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }
 .btl-project-type-drag { cursor: grab; touch-action: none; }
 .btl-project-type-drag:active { cursor: grabbing; }
+.btl-setting-segments {
+  display: inline-flex;
+  min-width: 0;
+  padding: 2px;
+  border-radius: var(--button-radius);
+  background: var(--background-modifier-hover);
+}
+.btl-setting-segments button {
+  min-width: 0;
+  height: 28px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: calc(var(--button-radius) - 2px);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  white-space: nowrap;
+}
+.btl-setting-segments button.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+@media (max-width: 480px) {
+  .btl-setting-segments { width: 100%; }
+  .btl-setting-segments button { flex: 1 1 0; padding-inline: 4px; }
+}
 
 .btl-date-popover { position: fixed; z-index: 10000; box-sizing: border-box; max-width: calc(100vw - 16px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--background-modifier-border); border-radius: 13px; padding: 8px; background: var(--background-primary); box-shadow: 0 12px 32px rgba(0,0,0,.24); font-family: var(--font-interface); touch-action: pan-y; }
 .btl-date-popover-head { display: grid; min-width: 0; min-height: 36px; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; margin-bottom: 4px; }

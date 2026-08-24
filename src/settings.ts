@@ -5,9 +5,16 @@ import { ConfirmModal } from "./modals";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { DEFAULT_RHYTHM, RHYTHM_KEYS, rhythmLabel } from "./rhythm";
 import { cloneDefaultTags, createTag } from "./tags";
-import type { BranchTimelineSettings } from "./types";
+import type { BranchTimelineSettings, ItemMetadataRequirement } from "./types";
 
 const PROJECT_TYPE_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
+
+const METADATA_REQUIREMENTS: ReadonlyArray<{ value: ItemMetadataRequirement; label: string }> = [
+  { value: "none", label: "不强制" },
+  { value: "project", label: "项目" },
+  { value: "tag", label: "标签" },
+  { value: "both", label: "项目+标签" }
+];
 
 interface ProjectTypeSuggestion { value: string; custom: boolean }
 
@@ -52,7 +59,7 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   projectFolder: "21_project",
   projectTypes: [{ type: "project", color: PROJECT_TYPE_COLORS[0] }],
   showProjectLogHeatmap: true,
-  requireItemMetadata: false,
+  itemMetadataRequirement: "none",
   habits: ["早睡", "阅读", "对话训练", "写日记"],
   tags: cloneDefaultTags(),
   rhythm: { ...DEFAULT_RHYTHM },
@@ -77,7 +84,6 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
 
     this.textSetting("数据文件", "分支、节律与决策树的 Vault 内路径。", "statePath");
     this.textSetting("周记目录", "习惯和分类时长写入的位置。", "diaryFolder");
-    this.textSetting("项目目录", "新项目写入的位置。", "projectFolder");
 
     new Setting(containerEl)
       .setName("显示项目日志方块图")
@@ -89,7 +95,7 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
-      .setName("项目页 type")
+      .setName("项目页 type（全库）")
       .setHeading()
       .addButton(button => button.setButtonText("添加").setIcon("plus").onClick(async () => {
         this.plugin.settings.projectTypes.push({
@@ -97,8 +103,7 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
           color: PROJECT_TYPE_COLORS[this.plugin.settings.projectTypes.length % PROJECT_TYPE_COLORS.length]
         });
         await this.plugin.saveSettings();
-        this.display();
-        window.setTimeout(() => this.containerEl.querySelector<HTMLInputElement>(".btl-project-type-setting:last-child input")?.focus(), 0);
+        this.redisplay(() => this.containerEl.querySelector<HTMLInputElement>(".btl-project-type-setting:last-child input")?.focus());
       }));
 
     const projectTypeList = containerEl.createDiv({ cls: "btl-project-type-list" });
@@ -129,7 +134,7 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
           async () => {
             this.plugin.settings.projectTypes = this.plugin.settings.projectTypes.filter(item => item !== projectType);
             await this.plugin.saveSettings();
-            this.display();
+            this.redisplay();
           }
         ).open();
       }));
@@ -146,15 +151,24 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
       onOrder: indexes => void this.reorderProjectTypes(indexes)
     });
 
-    new Setting(containerEl)
-      .setName("双击创建时强制归属")
-      .setDesc("项目和标签未选择时不能保存。")
-      .addToggle(toggle => toggle
-        .setValue(this.plugin.settings.requireItemMetadata)
-        .onChange(async value => {
-          this.plugin.settings.requireItemMetadata = value;
-          await this.plugin.saveSettings();
-        }));
+    const metadataRequirement = new Setting(containerEl).setName("双击创建强制归属");
+    const requirementControl = metadataRequirement.controlEl.createDiv({ cls: "btl-setting-segments" });
+    for (const option of METADATA_REQUIREMENTS) {
+      const button = requirementControl.createEl("button", {
+        text: option.label,
+        attr: { type: "button", "aria-pressed": String(this.plugin.settings.itemMetadataRequirement === option.value) }
+      });
+      button.toggleClass("is-active", this.plugin.settings.itemMetadataRequirement === option.value);
+      button.onclick = async () => {
+        this.plugin.settings.itemMetadataRequirement = option.value;
+        for (const sibling of Array.from(requirementControl.children)) {
+          const active = sibling === button;
+          sibling.toggleClass("is-active", active);
+          sibling.setAttr("aria-pressed", String(active));
+        }
+        await this.plugin.saveSettings();
+      };
+    }
 
     new Setting(containerEl).setName("节律").setHeading();
     for (const key of RHYTHM_KEYS) {
@@ -207,8 +221,7 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
       .addButton(button => button.setButtonText("添加").setIcon("plus").onClick(async () => {
         this.plugin.settings.tags.push(createTag(this.plugin.settings.tags));
         await this.plugin.saveSettings();
-        this.display();
-        window.setTimeout(() => this.containerEl.querySelector<HTMLInputElement>(".btl-tag-setting:last-child input")?.select(), 0);
+        this.redisplay(() => this.containerEl.querySelector<HTMLInputElement>(".btl-tag-setting:last-child input")?.select());
       }));
 
     for (const tag of this.plugin.settings.tags) {
@@ -232,7 +245,7 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
           async () => {
             this.plugin.settings.tags = this.plugin.settings.tags.filter(item => item.id !== tag.id);
             await this.plugin.saveSettings();
-            this.display();
+            this.redisplay();
           }
         ).open();
       }));
@@ -242,7 +255,7 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
   private textSetting(
     name: string,
     description: string,
-    key: "statePath" | "diaryFolder" | "projectFolder" | "rhythmElapsedMark" | "rhythmRemainingMark"
+    key: "statePath" | "diaryFolder" | "rhythmElapsedMark" | "rhythmRemainingMark"
   ): void {
     new Setting(this.containerEl)
       .setName(name)
@@ -268,7 +281,27 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     if (reordered.length !== current.length) return;
     this.plugin.settings.projectTypes = reordered;
     await this.plugin.saveSettings();
+  }
+
+  private redisplay(after?: () => void): void {
+    const positions: Array<{ element: HTMLElement; top: number; left: number }> = [];
+    let element: HTMLElement | null = this.containerEl;
+    while (element) {
+      positions.push({ element, top: element.scrollTop, left: element.scrollLeft });
+      element = element.parentElement;
+    }
     this.display();
+    const restore = () => {
+      for (const position of positions) {
+        position.element.scrollTop = position.top;
+        position.element.scrollLeft = position.left;
+      }
+    };
+    restore();
+    window.requestAnimationFrame(() => {
+      restore();
+      after?.();
+    });
   }
 
   private timeLabel(minute: number): string {

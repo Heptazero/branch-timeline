@@ -872,7 +872,7 @@ export class BranchTimelineView extends ItemView {
       this.app,
       projects,
       this.plugin.settings.tags,
-      this.plugin.settings.requireItemMetadata,
+      this.plugin.settings.itemMetadataRequirement,
       resolve
     ).open());
   }
