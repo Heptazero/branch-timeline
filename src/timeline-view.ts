@@ -1,4 +1,4 @@
-import { ItemView, Menu, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import type BranchTimelinePlugin from "./main";
 import { openDateHeatmapPopover } from "./date-heatmap-popover";
 import {
@@ -206,11 +206,14 @@ export class BranchTimelineView extends ItemView {
             projectOrder: this.plugin.settings.projectOrder,
             pinnedProjects: this.plugin.settings.pinnedProjects,
             collapsedGroups: this.plugin.settings.collapsedProjectGroups,
+            focusDate: this.date,
+            showProjectLog: this.plugin.settings.showProjectLogHeatmap,
             openProject: path => {
               this.selectedProjectPath = path;
               this.projectAnchor = undefined;
               void this.render(false);
             },
+            openProjectFile: path => void this.openProjectFile(path),
             onTogglePin: path => void this.toggleProjectPin(path),
             onToggleGroup: label => void this.toggleProjectGroup(label),
             onReorder: paths => void this.reorderProjects(paths)
@@ -780,6 +783,15 @@ export class BranchTimelineView extends ItemView {
     else pinned.add(path);
     this.plugin.settings.pinnedProjects = [...pinned];
     await this.plugin.saveSettings();
+  }
+
+  private async openProjectFile(path: string): Promise<void> {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) {
+      new Notice("项目文件不存在");
+      return;
+    }
+    await this.app.workspace.getLeaf("tab").openFile(file);
   }
 
   private async toggleProjectGroup(label: string): Promise<void> {

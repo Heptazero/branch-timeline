@@ -2,6 +2,7 @@ export interface BranchTimelineSettings {
   statePath: string;
   diaryFolder: string;
   projectFolder: string;
+  showProjectLogHeatmap: boolean;
   requireItemMetadata: boolean;
   habits: string[];
   tags: TimelineTag[];

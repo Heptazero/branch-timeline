@@ -2,6 +2,7 @@ import { Menu, setIcon } from "obsidian";
 import { itemDuration } from "../timeline/model";
 import type { BranchTimelineState, ProjectRef } from "../types";
 import { installLongPressSort } from "../interactions/long-press-sort";
+import { dateKey, logicalToday } from "../vault/format";
 
 interface ProjectGroup {
   label: string;
@@ -15,7 +16,10 @@ export interface ProjectsPageOptions {
   projectOrder: readonly string[];
   pinnedProjects: readonly string[];
   collapsedGroups: readonly string[];
+  focusDate: Date;
+  showProjectLog: boolean;
   openProject: (path: string) => void;
+  openProjectFile: (path: string) => void;
   onTogglePin: (path: string) => void;
   onToggleGroup: (label: string) => void;
   onReorder: (paths: string[]) => void;
@@ -36,6 +40,8 @@ export function renderProjectsPage(
     container.createDiv({ cls: "btl-empty", text: "暂无项目" });
     return;
   }
+
+  if (options.showProjectLog) renderProjectLog(options);
 
   const assigned = new Set<string>();
   for (const group of PROJECT_GROUPS) {
@@ -96,6 +102,11 @@ function renderProjectSection(
       event.stopPropagation();
       const menu = new Menu();
       menu.addItem(item => item
+        .setTitle("打开项目文件")
+        .setIcon("file-text")
+        .onClick(() => options.openProjectFile(project.path)));
+      menu.addSeparator();
+      menu.addItem(item => item
         .setTitle(pinned ? "取消置顶" : "置顶")
         .setIcon(pinned ? "pin-off" : "pin")
         .onClick(() => options.onTogglePin(project.path)));
@@ -116,6 +127,49 @@ function renderProjectSection(
   });
 }
 
+function renderProjectLog(options: ProjectsPageOptions): void {
+  const projects = options.projects.filter(project => ["active", "doing", "进行中"].includes(project.status.trim().toLowerCase()));
+  if (!projects.length) return;
+  const year = options.focusDate.getFullYear();
+  const month = options.focusDate.getMonth();
+  const days = new Date(year, month + 1, 0).getDate();
+  const dates = Array.from({ length: days }, (_, index) => new Date(year, month, index + 1));
+  const selected = dateKey(options.focusDate);
+  const today = dateKey(logicalToday());
+  const card = options.container.createDiv({ cls: "btl-project-log-card" });
+  const head = card.createDiv({ cls: "btl-project-log-head" });
+  head.createEl("strong", { text: "项目日志" });
+  head.createSpan({ text: `${year}年${month + 1}月` });
+  const scroll = card.createDiv({ cls: "btl-project-log-scroll" });
+  const grid = scroll.createDiv({ cls: "btl-project-log-grid" });
+  grid.style.setProperty("--btl-project-log-days", String(days));
+  grid.createSpan({ cls: "btl-project-log-corner" });
+  for (const date of dates) {
+    const key = dateKey(date);
+    grid.createSpan({
+      cls: `btl-project-log-date${key === today ? " is-today" : ""}${key === selected ? " is-selected" : ""}`,
+      text: String(date.getDate())
+    });
+  }
+  for (const project of projects) {
+    grid.createSpan({ cls: "btl-project-log-name", text: project.name, attr: { title: project.name } });
+    for (const date of dates) {
+      const key = dateKey(date);
+      const minutes = projectMinutesOn(options.state, project.path, key);
+      const cell = grid.createSpan({
+        cls: `btl-project-log-day${minutes ? " is-active" : ""}${key === today ? " is-today" : ""}${key === selected ? " is-selected" : ""}`,
+        attr: { title: `${key}${minutes ? ` · ${durationLabel(minutes)}` : ""}` }
+      });
+      cell.style.setProperty("--btl-project-color", project.color || "var(--interactive-accent)");
+      cell.style.setProperty("--btl-project-log-level", String(minutes ? Math.min(0.92, 0.18 + minutes / 240 * 0.74) : 0));
+    }
+  }
+  window.requestAnimationFrame(() => {
+    const target = grid.querySelector<HTMLElement>(".btl-project-log-date.is-selected");
+    if (target) scroll.scrollLeft = Math.max(0, target.offsetLeft - scroll.clientWidth / 2);
+  });
+}
+
 function projectMinutes(state: BranchTimelineState, path: string): number {
   let minutes = 0;
   for (const day of Object.values(state.days)) {
@@ -124,6 +178,13 @@ function projectMinutes(state: BranchTimelineState, path: string): number {
     }
   }
   return minutes;
+}
+
+function projectMinutesOn(state: BranchTimelineState, path: string, date: string): number {
+  const day = state.days[date];
+  if (!day) return 0;
+  return day.items.reduce((minutes, item) =>
+    minutes + (item.projectPath === path && item.kind === "fact" ? itemDuration(item, day.wake) : 0), 0);
 }
 
 function durationLabel(minutes: number): string {

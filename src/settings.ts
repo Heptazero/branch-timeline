@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   statePath: "99_assets/branch-timeline/state.json",
   diaryFolder: "20_self/22-diary",
   projectFolder: "21_project",
+  showProjectLogHeatmap: true,
   requireItemMetadata: false,
   habits: ["早睡", "阅读", "对话训练", "写日记"],
   tags: cloneDefaultTags(),
@@ -43,6 +44,15 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     this.textSetting("数据文件", "分支、节律与决策树的 Vault 内路径。", "statePath");
     this.textSetting("周记目录", "习惯和分类时长写入的位置。", "diaryFolder");
     this.textSetting("项目目录", "扫描 type: project 的范围。", "projectFolder");
+
+    new Setting(containerEl)
+      .setName("显示项目日志方块图")
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.showProjectLogHeatmap)
+        .onChange(async value => {
+          this.plugin.settings.showProjectLogHeatmap = value;
+          await this.plugin.saveSettings();
+        }));
 
     new Setting(containerEl)
       .setName("双击创建时强制归属")
