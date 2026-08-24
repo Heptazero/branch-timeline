@@ -122,7 +122,7 @@
 .btl-zoom-controls .btl-icon-button { width: 32px; height: 32px; }
 
 .btl-empty { display: grid; min-height: 180px; place-items: center; color: var(--text-faint); font-size: 12px; }
-.btl-project-section { margin: 0 0 var(--btl-space-4); }
+.btl-project-section { flex: 0 0 auto; margin: 0 0 var(--btl-space-4); }
 .btl-project-section-head { display: flex; width: 100%; min-height: 30px; align-items: center; gap: 3px; border: 0; padding: 1px 0 var(--btl-space-2); background: transparent; color: var(--text-muted); text-align: left; }
 .btl-project-section-head:hover { color: var(--text-normal); }
 .btl-project-section-head > span { display: grid; width: 18px; height: 18px; place-items: center; }
@@ -140,7 +140,7 @@
 .btl-project-card-duration { position: absolute; right: 10px; bottom: 7px; color: var(--btl-project-color, var(--interactive-accent)); font-size: 22px; font-weight: 820; font-variant-numeric: tabular-nums; line-height: 1; }
 .btl-project-card-menu { position: absolute; top: 0; right: 0; display: grid; width: 38px; height: 38px; place-items: center; border: 0; border-radius: 9px; padding: 0; background: transparent; color: var(--text-faint); font-size: 19px; }
 .btl-project-card-menu:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
-.btl-project-log-card { min-width: 0; margin-bottom: var(--btl-space-3); border: 1px solid var(--background-modifier-border); border-radius: var(--btl-radius-card); padding: 10px; overflow: hidden; background: var(--background-secondary); }
+.btl-project-log-card { min-width: 0; flex: 0 0 auto; margin-bottom: var(--btl-space-3); border: 1px solid var(--background-modifier-border); border-radius: var(--btl-radius-card); padding: 10px; overflow: hidden; background: var(--background-secondary); }
 .btl-project-log-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 2px 8px; }
 .btl-project-log-head strong { color: var(--text-normal); font-size: 11px; }
 .btl-project-log-head span { color: var(--text-faint); font-size: 9px; }
@@ -356,9 +356,9 @@
 .btl-time-wheel button.is-selected { color: var(--text-normal); font-size: 18px; font-weight: 760; }
 .btl-rhythm-popover-actions { display: flex; justify-content: flex-end; gap: 7px; }
 .btl-rhythm-popover-actions button { border-radius: 8px; padding: 5px 11px; }
-.btl-tag-setting .setting-item-info { display: none; }
-.btl-tag-setting .setting-item-control { width: 100%; flex-wrap: nowrap; }
-.btl-tag-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }
+.btl-tag-setting .setting-item-info, .btl-project-type-setting .setting-item-info { display: none; }
+.btl-tag-setting .setting-item-control, .btl-project-type-setting .setting-item-control { width: 100%; flex-wrap: nowrap; }
+.btl-tag-setting input[type="text"], .btl-project-type-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }
 
 .btl-date-popover { position: fixed; z-index: 10000; box-sizing: border-box; max-width: calc(100vw - 16px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--background-modifier-border); border-radius: 13px; padding: 8px; background: var(--background-primary); box-shadow: 0 12px 32px rgba(0,0,0,.24); font-family: var(--font-interface); touch-action: pan-y; }
 .btl-date-popover-head { display: grid; min-width: 0; min-height: 36px; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; margin-bottom: 4px; }

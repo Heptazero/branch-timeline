@@ -6,6 +6,8 @@ import { DEFAULT_RHYTHM, RHYTHM_KEYS, rhythmLabel } from "./rhythm";
 import { cloneDefaultTags, createTag } from "./tags";
 import type { BranchTimelineSettings } from "./types";
 
+const PROJECT_TYPE_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
+
 const OPTIONAL_PAGES: ReadonlyArray<{ id: "projects" | "habits" | "achievements" | "policy"; label: string }> = [
   { id: "projects", label: "项目" },
   { id: "habits", label: "习惯" },
@@ -17,6 +19,7 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   statePath: "99_assets/branch-timeline/state.json",
   diaryFolder: "20_self/22-diary",
   projectFolder: "21_project",
+  projectTypes: [{ type: "project", color: PROJECT_TYPE_COLORS[0] }],
   showProjectLogHeatmap: true,
   requireItemMetadata: false,
   habits: ["早睡", "阅读", "对话训练", "写日记"],
@@ -43,7 +46,7 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
 
     this.textSetting("数据文件", "分支、节律与决策树的 Vault 内路径。", "statePath");
     this.textSetting("周记目录", "习惯和分类时长写入的位置。", "diaryFolder");
-    this.textSetting("项目目录", "扫描 type: project 的范围。", "projectFolder");
+    this.textSetting("项目目录", "新项目写入的位置。", "projectFolder");
 
     new Setting(containerEl)
       .setName("显示项目日志方块图")
@@ -53,6 +56,46 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
           this.plugin.settings.showProjectLogHeatmap = value;
           await this.plugin.saveSettings();
         }));
+
+    new Setting(containerEl)
+      .setName("项目页 type")
+      .setHeading()
+      .addButton(button => button.setButtonText("添加").setIcon("plus").onClick(async () => {
+        this.plugin.settings.projectTypes.push({
+          type: "",
+          color: PROJECT_TYPE_COLORS[this.plugin.settings.projectTypes.length % PROJECT_TYPE_COLORS.length]
+        });
+        await this.plugin.saveSettings();
+        this.display();
+        window.setTimeout(() => this.containerEl.querySelector<HTMLInputElement>(".btl-project-type-setting:last-child input")?.focus(), 0);
+      }));
+
+    for (const projectType of this.plugin.settings.projectTypes) {
+      const row = new Setting(containerEl).setClass("btl-project-type-setting");
+      row.addText(text => {
+        text.setPlaceholder("type").setValue(projectType.type).onChange(async value => {
+          projectType.type = value.trim();
+          await this.plugin.saveSettings();
+        });
+        text.inputEl.setAttr("aria-label", "项目页 type");
+      });
+      row.addColorPicker(color => color.setValue(projectType.color).onChange(async value => {
+        projectType.color = value;
+        await this.plugin.saveSettings();
+      }));
+      row.addExtraButton(button => button.setIcon("trash-2").setTooltip("删除 type").onClick(() => {
+        new ConfirmModal(
+          this.app,
+          `删除 type“${projectType.type || "未命名"}”？`,
+          "只停止在项目页展示，不删除文件或时间记录。",
+          async () => {
+            this.plugin.settings.projectTypes = this.plugin.settings.projectTypes.filter(item => item !== projectType);
+            await this.plugin.saveSettings();
+            this.display();
+          }
+        ).open();
+      }));
+    }
 
     new Setting(containerEl)
       .setName("双击创建时强制归属")

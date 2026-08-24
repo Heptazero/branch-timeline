@@ -2,6 +2,7 @@ export interface BranchTimelineSettings {
   statePath: string;
   diaryFolder: string;
   projectFolder: string;
+  projectTypes: ProjectTypeConfig[];
   showProjectLogHeatmap: boolean;
   requireItemMetadata: boolean;
   habits: string[];
@@ -34,6 +35,11 @@ export interface TimelineTag {
   id: string;
   name: string;
   category: string;
+  color: string;
+}
+
+export interface ProjectTypeConfig {
+  type: string;
   color: string;
 }
 
@@ -157,6 +163,7 @@ export interface ProjectTimelineState {
 export interface ProjectRef {
   path: string;
   name: string;
+  type: string;
   status: string;
   color?: string;
 }

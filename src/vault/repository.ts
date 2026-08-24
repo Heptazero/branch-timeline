@@ -23,15 +23,20 @@ export class VaultRepository {
   setUndoRecorder(record: (action: UndoAction) => void): void { this.recordUndo = record; }
 
   listProjects(): ProjectRef[] {
-    const prefix = `${normalizePath(this.settings.projectFolder).replace(/\/$/, "")}/`;
-    return this.app.vault.getMarkdownFiles().filter(file => file.path.startsWith(prefix)).flatMap(file => {
+    const types = new Map(this.settings.projectTypes
+      .filter(item => item.type.trim())
+      .map(item => [item.type.trim().toLowerCase(), item]));
+    return this.app.vault.getMarkdownFiles().flatMap(file => {
       const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
-      if (frontmatter?.type !== "project") return [];
+      const type = typeof frontmatter?.type === "string" ? frontmatter.type.trim() : "";
+      const config = types.get(type.toLowerCase());
+      if (!config) return [];
       return [{
         path: file.path,
         name: file.basename,
-        status: String(frontmatter.status || ""),
-        color: typeof frontmatter.color === "string" ? frontmatter.color : undefined
+        type,
+        status: String(frontmatter?.status || ""),
+        color: typeof frontmatter?.color === "string" ? frontmatter.color : config.color
       }];
     }).sort((a, b) => {
       const rank = (status: string) => status === "active" ? 0 : status === "todo" ? 1 : 2;
@@ -114,7 +119,8 @@ export class VaultRepository {
       const file = this.app.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) await this.app.vault.trash(file, true);
     });
-    return { path: created.path, name: basename, status };
+    const projectType = this.settings.projectTypes.find(item => item.type.trim().toLowerCase() === "project");
+    return { path: created.path, name: basename, type: "project", status, color: projectType?.color };
   }
 
   private projectFile(path: string): TFile {

@@ -791,7 +791,10 @@ export class BranchTimelineView extends ItemView {
       new Notice("项目文件不存在");
       return;
     }
-    await this.app.workspace.getLeaf("tab").openFile(file);
+    const leaf = this.app.workspace.getLeaf("tab");
+    await leaf.openFile(file, { active: true });
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
+    await this.app.workspace.revealLeaf(leaf);
   }
 
   private async toggleProjectGroup(label: string): Promise<void> {

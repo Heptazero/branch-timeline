@@ -50,6 +50,11 @@ export default class BranchTimelinePlugin extends Plugin {
     this.settings = {
       ...DEFAULT_SETTINGS,
       ...settings,
+      projectTypes: Array.isArray(saved?.projectTypes)
+        ? saved.projectTypes
+          .filter(item => item && typeof item.type === "string" && typeof item.color === "string")
+          .map(item => ({ type: item.type.trim(), color: item.color }))
+        : DEFAULT_SETTINGS.projectTypes.map(item => ({ ...item })),
       showProjectLogHeatmap: saved?.showProjectLogHeatmap !== false,
       requireItemMetadata: saved?.requireItemMetadata === true,
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
