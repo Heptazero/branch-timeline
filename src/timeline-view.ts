@@ -27,7 +27,7 @@ import { absoluteMinute } from "./pages/project-model";
 import { renderProjectsPage } from "./pages/projects";
 import { policyPeriodAt, renderPolicyPage } from "./pages/policy";
 import { PolicyActions } from "./pages/policy-actions";
-import { rhythmBounds, rhythmProgress, rhythmProgressLabel, rhythmRealKey } from "./rhythm";
+import { rhythmProgress, rhythmProgressLabel, rhythmRealKey } from "./rhythm";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { TimelineGestures } from "./timeline/gestures";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, backfillItem as applyBackfill, clampMinute, minuteToY } from "./timeline/model";
@@ -555,11 +555,8 @@ export class BranchTimelineView extends ItemView {
       } else if (day[realKey]) {
         day[realKey] = false;
       } else {
-        const now = this.nowOnAxis(day);
-        if (now != null) {
-          const [lower, upper] = rhythmBounds(day, key);
-          day[key] = Math.max(lower, Math.min(upper, now));
-        }
+        const now = this.currentLogicalMinute();
+        if (now != null) day[key] = now;
         day[realKey] = true;
       }
     });
@@ -749,10 +746,15 @@ export class BranchTimelineView extends ItemView {
   }
 
   private nowOnAxis(day: TimelineDayState): number | undefined {
+    const minute = this.currentLogicalMinute();
+    if (minute == null) return undefined;
+    return minute >= day.wake && minute <= day.sleep ? minute : undefined;
+  }
+
+  private currentLogicalMinute(): number | undefined {
     if (dateKey(this.date) !== dateKey(logicalToday())) return undefined;
     const now = new Date();
-    const minute = now.getHours() * 60 + now.getMinutes() + (now.getHours() < 2 ? 1440 : 0);
-    return minute >= day.wake && minute <= day.sleep ? minute : undefined;
+    return now.getHours() * 60 + now.getMinutes() + (now.getHours() < 2 ? 1440 : 0);
   }
 
   private viewportCenterY(): number {
