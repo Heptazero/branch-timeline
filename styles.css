@@ -13,11 +13,11 @@
   container: btl-view / inline-size;
   overflow: hidden; padding: var(--btl-space-3) clamp(7px, 2.4cqi, 14px) 0; font-family: var(--font-interface);
 }
-.btl-toolbar { z-index: 20; display: grid; flex: 0 0 auto; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; padding: 0 0 var(--btl-space-2); background: var(--background-primary); }
+.btl-toolbar { z-index: 20; display: grid; flex: 0 0 auto; grid-template-columns: 76px minmax(0, 1fr) 76px; align-items: center; padding: 0 0 var(--btl-space-2); background: var(--background-primary); }
 .btl-undo-button { grid-column: 1; justify-self: start; }
 .btl-undo-button:disabled { opacity: .28; }
 .btl-toolbar > .btl-date-nav { grid-column: 2; justify-self: center; }
-.btl-toolbar > .btl-add-button { grid-column: 3; justify-self: end; }
+.btl-toolbar-actions { grid-column: 3; display: flex; justify-self: end; gap: 2px; }
 .btl-date-nav { display: flex; align-items: center; gap: 3px; }
 .btl-icon-button, .btl-date-button { border: 0; background: transparent; color: var(--text-normal); border-radius: var(--btl-radius-control); }
 .btl-icon-button { display: grid; width: 36px; height: 36px; place-items: center; padding: 0; }
@@ -359,6 +359,8 @@
 .btl-tag-setting .setting-item-info, .btl-project-type-setting .setting-item-info { display: none; }
 .btl-tag-setting .setting-item-control, .btl-project-type-setting .setting-item-control { width: 100%; flex-wrap: nowrap; }
 .btl-tag-setting input[type="text"], .btl-project-type-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }
+.btl-project-type-drag { cursor: grab; touch-action: none; }
+.btl-project-type-drag:active { cursor: grabbing; }
 
 .btl-date-popover { position: fixed; z-index: 10000; box-sizing: border-box; max-width: calc(100vw - 16px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--background-modifier-border); border-radius: 13px; padding: 8px; background: var(--background-primary); box-shadow: 0 12px 32px rgba(0,0,0,.24); font-family: var(--font-interface); touch-action: pan-y; }
 .btl-date-popover-head { display: grid; min-width: 0; min-height: 36px; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; margin-bottom: 4px; }
@@ -394,9 +396,12 @@
 
 @container btl-view (max-width: 380px) {
   .branch-timeline-hz { padding-inline: 7px; }
-  .btl-toolbar { grid-template-columns: 36px minmax(0, 1fr) 36px; }
+  .btl-toolbar { grid-template-columns: 64px minmax(0, 1fr) 64px; }
   .btl-icon-button { width: 34px; height: 34px; }
-  .btl-date-button { min-width: 104px; font-size: 12px; }
+  .btl-toolbar-actions { gap: 1px; }
+  .btl-toolbar-actions .btl-icon-button { width: 31px; }
+  .btl-date-nav .btl-icon-button { width: 26px; }
+  .btl-date-button { min-width: 80px; padding-inline: 4px; font-size: 12px; }
   .btl-page-nav-row { gap: 3px; }
   .btl-page-nav button { min-height: 30px; padding-inline: 8px; font-size: 11px; }
   .btl-day-countdown { min-width: 62px; padding-left: 5px; }

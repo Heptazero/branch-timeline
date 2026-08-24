@@ -130,7 +130,9 @@ export class BranchTimelineView extends ItemView {
     const dateButton = dateNav.createEl("button", { cls: "btl-date-button", text: this.dateTitle() });
     dateButton.onclick = () => void this.openDatePicker(dateButton);
     this.iconButton(dateNav, "chevron-right", "后一天", () => this.shiftDate(1));
-    const add = this.iconButton(toolbar, "plus", "添加", event => this.openAddMenu(event));
+    const toolbarActions = toolbar.createDiv({ cls: "btl-toolbar-actions" });
+    this.iconButton(toolbarActions, "settings", "设置", () => this.openPluginSettings());
+    const add = this.iconButton(toolbarActions, "plus", "添加", event => this.openAddMenu(event));
     add.addClass("btl-add-button");
 
     const navigationRow = root.createDiv({ cls: "btl-page-nav-row" });
@@ -204,6 +206,7 @@ export class BranchTimelineView extends ItemView {
             projects,
             state,
             projectOrder: this.plugin.settings.projectOrder,
+            projectTypes: this.plugin.settings.projectTypes,
             pinnedProjects: this.plugin.settings.pinnedProjects,
             collapsedGroups: this.plugin.settings.collapsedProjectGroups,
             focusDate: this.date,

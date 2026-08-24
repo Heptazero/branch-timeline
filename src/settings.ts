@@ -1,5 +1,6 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { AbstractInputSuggest, App, PluginSettingTab, Setting } from "obsidian";
 import type BranchTimelinePlugin from "./main";
+import { installLongPressSort } from "./interactions/long-press-sort";
 import { ConfirmModal } from "./modals";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { DEFAULT_RHYTHM, RHYTHM_KEYS, rhythmLabel } from "./rhythm";
@@ -7,6 +8,36 @@ import { cloneDefaultTags, createTag } from "./tags";
 import type { BranchTimelineSettings } from "./types";
 
 const PROJECT_TYPE_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
+
+interface ProjectTypeSuggestion { value: string; custom: boolean }
+
+class ProjectTypeSuggest extends AbstractInputSuggest<ProjectTypeSuggestion> {
+  constructor(app: App, input: HTMLInputElement, private candidates: readonly string[], private choose: (value: string) => void) {
+    super(app, input);
+    this.limit = 30;
+  }
+
+  protected getSuggestions(query: string): ProjectTypeSuggestion[] {
+    const value = query.trim();
+    if (!value) return this.candidates.map(candidate => ({ value: candidate, custom: false }));
+    const matches = this.candidates
+      .map(candidate => ({ candidate, score: fuzzyScore(candidate, value) }))
+      .filter((result): result is { candidate: string; score: number } => result.score != null)
+      .sort((a, b) => a.score - b.score || a.candidate.localeCompare(b.candidate, "zh-CN"))
+      .map(result => ({ value: result.candidate, custom: false }));
+    return matches.length ? matches : [{ value, custom: true }];
+  }
+
+  renderSuggestion(suggestion: ProjectTypeSuggestion, el: HTMLElement): void {
+    el.setText(suggestion.custom ? `使用“${suggestion.value}”` : suggestion.value);
+  }
+
+  selectSuggestion(suggestion: ProjectTypeSuggestion): void {
+    this.setValue(suggestion.value);
+    this.choose(suggestion.value);
+    this.close();
+  }
+}
 
 const OPTIONAL_PAGES: ReadonlyArray<{ id: "projects" | "habits" | "achievements" | "policy"; label: string }> = [
   { id: "projects", label: "项目" },
@@ -70,14 +101,21 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
         window.setTimeout(() => this.containerEl.querySelector<HTMLInputElement>(".btl-project-type-setting:last-child input")?.focus(), 0);
       }));
 
-    for (const projectType of this.plugin.settings.projectTypes) {
-      const row = new Setting(containerEl).setClass("btl-project-type-setting");
+    const projectTypeList = containerEl.createDiv({ cls: "btl-project-type-list" });
+    const typeCandidates = this.vaultTypes();
+    for (const [index, projectType] of this.plugin.settings.projectTypes.entries()) {
+      const row = new Setting(projectTypeList).setClass("btl-project-type-setting");
+      row.settingEl.setAttr("data-project-type-index", String(index));
       row.addText(text => {
         text.setPlaceholder("type").setValue(projectType.type).onChange(async value => {
           projectType.type = value.trim();
           await this.plugin.saveSettings();
         });
         text.inputEl.setAttr("aria-label", "项目页 type");
+        new ProjectTypeSuggest(this.app, text.inputEl, typeCandidates, value => {
+          projectType.type = value;
+          void this.plugin.saveSettings();
+        });
       });
       row.addColorPicker(color => color.setValue(projectType.color).onChange(async value => {
         projectType.color = value;
@@ -95,7 +133,18 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
           }
         ).open();
       }));
+      row.addExtraButton(button => {
+        button.setIcon("grip-vertical").setTooltip("拖动排序");
+        button.extraSettingsEl.addClass("btl-project-type-drag");
+      });
     }
+    installLongPressSort(projectTypeList, {
+      itemSelector: ".btl-project-type-setting",
+      idAttribute: "data-project-type-index",
+      handleSelector: ".btl-project-type-drag",
+      axis: "vertical",
+      onOrder: indexes => void this.reorderProjectTypes(indexes)
+    });
 
     new Setting(containerEl)
       .setName("双击创建时强制归属")
@@ -204,9 +253,43 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
       }));
   }
 
+  private vaultTypes(): string[] {
+    const values = new Set(this.plugin.settings.projectTypes.map(item => item.type.trim()).filter(Boolean));
+    for (const file of this.app.vault.getMarkdownFiles()) {
+      const type = this.app.metadataCache.getFileCache(file)?.frontmatter?.type;
+      if (typeof type === "string" && type.trim()) values.add(type.trim());
+    }
+    return [...values].sort((a, b) => a.localeCompare(b, "zh-CN"));
+  }
+
+  private async reorderProjectTypes(indexes: string[]): Promise<void> {
+    const current = [...this.plugin.settings.projectTypes];
+    const reordered = indexes.map(value => current[Number(value)]).filter(Boolean);
+    if (reordered.length !== current.length) return;
+    this.plugin.settings.projectTypes = reordered;
+    await this.plugin.saveSettings();
+    this.display();
+  }
+
   private timeLabel(minute: number): string {
     const normalized = ((minute % 1440) + 1440) % 1440;
     const time = `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
     return minute >= 1440 ? `${time} · 次日` : time;
   }
+}
+
+function fuzzyScore(candidate: string, query: string): number | null {
+  const text = candidate.toLowerCase();
+  const needle = query.toLowerCase();
+  const substring = text.indexOf(needle);
+  if (substring >= 0) return substring * 2 + (text.startsWith(needle) ? 0 : 1);
+  let cursor = -1;
+  let gap = 0;
+  for (const character of needle) {
+    const next = text.indexOf(character, cursor + 1);
+    if (next < 0) return null;
+    if (cursor >= 0) gap += next - cursor - 1;
+    cursor = next;
+  }
+  return 100 + gap + cursor;
 }

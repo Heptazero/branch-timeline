@@ -23,9 +23,9 @@ export class VaultRepository {
   setUndoRecorder(record: (action: UndoAction) => void): void { this.recordUndo = record; }
 
   listProjects(): ProjectRef[] {
-    const types = new Map(this.settings.projectTypes
-      .filter(item => item.type.trim())
-      .map(item => [item.type.trim().toLowerCase(), item]));
+    const configuredTypes = this.settings.projectTypes.filter(item => item.type.trim());
+    const types = new Map(configuredTypes.map(item => [item.type.trim().toLowerCase(), item]));
+    const typeRank = new Map(configuredTypes.map((item, index) => [item.type.trim().toLowerCase(), index]));
     return this.app.vault.getMarkdownFiles().flatMap(file => {
       const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter;
       const type = typeof frontmatter?.type === "string" ? frontmatter.type.trim() : "";
@@ -40,7 +40,9 @@ export class VaultRepository {
       }];
     }).sort((a, b) => {
       const rank = (status: string) => status === "active" ? 0 : status === "todo" ? 1 : 2;
-      return rank(a.status) - rank(b.status) || a.name.localeCompare(b.name, "zh-CN");
+      return rank(a.status) - rank(b.status)
+        || (typeRank.get(a.type.toLowerCase()) ?? Number.MAX_SAFE_INTEGER) - (typeRank.get(b.type.toLowerCase()) ?? Number.MAX_SAFE_INTEGER)
+        || a.name.localeCompare(b.name, "zh-CN");
     });
   }
 

@@ -1,6 +1,6 @@
 import { Menu, setIcon } from "obsidian";
 import { itemDuration } from "../timeline/model";
-import type { BranchTimelineState, ProjectRef } from "../types";
+import type { BranchTimelineState, ProjectRef, ProjectTypeConfig } from "../types";
 import { installLongPressSort } from "../interactions/long-press-sort";
 import { dateKey, logicalToday } from "../vault/format";
 
@@ -14,6 +14,7 @@ export interface ProjectsPageOptions {
   projects: readonly ProjectRef[];
   state: BranchTimelineState;
   projectOrder: readonly string[];
+  projectTypes: readonly ProjectTypeConfig[];
   pinnedProjects: readonly string[];
   collapsedGroups: readonly string[];
   focusDate: Date;
@@ -58,7 +59,10 @@ export function renderProjectsPage(
 function sortProjects(projects: readonly ProjectRef[], options: ProjectsPageOptions): ProjectRef[] {
   const pinned = new Set(options.pinnedProjects);
   const rank = new Map(options.projectOrder.map((path, index) => [path, index]));
+  const typeRank = new Map(options.projectTypes.map((item, index) => [item.type.trim().toLowerCase(), index]));
   return [...projects].sort((a, b) => {
+    const type = (typeRank.get(a.type.toLowerCase()) ?? Number.MAX_SAFE_INTEGER) - (typeRank.get(b.type.toLowerCase()) ?? Number.MAX_SAFE_INTEGER);
+    if (type) return type;
     const pin = Number(pinned.has(b.path)) - Number(pinned.has(a.path));
     if (pin) return pin;
     return (rank.get(a.path) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.path) ?? Number.MAX_SAFE_INTEGER)

@@ -3,6 +3,8 @@ export interface LongPressSortOptions {
   idAttribute: string;
   onOrder: (ids: string[]) => void;
   holdMs?: number;
+  handleSelector?: string;
+  axis?: "grid" | "vertical";
 }
 
 export function installLongPressSort(container: HTMLElement, options: LongPressSortOptions): () => void {
@@ -62,11 +64,19 @@ export function installLongPressSort(container: HTMLElement, options: LongPressS
     const nearestScope = target.closest<HTMLElement>("[data-btl-sort-scope]");
     if (nearestScope && nearestScope !== container) return;
     const source = target.closest<HTMLElement>(options.itemSelector);
-    if (!source || target.closest("button, input, textarea, a, [data-no-sort]")) return;
+    if (!source) return;
+    const handle = options.handleSelector ? target.closest<HTMLElement>(options.handleSelector) : null;
+    if (options.handleSelector && !handle) return;
+    if (!handle && target.closest("button, input, textarea, a, [data-no-sort]")) return;
     clearTimer();
     pointerId = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
+    if (handle) {
+      event.preventDefault();
+      activate(source, event);
+      return;
+    }
     timer = window.setTimeout(() => activate(source, event), options.holdMs ?? 360);
   };
   const pointerMove = (event: PointerEvent) => {
@@ -82,7 +92,9 @@ export function installLongPressSort(container: HTMLElement, options: LongPressS
       const beforeRects = new Map(items().map(candidate => [candidate, candidate.getBoundingClientRect()]));
       const rect = target.getBoundingClientRect();
       const sameRow = event.clientY >= rect.top && event.clientY <= rect.bottom;
-      const before = sameRow ? event.clientX < rect.left + rect.width / 2 : event.clientY < rect.top + rect.height / 2;
+      const before = options.axis === "vertical"
+        ? event.clientY < rect.top + rect.height / 2
+        : sameRow ? event.clientX < rect.left + rect.width / 2 : event.clientY < rect.top + rect.height / 2;
       container.insertBefore(item, before ? target : target.nextSibling);
       animateReflow(beforeRects);
     }
