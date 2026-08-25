@@ -129,7 +129,7 @@
 .btl-project-section-head svg { width: 13px; height: 13px; }
 .btl-project-section-head h3 { margin: 0; color: inherit; font-size: 12px; font-weight: 750; }
 .btl-project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--btl-space-3); }
-.btl-project-card { position: relative; display: flex; min-width: 0; min-height: 84px; flex-direction: column; align-items: flex-start; justify-content: space-between; border: 1px solid var(--background-modifier-border); border-radius: var(--btl-radius-card); padding: 10px; background: var(--background-secondary); color: var(--text-normal); text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
+.btl-project-card { position: relative; display: flex; min-width: 0; min-height: 84px; flex-direction: column; align-items: flex-start; justify-content: space-between; border: 1px solid var(--background-modifier-border); border-radius: var(--btl-radius-card); padding: 10px; background: var(--background-secondary); color: var(--text-normal); text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y; }
 .btl-project-card:hover { border-color: var(--interactive-accent); background: var(--background-modifier-hover); }
 .btl-project-card.is-pinned { border-color: color-mix(in srgb, var(--btl-project-color, var(--interactive-accent)) 48%, var(--background-modifier-border)); }
 .btl-sort-placeholder { opacity: .18 !important; }

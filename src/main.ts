@@ -77,7 +77,7 @@ export default class BranchTimelinePlugin extends Plugin {
     return saved?.requireItemMetadata === true ? "both" : "none";
   }
 
-  async saveSettings(): Promise<void> {
+  async saveSettings(refresh = true): Promise<void> {
     const before = await this.loadData();
     await this.saveData(this.settings);
     this.undoManager.record(async () => {
@@ -88,7 +88,7 @@ export default class BranchTimelinePlugin extends Plugin {
     });
     this.store?.setPath(this.settings.statePath);
     this.repository?.updateSettings(this.settings);
-    await this.refreshViews();
+    if (refresh) await this.refreshViews();
   }
 
   async undoLast(): Promise<void> {

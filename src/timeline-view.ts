@@ -811,7 +811,7 @@ export class BranchTimelineView extends ItemView {
   private async reorderProjects(paths: string[]): Promise<void> {
     const moved = new Set(paths);
     this.plugin.settings.projectOrder = [...this.plugin.settings.projectOrder.filter(path => !moved.has(path)), ...paths];
-    await this.plugin.saveSettings();
+    await this.plugin.saveSettings(false);
   }
 
   private async reorderHabits(names: string[]): Promise<void> {
