@@ -47,6 +47,7 @@
 .btl-timeline-scroller { position: relative; min-height: 0; flex: 1 1 auto; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
 .btl-canvas { --btl-preview-inverse: 1; position: relative; width: 100%; min-width: 280px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .btl-paths { position: absolute; inset: 0; z-index: 1; overflow: visible; pointer-events: none; }
+.btl-tick-layer, .btl-gap-layer, .btl-now-layer { position: absolute; inset: 0; pointer-events: none; }
 .btl-branch-path { stroke-width: 2; vector-effect: non-scaling-stroke; }
 .btl-main-axis { position: absolute; z-index: 1; top: 0; bottom: 0; left: 50%; width: 1.5px; transform: translateX(-.75px); background: var(--text-muted); opacity: .72; }
 .btl-canvas-tick { position: absolute; z-index: 2; left: 50%; width: 7px; height: 1px; transform: translate(-50%, -.5px); background: var(--text-faint); opacity: .58; }
@@ -56,8 +57,17 @@
 .btl-canvas-tick-label.is-major { color: var(--text-normal); font-size: 11px; font-weight: 700; }
 .btl-canvas-tick-label { transform: translateY(-50%) scaleY(var(--btl-preview-inverse)); }
 
-.btl-now-line { position: absolute; z-index: 4; left: calc(50% - 72px); width: 144px; border-top: 1px dashed var(--color-red); opacity: .72; pointer-events: none; }
-.btl-now-dot { position: absolute; z-index: 7; left: 50%; width: 9px; height: 9px; transform: translate(-50%, -50%); border: 2px solid var(--background-primary); border-radius: 50%; background: var(--color-red); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-red) 20%, transparent); pointer-events: none; }
+.btl-now-line { position: absolute; z-index: 6; right: 10px; left: 10px; border-top: 1px dashed var(--color-red); opacity: .78; pointer-events: none; }
+.btl-now-dot { position: absolute; z-index: 46; left: 50%; width: 9px; height: 9px; transform: translate(-50%, -50%); border: 2px solid var(--background-primary); border-radius: 50%; background: var(--color-red); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-red) 20%, transparent); pointer-events: none; }
+.btl-now-label { position: absolute; z-index: 46; left: calc(50% + 10px); transform: translateY(calc(-100% - 4px)) scaleY(var(--btl-preview-inverse)); transform-origin: left bottom; border-radius: 5px; padding: 2px 5px; background: color-mix(in srgb, var(--color-red) 13%, var(--background-primary)); color: var(--color-red); font-size: 9px; font-weight: 750; font-variant-numeric: tabular-nums; line-height: 1.2; pointer-events: none; }
+.btl-gap-range { position: absolute; z-index: 5; left: calc(50% + 13px); width: 1px; min-height: 6px; border-left: 1px dashed color-mix(in srgb, var(--text-faint) 68%, transparent); opacity: .86; pointer-events: none; }
+.btl-gap-range::before, .btl-gap-range::after { content: ""; position: absolute; left: -3px; width: 6px; border-top: 1px solid var(--text-faint); opacity: .65; }
+.btl-gap-range::before { top: 0; }
+.btl-gap-range::after { bottom: 0; }
+.btl-gap-action { position: absolute; top: 50%; left: 7px; min-width: 76px; min-height: 30px; transform: translateY(-50%) scaleY(var(--btl-preview-inverse)); transform-origin: left center; border: 1px solid var(--background-modifier-border); border-radius: 999px; padding: 4px 8px; background: color-mix(in srgb, var(--background-secondary) 92%, transparent); box-shadow: 0 1px 3px rgba(0,0,0,.1); color: var(--text-faint); font-size: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: auto; touch-action: manipulation; }
+.btl-gap-action:hover { border-color: var(--text-faint); color: var(--text-muted); }
+.btl-gap-range.is-current { border-left-color: color-mix(in srgb, var(--interactive-accent) 50%, transparent); }
+.btl-gap-range.is-current .btl-gap-action { border-color: color-mix(in srgb, var(--interactive-accent) 30%, var(--background-modifier-border)); color: var(--text-muted); }
 
 .btl-rhythm-marker { position: absolute; z-index: 32; left: calc(50% - 88px); display: flex; align-items: center; gap: 6px; transform: translate(-100%, -50%); border: 1px solid var(--background-modifier-border); border-radius: 999px; padding: 3px 9px 3px 5px; background: var(--background-secondary); color: var(--text-muted); box-shadow: 0 1px 3px rgba(0,0,0,.12); font-size: 10px; white-space: nowrap; cursor: grab; touch-action: none; }
 .btl-rhythm-marker::after { content: ""; position: absolute; top: 50%; right: -84px; width: 82px; border-top: 1px dashed var(--background-modifier-border); }

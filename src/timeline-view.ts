@@ -10,6 +10,7 @@ import {
   TimelineItemDraftModal,
   type ChoiceItem,
   type ChoiceTextResult,
+  type TimelineItemDraftCopy,
   type TimelineItemDraftResult
 } from "./modals";
 import { AchievementActions } from "./pages/achievement-actions";
@@ -32,7 +33,7 @@ import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { TimelineGestures } from "./timeline/gestures";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, backfillItem as applyBackfill, clampMinute, minuteToY } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
-import { applyTimelineLod, renderTimeline } from "./timeline/renderer";
+import { applyTimelineLod, renderTimeline, updateTimelineTemporalLayers } from "./timeline/renderer";
 import type { ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineItem } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
@@ -93,6 +94,7 @@ export class BranchTimelineView extends ItemView {
       }
       this.updateCountdown();
       if (this.page === "day" && this.day?.items.some(item => item.factTiming || item.startedMin != null)) void this.render(true);
+      else this.updateTimelineClock();
     }, 60_000);
   }
   async onClose(): Promise<void> {
@@ -289,12 +291,14 @@ export class BranchTimelineView extends ItemView {
     this.scroller = scroller;
     const width = Math.max(280, scroller.clientWidth || root.clientWidth || 390);
     const nowMinute = this.nowOnAxis(day);
+    const gapHorizon = this.gapHorizon(day);
     const rendered = renderTimeline(scroller, {
       day,
       tags: this.plugin.settings.tags,
       scale: this.scale,
       width,
       nowMinute,
+      gapHorizon,
       rhythmLabels: this.plugin.settings.rhythmLabels
     });
     this.gestures = new TimelineGestures(scroller, rendered.canvas, day, rendered.layout, {
@@ -309,6 +313,7 @@ export class BranchTimelineView extends ItemView {
       onBranchFlip: branchId => void this.updateBranch(branchId, branch => { branch.side = branch.side > 0 ? -1 : 1; }),
       onBranchMenu: (branchId, event) => this.openBranchMenu(branchId, event),
       onRhythm: (rhythm, minute, moved) => void this.updateRhythm(rhythm, minute, moved),
+      onGapBackfill: (startMinute, endMinute) => void this.backfillGap(startMinute, endMinute),
       onAddTodo: (minute, branchId) => void this.addTimelineTodo(minute, branchId),
       onAddBranch: minute => void this.addTimelineBranch(minute),
       onScale: (scale, anchorClientY, commit) => void this.previewScale(scale, anchorClientY, commit)
@@ -486,6 +491,47 @@ export class BranchTimelineView extends ItemView {
       if (!target) return;
       const end = this.nowOnAxis(day) ?? target.endMin ?? target.plannedMin ?? day.napEnd;
       applyBackfill(target, end, minutes, day.wake);
+    });
+  }
+
+  private async backfillGap(startMinute: number, endMinute: number): Promise<void> {
+    const minutes = Math.max(1, Math.round(endMinute - startMinute));
+    const projects = this.plugin.repository.listProjects().filter(project =>
+      ["active", "doing", "进行中"].includes(project.status.trim().toLowerCase())
+    );
+    const draft = await this.timelineItemDraft(projects, {
+      heading: `补记 ${gapDurationText(minutes)}`,
+      titlePlaceholder: "做了什么",
+      submitLabel: "补记"
+    });
+    if (!draft) return;
+    const tag = draft.tagId ? this.plugin.settings.tags.find(candidate => candidate.id === draft.tagId) : undefined;
+    if (draft.projectPath) {
+      try {
+        await this.plugin.repository.addProjectLog(
+          draft.projectPath,
+          this.date,
+          endMinute,
+          minutes,
+          draft.note || draft.title
+        );
+      } catch (error) {
+        new Notice(error instanceof Error ? error.message : "项目补记写入失败");
+        return;
+      }
+    }
+    await this.updateDay(day => {
+      day.items.push({
+        id: this.uid("fact"),
+        title: draft.title,
+        kind: "fact",
+        startMin: startMinute,
+        endMin: endMinute,
+        projectPath: draft.projectPath || undefined,
+        tagId: tag?.id,
+        tag: tag?.name,
+        note: draft.note || undefined
+      });
     });
   }
 
@@ -754,7 +800,15 @@ export class BranchTimelineView extends ItemView {
   private nowOnAxis(day: TimelineDayState): number | undefined {
     const minute = this.currentLogicalMinute();
     if (minute == null) return undefined;
-    return minute >= day.wake && minute <= day.sleep ? minute : undefined;
+    return minute >= day.wake ? minute : undefined;
+  }
+
+  private gapHorizon(day: TimelineDayState): number | undefined {
+    const selected = dateKey(this.date);
+    const today = dateKey(logicalToday());
+    if (selected > today) return undefined;
+    if (selected < today) return day.sleep;
+    return this.nowOnAxis(day);
   }
 
   private currentLogicalMinute(): number | undefined {
@@ -778,6 +832,13 @@ export class BranchTimelineView extends ItemView {
       : this.plugin.settings.rhythmRemainingMark);
     button.querySelector("strong")?.setText(rhythmProgressLabel(this.plugin.settings.rhythm, now));
     button.toggleClass("is-elapsed", progress.mode === "elapsed");
+  }
+
+  private updateTimelineClock(): void {
+    if (this.page !== "day" || !this.day || !this.scroller) return;
+    const canvas = this.scroller.querySelector<HTMLElement>(".btl-canvas");
+    if (!canvas) return;
+    updateTimelineTemporalLayers(canvas, this.day, this.scale, this.nowOnAxis(this.day), this.gapHorizon(this.day));
   }
 
   private async toggleProjectPin(path: string): Promise<void> {
@@ -867,13 +928,14 @@ export class BranchTimelineView extends ItemView {
     return new Promise(resolve => new TextareaEntryModal(this.app, title, placeholder, resolve, value).open());
   }
 
-  private timelineItemDraft(projects: readonly ProjectRef[]): Promise<TimelineItemDraftResult | null> {
+  private timelineItemDraft(projects: readonly ProjectRef[], copy?: TimelineItemDraftCopy): Promise<TimelineItemDraftResult | null> {
     return new Promise(resolve => new TimelineItemDraftModal(
       this.app,
       projects,
       this.plugin.settings.tags,
       this.plugin.settings.itemMetadataRequirement,
-      resolve
+      resolve,
+      copy
     ).open());
   }
 
@@ -905,3 +967,9 @@ export class BranchTimelineView extends ItemView {
 
 function clampScale(value: number): number { return Math.max(MIN_SCALE, Math.min(MAX_SCALE, value)); }
 function clampProjectScale(value: number): number { return Math.max(PROJECT_SCALE_MIN, Math.min(PROJECT_SCALE_MAX, value)); }
+function gapDurationText(minutes: number): string {
+  if (minutes < 60) return `${minutes}分钟`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `${hours}小时${rest ? `${rest}分钟` : ""}`;
+}

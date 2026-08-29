@@ -104,6 +104,12 @@ export interface TimelineItemDraftResult {
   tagId: string | null;
 }
 
+export interface TimelineItemDraftCopy {
+  heading: string;
+  titlePlaceholder: string;
+  submitLabel: string;
+}
+
 export class TimelineItemDraftModal extends Modal {
   private titleValue = "";
   private noteValue = "";
@@ -119,17 +125,18 @@ export class TimelineItemDraftModal extends Modal {
     private projects: readonly ProjectRef[],
     private tags: readonly TimelineTag[],
     private metadataRequirement: ItemMetadataRequirement,
-    private resolve: (value: TimelineItemDraftResult | null) => void
+    private resolve: (value: TimelineItemDraftResult | null) => void,
+    private copy: TimelineItemDraftCopy = { heading: "添加代办", titlePlaceholder: "代办内容", submitLabel: "添加" }
   ) { super(app); }
 
   onOpen(): void {
     this.contentEl.empty();
     this.contentEl.addClass("btl-modal");
     this.contentEl.addClass("btl-item-compose");
-    this.contentEl.createEl("h3", { text: "添加代办" });
+    this.contentEl.createEl("h3", { text: this.copy.heading });
     const title = this.contentEl.createEl("input", {
       cls: "btl-text-input",
-      attr: { placeholder: "代办内容", "aria-label": "代办内容" }
+      attr: { placeholder: this.copy.titlePlaceholder, "aria-label": this.copy.titlePlaceholder }
     });
     title.oninput = () => { this.titleValue = title.value; this.refreshSubmit(); };
     title.onkeydown = event => { if (event.key === "Enter") this.submit(); };
@@ -148,7 +155,7 @@ export class TimelineItemDraftModal extends Modal {
 
     const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
     actions.createEl("button", { text: "取消" }).onclick = () => this.close();
-    this.submitButton = actions.createEl("button", { text: "添加", cls: "mod-cta" });
+    this.submitButton = actions.createEl("button", { text: this.copy.submitLabel, cls: "mod-cta" });
     this.submitButton.onclick = () => this.submit();
     this.refreshSubmit();
     window.setTimeout(() => title.focus(), 30);

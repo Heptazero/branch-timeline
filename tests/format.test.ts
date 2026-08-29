@@ -31,6 +31,7 @@ import {
   itemDuration,
   pickBranch,
   snapMinute,
+  timelineGaps,
   yToMinute
 } from "../src/timeline/model";
 import type { BranchTimelineState, TimelineDayState } from "../src/types";
@@ -146,6 +147,28 @@ test("backfills todos and facts upward from their end", () => {
   const fact = { id: "fact", title: "阅读", kind: "fact" as const, startMin: 500, endMin: 560 };
   backfillItem(fact, 800, 30, 420);
   assert.deepEqual(fact, { id: "fact", title: "阅读", kind: "fact", startMin: 530, endMin: 560, factTiming: false });
+});
+
+test("merges recorded spans and exposes only meaningful unrecorded gaps", () => {
+  const day: TimelineDayState = {
+    wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
+    items: [
+      { id: "a", title: "阅读", kind: "fact", startMin: 450, endMin: 510 },
+      { id: "b", title: "并行记录", kind: "fact", startMin: 480, endMin: 540 },
+      { id: "c", title: "计划", kind: "todo", plannedMin: 560 },
+      { id: "d", title: "正在做", kind: "todo", plannedMin: 570, startedMin: 570 }
+    ]
+  };
+  assert.deepEqual(timelineGaps(day, 630, 630, 10), [
+    { start: 420, end: 450, current: false },
+    { start: 540, end: 570, current: false }
+  ]);
+  assert.deepEqual(timelineGaps(day, 700, 630, 10).at(-1), { start: 630, end: 700, current: false });
+});
+
+test("extends the current day canvas beyond planned sleep", () => {
+  const day: TimelineDayState = { wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, items: [], branches: [] };
+  assert.ok(computeTimelineLayout(day, 390, 1, 1620).height > computeTimelineLayout(day, 390, 1).height);
 });
 
 test("migrates the legacy single nap marker and counts down to sleep preparation", () => {

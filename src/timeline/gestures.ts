@@ -30,6 +30,7 @@ export interface TimelineGestureCallbacks {
   onBranchFlip: (branchId: string) => void;
   onBranchMenu: (branchId: string, event: MouseEvent) => void;
   onRhythm: (key: RhythmKey, minute: number, moved: boolean) => void;
+  onGapBackfill: (startMinute: number, endMinute: number) => void;
   onAddTodo: (minute: number, branchId: string | null) => void;
   onAddBranch: (minute: number) => void;
   onScale: (scale: number, anchorClientY: number, commit: boolean) => void;
@@ -98,6 +99,10 @@ export class TimelineGestures {
 
   private pointerDown = (event: PointerEvent): void => {
     const target = event.target as HTMLElement;
+    if (target.closest(".btl-gap-action")) {
+      event.stopPropagation();
+      return;
+    }
     const complete = target.closest<HTMLElement>(".btl-item-circle");
     if (complete) {
       event.stopPropagation();
@@ -202,6 +207,15 @@ export class TimelineGestures {
 
   private click = (event: MouseEvent): void => {
     const target = event.target as HTMLElement;
+    const gap = target.closest<HTMLElement>(".btl-gap-action");
+    if (gap) {
+      event.preventDefault();
+      event.stopPropagation();
+      const start = Number(gap.dataset.gapStart);
+      const end = Number(gap.dataset.gapEnd);
+      if (Number.isFinite(start) && Number.isFinite(end) && end > start) this.callbacks.onGapBackfill(start, end);
+      return;
+    }
     const complete = target.closest<HTMLElement>(".btl-item-circle");
     if (complete) {
       event.preventDefault();
@@ -296,7 +310,7 @@ export class TimelineGestures {
 
   private doubleClick = (event: MouseEvent): void => {
     const target = event.target as HTMLElement;
-    if (target.closest(".btl-canvas-item, .btl-rhythm-marker, .btl-branch-label, .btl-branch-grip, .btl-branch-start, .btl-branch-end, .btl-span-handle")) return;
+    if (target.closest(".btl-canvas-item, .btl-gap-action, .btl-rhythm-marker, .btl-branch-label, .btl-branch-grip, .btl-branch-start, .btl-branch-end, .btl-span-handle")) return;
     this.activateAt(event.clientX, event.clientY);
   };
 

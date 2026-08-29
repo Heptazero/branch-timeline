@@ -2,6 +2,7 @@ import { setIcon } from "obsidian";
 import { RHYTHM_KEYS, rhythmLabel, rhythmRealKey } from "../rhythm";
 import type { RhythmKey, TimelineDayState, TimelineItem, TimelineTag } from "../types";
 import {
+  TIMELINE_BOTTOM,
   branchPath,
   computeTimelineLayout,
   formatTime,
@@ -10,6 +11,7 @@ import {
   itemStart,
   itemX,
   minuteToY,
+  timelineGaps,
   type TimelineLayout
 } from "./model";
 
@@ -21,6 +23,7 @@ export interface TimelineRenderOptions {
   scale: number;
   width: number;
   nowMinute?: number;
+  gapHorizon?: number;
   rhythmLabels?: Partial<Record<RhythmKey, string>>;
 }
 
@@ -60,8 +63,10 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   canvas.appendChild(svg);
   canvas.createDiv({ cls: "btl-main-axis" });
 
-  renderTicks(canvas, day, scale);
-  renderNow(canvas, day, scale, nowMinute);
+  canvas.createDiv({ cls: "btl-tick-layer" });
+  canvas.createDiv({ cls: "btl-gap-layer" });
+  canvas.createDiv({ cls: "btl-now-layer" });
+  updateTimelineTemporalLayers(canvas, day, scale, nowMinute, options.gapHorizon);
   renderRhythm(canvas, day, scale, options.rhythmLabels);
   renderBranches(canvas, svg, day, layout);
 
@@ -70,26 +75,83 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   return { canvas, layout };
 }
 
-function renderTicks(canvas: HTMLElement, day: TimelineDayState, scale: number): void {
-  for (let minute = Math.ceil(day.wake / 60) * 60; minute <= day.sleep; minute += 60) {
-    const major = minute === 12 * 60 || minute === 18 * 60;
-    const mid = minute % 180 === 0;
-    const tick = canvas.createDiv({ cls: `btl-canvas-tick${major ? " is-major" : mid ? " is-mid" : ""}` });
+export function updateTimelineTemporalLayers(
+  canvas: HTMLElement,
+  day: TimelineDayState,
+  scale: number,
+  nowMinute?: number,
+  gapHorizon?: number
+): void {
+  const endMinute = Math.max(day.sleep, nowMinute ?? day.sleep);
+  const height = minuteToY(day, scale, endMinute) + TIMELINE_BOTTOM;
+  canvas.style.height = `${height}px`;
+  canvas.querySelector<SVGSVGElement>(".btl-paths")?.setAttribute("height", String(height));
+
+  const ticks = canvas.querySelector<HTMLElement>(".btl-tick-layer");
+  const gaps = canvas.querySelector<HTMLElement>(".btl-gap-layer");
+  const now = canvas.querySelector<HTMLElement>(".btl-now-layer");
+  if (ticks) renderTicks(ticks, day, scale, endMinute);
+  if (gaps) renderGaps(gaps, day, scale, gapHorizon, nowMinute);
+  if (now) renderNow(now, day, scale, nowMinute);
+}
+
+function renderTicks(layer: HTMLElement, day: TimelineDayState, scale: number, endMinute: number): void {
+  layer.empty();
+  const step = scale >= 2.2 ? 15 : scale >= 0.9 ? 30 : 60;
+  const labelStep = scale >= 0.9 ? 60 : 180;
+  for (let minute = Math.ceil(day.wake / step) * step; minute <= endMinute; minute += step) {
+    const hour = minute % 60 === 0;
+    const mid = !hour && minute % 30 === 0;
+    const major = hour && minute % labelStep === 0;
+    const tick = layer.createDiv({ cls: `btl-canvas-tick${major ? " is-major" : mid ? " is-mid" : ""}` });
     tick.style.top = `${minuteToY(day, scale, minute)}px`;
-    if (major || mid) {
-      const label = canvas.createDiv({ cls: `btl-canvas-tick-label${major ? " is-major" : ""}`, text: formatTime(minute) });
+    if (hour && minute % labelStep === 0) {
+      const label = layer.createDiv({ cls: `btl-canvas-tick-label${major ? " is-major" : ""}`, text: formatTime(minute) });
       label.style.top = tick.style.top;
     }
   }
 }
 
-function renderNow(canvas: HTMLElement, day: TimelineDayState, scale: number, nowMinute?: number): void {
-  if (nowMinute == null || nowMinute < day.wake || nowMinute > day.sleep) return;
+function renderNow(layer: HTMLElement, day: TimelineDayState, scale: number, nowMinute?: number): void {
+  layer.empty();
+  if (nowMinute == null || nowMinute < day.wake) return;
   const top = minuteToY(day, scale, nowMinute);
-  const line = canvas.createDiv({ cls: "btl-now-line" });
+  const line = layer.createDiv({ cls: "btl-now-line" });
   line.style.top = `${top}px`;
-  const dot = canvas.createDiv({ cls: "btl-now-dot", attr: { title: "现在" } });
+  const dot = layer.createDiv({ cls: "btl-now-dot", attr: { title: `现在 ${formatTime(nowMinute)}` } });
   dot.style.top = `${top}px`;
+  const label = layer.createDiv({ cls: "btl-now-label", text: formatTime(nowMinute) });
+  label.style.top = `${top}px`;
+}
+
+function renderGaps(
+  layer: HTMLElement,
+  day: TimelineDayState,
+  scale: number,
+  gapHorizon?: number,
+  nowMinute?: number
+): void {
+  layer.empty();
+  if (gapHorizon == null || gapHorizon <= day.wake) return;
+  const visibleMinimum = scale < 0.8 ? 60 : scale < 1.25 ? 30 : 10;
+  for (const gap of timelineGaps(day, gapHorizon, nowMinute, visibleMinimum)) {
+    const startY = minuteToY(day, scale, gap.start);
+    const endY = minuteToY(day, scale, gap.end);
+    const range = layer.createDiv({ cls: `btl-gap-range${gap.current ? " is-current" : ""}` });
+    range.style.top = `${startY}px`;
+    range.style.height = `${Math.max(6, endY - startY)}px`;
+    const duration = gap.end - gap.start;
+    range.createEl("button", {
+      cls: "btl-gap-action",
+      text: gapDurationLabel(duration),
+      attr: {
+        type: "button",
+        "aria-label": `补记未记录的 ${duration} 分钟`,
+        "data-gap-start": String(gap.start),
+        "data-gap-end": String(gap.end)
+      }
+    });
+  }
 }
 
 function renderRhythm(canvas: HTMLElement, day: TimelineDayState, scale: number, labels?: Partial<Record<RhythmKey, string>>): void {
@@ -257,4 +319,11 @@ function durationLabel(minutes: number): string {
   if (minutes < 60) return `${minutes} 分钟`;
   const value = minutes / 60;
   return `${value.toFixed(minutes % 60 ? 1 : 0)} 小时`;
+}
+
+function gapDurationLabel(minutes: number): string {
+  if (minutes < 60) return `未记录 ${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `未记录 ${hours}h${rest ? `${rest}m` : ""}`;
 }

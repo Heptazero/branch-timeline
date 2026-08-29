@@ -21,6 +21,12 @@ export interface TimelineLayout {
   branches: Map<string, BranchLayout>;
 }
 
+export interface TimelineGap {
+  start: number;
+  end: number;
+  current: boolean;
+}
+
 export function formatTime(minutes: number): string {
   const hour = Math.floor(minutes / 60) % 24;
   return `${String(hour).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
@@ -74,6 +80,38 @@ export function backfillItem(item: TimelineItem, fallbackEnd: number, minutes: n
   delete item.startedMin;
 }
 
+export function timelineGaps(
+  day: TimelineDayState,
+  horizon: number,
+  nowMinute?: number,
+  minimumMinutes = 10
+): TimelineGap[] {
+  const end = Math.max(day.wake, horizon);
+  const intervals = day.items.flatMap(item => {
+    const start = itemStart(item, day.wake);
+    const finish = itemEnd(item, day.wake, nowMinute);
+    const running = item.factTiming || (item.kind === "todo" && item.startedMin != null);
+    if ((!running && item.kind !== "fact") || finish <= start || finish <= day.wake || start >= end) return [];
+    return [{ start: Math.max(day.wake, start), end: Math.min(end, finish) }];
+  }).sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const merged: Array<{ start: number; end: number }> = [];
+  for (const interval of intervals) {
+    const previous = merged[merged.length - 1];
+    if (previous && interval.start <= previous.end) previous.end = Math.max(previous.end, interval.end);
+    else merged.push({ ...interval });
+  }
+
+  const gaps: TimelineGap[] = [];
+  let cursor = day.wake;
+  for (const interval of merged) {
+    if (interval.start - cursor >= minimumMinutes) gaps.push({ start: cursor, end: interval.start, current: false });
+    cursor = Math.max(cursor, interval.end);
+  }
+  if (end - cursor >= minimumMinutes) gaps.push({ start: cursor, end, current: nowMinute != null && end === nowMinute });
+  return gaps;
+}
+
 export function effectiveBranchEnd(day: TimelineDayState, branch: TimelineBranch, nowMinute?: number): number {
   if (branch.endMin != null) return Math.max(branch.startMin + 30, branch.endMin);
   let end = branch.startMin + 45;
@@ -81,7 +119,7 @@ export function effectiveBranchEnd(day: TimelineDayState, branch: TimelineBranch
     if (item.branchId === branch.id) end = Math.max(end, itemEnd(item, day.wake, nowMinute) + 25);
   }
   if (nowMinute != null) end = Math.max(end, nowMinute);
-  return Math.min(day.sleep, end);
+  return Math.min(Math.max(day.sleep, nowMinute ?? day.sleep), end);
 }
 
 export function branchStartBounds(day: TimelineDayState, branch: TimelineBranch): [number, number] {
@@ -124,7 +162,7 @@ export function computeTimelineLayout(
   return {
     width,
     center,
-    height: minuteToY(day, scale, day.sleep) + TIMELINE_BOTTOM,
+    height: minuteToY(day, scale, Math.max(day.sleep, nowMinute ?? day.sleep)) + TIMELINE_BOTTOM,
     scale,
     branches
   };
