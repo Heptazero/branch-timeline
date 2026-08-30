@@ -34,6 +34,7 @@ import {
   timelineGaps,
   yToMinute
 } from "../src/timeline/model";
+import { effectiveEnergyPhases, energyPhaseBounds, materializeEnergyPhases } from "../src/timeline/energy-phases";
 import type { BranchTimelineState, TimelineDayState } from "../src/types";
 
 const date = new Date(2026, 7, 13);
@@ -169,6 +170,33 @@ test("merges recorded spans and exposes only meaningful unrecorded gaps", () => 
 test("extends the current day canvas beyond planned sleep", () => {
   const day: TimelineDayState = { wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, items: [], branches: [] };
   assert.ok(computeTimelineLayout(day, 390, 1, 1620).height > computeTimelineLayout(day, 390, 1).height);
+});
+
+test("inherits energy phases forward without rewriting previous days", () => {
+  const previous = {
+    wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [], items: [],
+    energyPhases: [{ id: "morning", name: "清醒", at: 480, color: "#3978d3", side: -1 as const }]
+  };
+  const current: TimelineDayState = {
+    wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [], items: []
+  };
+  const days: Record<string, TimelineDayState> = { "2026-08-12": previous, "2026-08-13": current };
+  assert.deepEqual(effectiveEnergyPhases(days, "2026-08-13").map(phase => phase.name), ["清醒"]);
+  const editable = materializeEnergyPhases(days, "2026-08-13", current);
+  editable[0].name = "下午低谷";
+  assert.equal(previous.energyPhases[0].name, "清醒");
+  assert.equal(effectiveEnergyPhases(days, "2026-08-14")[0].name, "下午低谷");
+  current.energyPhases = [];
+  assert.deepEqual(effectiveEnergyPhases(days, "2026-08-14"), []);
+});
+
+test("keeps energy phase boundaries ordered", () => {
+  const phases = [
+    { id: "a", name: "上午", at: 480, color: "#3978d3", side: -1 as const },
+    { id: "b", name: "下午", at: 780, color: "#8a94a2", side: 1 as const },
+    { id: "c", name: "晚上", at: 1200, color: "#3978d3", side: 1 as const }
+  ];
+  assert.deepEqual(energyPhaseBounds(phases, "b", 420, 1560), [485, 1195]);
 });
 
 test("migrates the legacy single nap marker and counts down to sleep preparation", () => {

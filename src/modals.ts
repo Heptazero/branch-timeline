@@ -12,7 +12,7 @@ export class ProjectSuggestModal extends FuzzySuggestModal<ProjectRef> {
   onClose(): void { window.setTimeout(() => this.resolve(null), 0); }
 }
 
-export interface ChoiceItem { id: string; label: string }
+export interface ChoiceItem { id: string; label: string; color?: string }
 
 export interface ChoiceTextResult { text: string; choice: string }
 
@@ -319,6 +319,10 @@ export class ChoiceTextModal extends Modal {
     const pills = this.contentEl.createDiv({ cls: "btl-choice-pills" });
     for (const choice of this.choices) {
       const button = pills.createEl("button", { text: choice.label, attr: { type: "button" } });
+      if (choice.color) {
+        button.addClass("has-color");
+        button.style.setProperty("--btl-choice-color", choice.color);
+      }
       button.toggleClass("is-selected", choice.id === this.selected);
       button.onclick = () => {
         this.selected = choice.id;

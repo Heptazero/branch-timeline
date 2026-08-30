@@ -1,4 +1,5 @@
 import type { RhythmKey, RhythmSchedule, TimelineDayState } from "./types";
+import { normalizeEnergyPhases } from "./timeline/energy-phases";
 
 export const DEFAULT_RHYTHM: RhythmSchedule = {
   wake: 7 * 60,
@@ -49,7 +50,8 @@ export function normalizeTimelineDay(value: Partial<TimelineDayState>): Timeline
     sleepPrepReal: !!value.sleepPrepReal,
     sleepReal: !!value.sleepReal,
     branches: Array.isArray(value.branches) ? value.branches : [],
-    items: Array.isArray(value.items) ? value.items : []
+    items: Array.isArray(value.items) ? value.items : [],
+    energyPhases: Array.isArray(value.energyPhases) ? normalizeEnergyPhases(value.energyPhases) : undefined
   };
 }
 

@@ -46,6 +46,21 @@
 
 .btl-timeline-scroller { position: relative; min-height: 0; flex: 1 1 auto; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
 .btl-canvas { --btl-preview-inverse: 1; position: relative; width: 100%; min-width: 280px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.btl-energy-layer { position: absolute; inset: 0; pointer-events: none; }
+.btl-energy-zone { position: absolute; z-index: 0; right: 8px; left: 8px; background: color-mix(in srgb, var(--btl-energy-color) 10%, transparent); pointer-events: none; }
+.btl-energy-line { position: absolute; z-index: 2; right: 8px; left: 8px; border-top: 1.5px dashed var(--btl-energy-color); pointer-events: none; }
+.btl-energy-label { position: absolute; z-index: 18; display: flex; max-width: 42%; min-height: 32px; align-items: center; gap: 2px; transform: scaleY(var(--btl-preview-inverse)); transform-origin: left top; color: var(--btl-energy-color); font-size: 9px; font-weight: 720; pointer-events: auto; }
+.btl-energy-label.side-left { left: 18px; }
+.btl-energy-label.side-right { right: 18px; transform-origin: right top; }
+.btl-energy-label > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btl-energy-color, .btl-energy-menu { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 9px; padding: 0; background: transparent; color: inherit; }
+.btl-energy-color::after { content: ""; width: 11px; height: 11px; border: 2px solid var(--background-primary); border-radius: 50%; background: var(--btl-energy-color); box-shadow: 0 0 0 1px color-mix(in srgb, var(--btl-energy-color) 60%, var(--background-modifier-border)); }
+.btl-energy-menu { font-size: 18px; line-height: 1; }
+.btl-energy-color:hover, .btl-energy-menu:hover { background: var(--background-modifier-hover); }
+.btl-energy-handle { position: absolute; z-index: 42; left: 12px; display: grid; width: 32px; height: 32px; place-items: center; transform: translate(-50%, -50%) scaleY(var(--btl-preview-inverse)); border: 0; border-radius: 50%; padding: 0; background: transparent; color: var(--btl-energy-color); cursor: ns-resize; pointer-events: auto; touch-action: none; }
+.btl-energy-handle::before { content: ""; width: 9px; height: 9px; border: 2px solid currentColor; border-radius: 50%; background: var(--background-primary); }
+.btl-energy-handle::after { content: attr(data-time); position: absolute; top: 50%; left: calc(100% + 1px); transform: translateY(-50%); border-radius: 4px; padding: 1px 3px; background: var(--background-primary); color: var(--text-faint); font-size: 8px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.btl-energy-handle:hover, .btl-energy-handle.is-dragging { background: color-mix(in srgb, var(--btl-energy-color) 10%, transparent); }
 .btl-paths { position: absolute; inset: 0; z-index: 1; overflow: visible; pointer-events: none; }
 .btl-tick-layer, .btl-gap-layer, .btl-now-layer { position: absolute; inset: 0; pointer-events: none; }
 .btl-branch-path { stroke-width: 2; vector-effect: non-scaling-stroke; }
@@ -344,6 +359,9 @@
 .btl-choice-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .btl-choice-pills button { border: 1px solid var(--background-modifier-border); border-radius: 999px; padding: 5px 10px; background: var(--background-secondary); color: var(--text-muted); font-size: 10px; }
 .btl-choice-pills button.is-selected { border-color: var(--interactive-accent); background: color-mix(in srgb, var(--interactive-accent) 16%, var(--background-primary)); color: var(--interactive-accent); font-weight: 750; }
+.btl-choice-pills button.has-color { display: inline-flex; align-items: center; gap: 6px; }
+.btl-choice-pills button.has-color::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--btl-choice-color); box-shadow: 0 0 0 1px color-mix(in srgb, var(--btl-choice-color) 55%, var(--background-modifier-border)); }
+.btl-choice-pills button.has-color.is-selected { border-color: var(--btl-choice-color); background: color-mix(in srgb, var(--btl-choice-color) 14%, var(--background-primary)); color: var(--btl-choice-color); }
 .btl-duration-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .btl-duration-head strong { color: var(--interactive-accent); font-variant-numeric: tabular-nums; }
 .btl-duration-wheel { height: 150px; margin: 8px 0 12px; padding-block: 55px; overflow-y: auto; scroll-snap-type: y mandatory; border-block: 1px solid var(--background-modifier-border); scrollbar-width: none; background: linear-gradient(var(--background-primary), transparent 38%, transparent 62%, var(--background-primary)); }
@@ -366,6 +384,11 @@
 .btl-time-wheel button.is-selected { color: var(--text-normal); font-size: 18px; font-weight: 760; }
 .btl-rhythm-popover-actions { display: flex; justify-content: flex-end; gap: 7px; }
 .btl-rhythm-popover-actions button { border-radius: 8px; padding: 5px 11px; }
+.btl-color-popover { position: fixed; z-index: 10001; display: flex; gap: 6px; border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 6px; background: var(--background-primary); box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+.btl-color-popover button { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid transparent; border-radius: 9px; padding: 0; background: transparent; }
+.btl-color-popover button::after { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--btl-color-choice); box-shadow: 0 0 0 1px color-mix(in srgb, var(--btl-color-choice) 60%, var(--background-modifier-border)); }
+.btl-color-popover button:hover { background: var(--background-modifier-hover); }
+.btl-color-popover button.is-selected { border-color: var(--btl-color-choice); background: color-mix(in srgb, var(--btl-color-choice) 12%, var(--background-primary)); }
 .btl-tag-setting .setting-item-info, .btl-project-type-setting .setting-item-info { display: none; }
 .btl-tag-setting .setting-item-control, .btl-project-type-setting .setting-item-control { width: 100%; flex-wrap: nowrap; }
 .btl-tag-setting input[type="text"], .btl-project-type-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }

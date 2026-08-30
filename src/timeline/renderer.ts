@@ -1,6 +1,6 @@
 import { setIcon } from "obsidian";
 import { RHYTHM_KEYS, rhythmLabel, rhythmRealKey } from "../rhythm";
-import type { RhythmKey, TimelineDayState, TimelineItem, TimelineTag } from "../types";
+import type { RhythmKey, TimelineDayState, TimelineEnergyPhase, TimelineItem, TimelineTag } from "../types";
 import {
   TIMELINE_BOTTOM,
   branchPath,
@@ -25,6 +25,7 @@ export interface TimelineRenderOptions {
   nowMinute?: number;
   gapHorizon?: number;
   rhythmLabels?: Partial<Record<RhythmKey, string>>;
+  energyPhases?: readonly TimelineEnergyPhase[];
 }
 
 export interface TimelineRenderResult {
@@ -55,6 +56,7 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   const canvas = container.createDiv({ cls: "btl-canvas" });
   canvas.style.height = `${layout.height}px`;
   applyTimelineLod(canvas, scale);
+  renderEnergyPhases(canvas, day, scale, options.energyPhases || []);
 
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.addClass("btl-paths");
@@ -73,6 +75,83 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   const orderedItems = [...day.items].sort((a, b) => itemDuration(b, day.wake, nowMinute) - itemDuration(a, day.wake, nowMinute));
   for (const item of orderedItems) renderItem(canvas, day, layout, item, tags, nowMinute);
   return { canvas, layout };
+}
+
+function renderEnergyPhases(
+  canvas: HTMLElement,
+  day: TimelineDayState,
+  scale: number,
+  phases: readonly TimelineEnergyPhase[]
+): void {
+  const layer = canvas.createDiv({ cls: "btl-energy-layer" });
+  for (const phase of visibleEnergyPhases(phases, day)) {
+    const zone = layer.createDiv({ cls: "btl-energy-zone", attr: { "data-energy-id": phase.id } });
+    zone.style.setProperty("--btl-energy-color", phase.color);
+
+    const line = layer.createDiv({ cls: "btl-energy-line", attr: { "data-energy-id": phase.id } });
+    line.style.setProperty("--btl-energy-color", phase.color);
+
+    const label = layer.createDiv({
+      cls: `btl-energy-label side-${phase.side < 0 ? "left" : "right"}`,
+      attr: { "data-energy-id": phase.id }
+    });
+    label.style.setProperty("--btl-energy-color", phase.color);
+    label.createEl("button", {
+      cls: "btl-energy-color",
+      attr: { type: "button", "aria-label": "更换精力区间颜色", title: "更换颜色" }
+    });
+    label.createSpan({ text: phase.name });
+    label.createEl("button", {
+      cls: "btl-energy-menu",
+      text: "⋮",
+      attr: { type: "button", "aria-label": "精力区间菜单" }
+    });
+
+    const handle = layer.createEl("button", {
+      cls: "btl-energy-handle",
+      attr: {
+        type: "button",
+        "aria-label": "上下调整精力区间",
+        "data-energy-id": phase.id
+      }
+    });
+    handle.style.setProperty("--btl-energy-color", phase.color);
+  }
+  updateEnergyPhasePositions(canvas, day, scale, phases);
+}
+
+export function updateEnergyPhasePositions(
+  canvas: HTMLElement,
+  day: TimelineDayState,
+  scale: number,
+  phases: readonly TimelineEnergyPhase[]
+): void {
+  const ordered = visibleEnergyPhases(phases, day);
+  ordered.forEach((phase, index) => {
+    const start = Math.max(day.wake, phase.at);
+    const end = Math.min(day.sleep, ordered[index + 1]?.at ?? day.sleep);
+    const startY = minuteToY(day, scale, start);
+    const endY = minuteToY(day, scale, end);
+    const escaped = cssEscape(phase.id);
+    const zone = canvas.querySelector<HTMLElement>(`.btl-energy-zone[data-energy-id="${escaped}"]`);
+    const line = canvas.querySelector<HTMLElement>(`.btl-energy-line[data-energy-id="${escaped}"]`);
+    const label = canvas.querySelector<HTMLElement>(`.btl-energy-label[data-energy-id="${escaped}"]`);
+    const handle = canvas.querySelector<HTMLElement>(`.btl-energy-handle[data-energy-id="${escaped}"]`);
+    if (zone) {
+      zone.style.top = `${startY}px`;
+      zone.style.height = `${Math.max(0, endY - startY)}px`;
+    }
+    if (line) line.style.top = `${startY}px`;
+    if (label) label.style.top = `${Math.max(0, startY - 22)}px`;
+    if (handle) {
+      handle.style.top = `${startY}px`;
+      handle.dataset.time = formatTime(phase.at);
+    }
+  });
+}
+
+function visibleEnergyPhases(phases: readonly TimelineEnergyPhase[], day: TimelineDayState): TimelineEnergyPhase[] {
+  return phases.filter(phase => phase.at >= day.wake && phase.at <= day.sleep).sort((a, b) => a.at - b.at);
 }
 
 export function updateTimelineTemporalLayers(
@@ -326,4 +405,8 @@ function gapDurationLabel(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return `未记录 ${hours}h${rest ? `${rest}m` : ""}`;
+}
+
+function cssEscape(value: string): string {
+  return CSS.escape(value);
 }

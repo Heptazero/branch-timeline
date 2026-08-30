@@ -91,6 +91,16 @@ export interface TimelineDayState {
   pivotReal?: boolean;
   branches: TimelineBranch[];
   items: TimelineItem[];
+  /** 某天显式保存后从该日起生效；缺省时沿用最近一个更早日期。 */
+  energyPhases?: TimelineEnergyPhase[];
+}
+
+export interface TimelineEnergyPhase {
+  id: string;
+  name: string;
+  at: number;
+  color: string;
+  side: -1 | 1;
 }
 
 export interface BranchTimelineState {

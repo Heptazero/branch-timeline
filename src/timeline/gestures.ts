@@ -1,5 +1,6 @@
 import { rhythmBounds, rhythmLabel } from "../rhythm";
-import type { RhythmKey, TimelineDayState, TimelineItem } from "../types";
+import type { RhythmKey, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "../types";
+import { energyPhaseBounds } from "./energy-phases";
 import {
   MAX_SCALE,
   MIN_SCALE,
@@ -17,6 +18,7 @@ import {
   yToMinute,
   type TimelineLayout
 } from "./model";
+import { updateEnergyPhasePositions } from "./renderer";
 
 export interface TimelineGestureCallbacks {
   onItemMove: (itemId: string, startMin: number, branchId: string | null) => void;
@@ -30,8 +32,12 @@ export interface TimelineGestureCallbacks {
   onBranchFlip: (branchId: string) => void;
   onBranchMenu: (branchId: string, event: MouseEvent) => void;
   onRhythm: (key: RhythmKey, minute: number, moved: boolean) => void;
+  onEnergyPhaseMove: (phaseId: string, minute: number) => void;
+  onEnergyPhaseColor: (phaseId: string, anchor: HTMLElement) => void;
+  onEnergyPhaseMenu: (phaseId: string, event: MouseEvent) => void;
   onGapBackfill: (startMinute: number, endMinute: number) => void;
   onAddTodo: (minute: number, branchId: string | null) => void;
+  onAddEnergyPhase: (minute: number, side: -1 | 1) => void;
   onAddBranch: (minute: number) => void;
   onScale: (scale: number, anchorClientY: number, commit: boolean) => void;
 }
@@ -43,7 +49,8 @@ type DragState =
   | { kind: "branch-start"; pointerId: number; branchId: string; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean }
   | { kind: "branch-end"; pointerId: number; branchId: string; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean }
   | { kind: "branch-label"; pointerId: number; branchId: string; element: HTMLElement; x0: number; y0: number; moved: boolean }
-  | { kind: "rhythm"; pointerId: number; key: RhythmKey; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean };
+  | { kind: "rhythm"; pointerId: number; key: RhythmKey; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean }
+  | { kind: "energy-phase"; pointerId: number; phaseId: string; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean };
 
 interface BackgroundPointer {
   pointerId: number;
@@ -67,6 +74,7 @@ export class TimelineGestures {
     private canvas: HTMLElement,
     private day: TimelineDayState,
     private layout: TimelineLayout,
+    private energyPhases: readonly TimelineEnergyPhase[],
     private callbacks: TimelineGestureCallbacks
   ) {
     this.previewScale = layout.scale;
@@ -99,6 +107,33 @@ export class TimelineGestures {
 
   private pointerDown = (event: PointerEvent): void => {
     const target = event.target as HTMLElement;
+    if (target.closest(".btl-energy-color, .btl-energy-menu")) {
+      event.stopPropagation();
+      return;
+    }
+    const energyHandle = target.closest<HTMLElement>(".btl-energy-handle");
+    if (energyHandle?.dataset.energyId) {
+      const phase = this.energyPhases.find(candidate => candidate.id === energyHandle.dataset.energyId);
+      if (!phase) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this.drag = {
+        kind: "energy-phase",
+        pointerId: event.pointerId,
+        phaseId: phase.id,
+        element: energyHandle,
+        y0: event.clientY,
+        minute0: phase.at,
+        minute: phase.at,
+        moved: false
+      };
+      this.capture(energyHandle, event.pointerId);
+      return;
+    }
+    if (target.closest(".btl-energy-label")) {
+      event.stopPropagation();
+      return;
+    }
     if (target.closest(".btl-gap-action")) {
       event.stopPropagation();
       return;
@@ -207,6 +242,22 @@ export class TimelineGestures {
 
   private click = (event: MouseEvent): void => {
     const target = event.target as HTMLElement;
+    const energyColor = target.closest<HTMLElement>(".btl-energy-color");
+    if (energyColor) {
+      event.preventDefault();
+      event.stopPropagation();
+      const phaseId = energyColor.closest<HTMLElement>("[data-energy-id]")?.dataset.energyId;
+      if (phaseId) this.callbacks.onEnergyPhaseColor(phaseId, energyColor);
+      return;
+    }
+    const energyMenu = target.closest<HTMLElement>(".btl-energy-menu");
+    if (energyMenu) {
+      event.preventDefault();
+      event.stopPropagation();
+      const phaseId = energyMenu.closest<HTMLElement>("[data-energy-id]")?.dataset.energyId;
+      if (phaseId) this.callbacks.onEnergyPhaseMenu(phaseId, event);
+      return;
+    }
     const gap = target.closest<HTMLElement>(".btl-gap-action");
     if (gap) {
       event.preventDefault();
@@ -255,6 +306,7 @@ export class TimelineGestures {
       else if (drag.kind === "branch-start") this.previewBranchStart(drag, dy);
       else if (drag.kind === "branch-end") this.previewBranchEnd(drag, dy);
       else if (drag.kind === "rhythm") this.previewRhythm(drag, dy);
+      else if (drag.kind === "energy-phase") this.previewEnergyPhase(drag, dy);
       return;
     }
     if (this.background && this.background.pointerId === event.pointerId && Math.hypot(event.clientX - this.background.x, event.clientY - this.background.y) > 8) {
@@ -283,6 +335,8 @@ export class TimelineGestures {
         this.callbacks.onBranchFlip(drag.branchId);
       } else if (drag.kind === "rhythm") {
         this.callbacks.onRhythm(drag.key, snapMinute(drag.minute), drag.moved);
+      } else if (drag.kind === "energy-phase" && drag.moved) {
+        this.callbacks.onEnergyPhaseMove(drag.phaseId, snapMinute(drag.minute));
       }
       this.drag = null;
       return;
@@ -304,13 +358,19 @@ export class TimelineGestures {
   };
 
   private pointerCancel = (): void => {
+    const drag = this.drag;
+    if (drag?.kind === "energy-phase") {
+      const restored = this.energyPhases.map(phase => phase.id === drag.phaseId ? { ...phase, at: drag.minute0 } : phase);
+      updateEnergyPhasePositions(this.canvas, this.day, this.layout.scale, restored);
+      drag.element.removeClass("is-dragging");
+    }
     this.drag = null;
     this.cancelBackground();
   };
 
   private doubleClick = (event: MouseEvent): void => {
     const target = event.target as HTMLElement;
-    if (target.closest(".btl-canvas-item, .btl-gap-action, .btl-rhythm-marker, .btl-branch-label, .btl-branch-grip, .btl-branch-start, .btl-branch-end, .btl-span-handle")) return;
+    if (target.closest(".btl-canvas-item, .btl-gap-action, .btl-rhythm-marker, .btl-energy-label, .btl-energy-handle, .btl-branch-label, .btl-branch-grip, .btl-branch-start, .btl-branch-end, .btl-span-handle")) return;
     this.activateAt(event.clientX, event.clientY);
   };
 
@@ -441,8 +501,19 @@ export class TimelineGestures {
     if (label) label.textContent = `${rhythmLabel(drag.key)} ${formatTime(snapMinute(drag.minute))}`;
   }
 
+  private previewEnergyPhase(drag: Extract<DragState, { kind: "energy-phase" }>, dy: number): void {
+    const bounds = energyPhaseBounds(this.energyPhases, drag.phaseId, this.day.wake, this.day.sleep);
+    drag.minute = Math.max(bounds[0], Math.min(bounds[1], snapMinute(drag.minute0 + dy / this.layout.scale)));
+    const preview = this.energyPhases.map(phase => phase.id === drag.phaseId ? { ...phase, at: drag.minute } : phase);
+    updateEnergyPhasePositions(this.canvas, this.day, this.layout.scale, preview);
+  }
+
   private activateAt(clientX: number, clientY: number): void {
     const point = this.canvasPoint(clientX, clientY);
+    if (Math.abs(point.x) > Math.min(110, this.canvas.clientWidth * 0.24)) {
+      this.callbacks.onAddEnergyPhase(clampMinute(this.day, point.minute), point.x < 0 ? -1 : 1);
+      return;
+    }
     this.callbacks.onAddTodo(point.minute, pickBranch(this.layout, point.minute, point.x));
   }
 

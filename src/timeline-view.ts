@@ -1,5 +1,6 @@
 import { ItemView, Menu, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import type BranchTimelinePlugin from "./main";
+import { openColorPopover } from "./color-popover";
 import { openDateHeatmapPopover } from "./date-heatmap-popover";
 import {
   ChoiceTextModal,
@@ -31,10 +32,11 @@ import { PolicyActions } from "./pages/policy-actions";
 import { rhythmProgress, rhythmProgressLabel, rhythmRealKey } from "./rhythm";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { TimelineGestures } from "./timeline/gestures";
+import { ENERGY_PHASE_COLORS, effectiveEnergyPhases, materializeEnergyPhases } from "./timeline/energy-phases";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP, backfillItem as applyBackfill, clampMinute, minuteToY } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
 import { applyTimelineLod, renderTimeline, updateTimelineTemporalLayers } from "./timeline/renderer";
-import type { ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineItem } from "./types";
+import type { ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
 
@@ -49,6 +51,7 @@ export class BranchTimelineView extends ItemView {
   private gestures: TimelineGestures | null = null;
   private scroller: HTMLElement | null = null;
   private day: TimelineDayState | null = null;
+  private energyPhases: TimelineEnergyPhase[] = [];
   private renderId = 0;
   private page: TimelinePage = "day";
   private pendingScale: number | null = null;
@@ -156,6 +159,7 @@ export class BranchTimelineView extends ItemView {
     const key = dateKey(this.date);
     const day = state.days[key] || defaultDay(this.plugin.settings.rhythm);
     this.day = day;
+    this.energyPhases = effectiveEnergyPhases(state.days, key);
 
     if (this.page !== "day") {
       this.scroller = null;
@@ -299,9 +303,10 @@ export class BranchTimelineView extends ItemView {
       width,
       nowMinute,
       gapHorizon,
-      rhythmLabels: this.plugin.settings.rhythmLabels
+      rhythmLabels: this.plugin.settings.rhythmLabels,
+      energyPhases: this.energyPhases
     });
-    this.gestures = new TimelineGestures(scroller, rendered.canvas, day, rendered.layout, {
+    this.gestures = new TimelineGestures(scroller, rendered.canvas, day, rendered.layout, this.energyPhases, {
       onItemMove: (itemId, startMin, branchId) => void this.moveItem(itemId, startMin, branchId),
       onItemResize: (itemId, edge, minute) => void this.resizeItem(itemId, edge, minute),
       onItemComplete: itemId => void this.completeItem(itemId),
@@ -313,8 +318,12 @@ export class BranchTimelineView extends ItemView {
       onBranchFlip: branchId => void this.updateBranch(branchId, branch => { branch.side = branch.side > 0 ? -1 : 1; }),
       onBranchMenu: (branchId, event) => this.openBranchMenu(branchId, event),
       onRhythm: (rhythm, minute, moved) => void this.updateRhythm(rhythm, minute, moved),
+      onEnergyPhaseMove: (phaseId, minute) => void this.moveEnergyPhase(phaseId, minute),
+      onEnergyPhaseColor: (phaseId, anchor) => this.openEnergyPhaseColor(phaseId, anchor),
+      onEnergyPhaseMenu: (phaseId, event) => this.openEnergyPhaseMenu(phaseId, event),
       onGapBackfill: (startMinute, endMinute) => void this.backfillGap(startMinute, endMinute),
       onAddTodo: (minute, branchId) => void this.addTimelineTodo(minute, branchId),
+      onAddEnergyPhase: (minute, side) => void this.addEnergyPhase(minute, side),
       onAddBranch: minute => void this.addTimelineBranch(minute),
       onScale: (scale, anchorClientY, commit) => void this.previewScale(scale, anchorClientY, commit)
     });
@@ -656,6 +665,96 @@ export class BranchTimelineView extends ItemView {
     });
   }
 
+  private async addEnergyPhase(minute: number, side: -1 | 1): Promise<void> {
+    if (this.energyPhases.some(phase => Math.abs(phase.at - minute) < 5)) {
+      new Notice("这里已有精力分界");
+      return;
+    }
+    const result = await this.choiceText(
+      "添加精力区间",
+      "区间名称",
+      ENERGY_PHASE_COLORS.map(choice => ({ ...choice, color: choice.id })),
+      ENERGY_PHASE_COLORS[0].id
+    );
+    if (!result) return;
+    await this.updateEnergyPhases(phases => {
+      phases.push({
+        id: this.uid("energy"),
+        name: result.text,
+        at: clampMinute(this.day || defaultDay(this.plugin.settings.rhythm), minute),
+        color: result.choice || ENERGY_PHASE_COLORS[0].id,
+        side
+      });
+    });
+  }
+
+  private async moveEnergyPhase(phaseId: string, minute: number): Promise<void> {
+    await this.updateEnergyPhases(phases => {
+      const phase = phases.find(candidate => candidate.id === phaseId);
+      if (phase) phase.at = minute;
+    });
+  }
+
+  private openEnergyPhaseColor(phaseId: string, anchor: HTMLElement): void {
+    const phase = this.energyPhases.find(candidate => candidate.id === phaseId);
+    if (!phase) return;
+    openColorPopover(
+      anchor,
+      ENERGY_PHASE_COLORS.map(choice => ({ ...choice, color: choice.id })),
+      phase.color,
+      color => this.updateEnergyPhases(phases => {
+        const target = phases.find(candidate => candidate.id === phaseId);
+        if (target) target.color = color;
+      })
+    );
+  }
+
+  private openEnergyPhaseMenu(phaseId: string, event: MouseEvent): void {
+    const phase = this.energyPhases.find(candidate => candidate.id === phaseId);
+    if (!phase) return;
+    const menu = new Menu();
+    menu.addItem(item => item.setTitle("重命名").setIcon("pencil").onClick(() => void this.renameEnergyPhase(phase)));
+    menu.addItem(item => item.setTitle(phase.side < 0 ? "移到右侧" : "移到左侧").setIcon("arrow-left-right").onClick(() => void this.updateEnergyPhases(phases => {
+      const target = phases.find(candidate => candidate.id === phase.id);
+      if (target) target.side = target.side < 0 ? 1 : -1;
+    })));
+    menu.addSeparator();
+    menu.addItem(item => item.setTitle("删除区间").setIcon("trash-2").setWarning(true).onClick(() => this.confirmRemoveEnergyPhase(phase)));
+    menu.showAtMouseEvent(event);
+  }
+
+  private async renameEnergyPhase(phase: TimelineEnergyPhase): Promise<void> {
+    const value = await this.text("重命名精力区间", "区间名称", phase.name);
+    if (value == null) return;
+    await this.updateEnergyPhases(phases => {
+      const target = phases.find(candidate => candidate.id === phase.id);
+      if (target) target.name = value;
+    });
+  }
+
+  private confirmRemoveEnergyPhase(phase: TimelineEnergyPhase): void {
+    new ConfirmModal(
+      this.app,
+      `删除“${phase.name}”？`,
+      "只改变当天及以后的精力区间，之前日期不变。",
+      () => this.updateEnergyPhases(phases => {
+        const index = phases.findIndex(candidate => candidate.id === phase.id);
+        if (index >= 0) phases.splice(index, 1);
+      })
+    ).open();
+  }
+
+  private async updateEnergyPhases(mutator: (phases: TimelineEnergyPhase[]) => void): Promise<void> {
+    const key = dateKey(this.date);
+    await this.plugin.store.update(state => {
+      const day = state.days[key] ||= defaultDay(this.plugin.settings.rhythm);
+      const phases = materializeEnergyPhases(state.days, key, day);
+      mutator(phases);
+      phases.sort((a, b) => a.at - b.at);
+    });
+    await this.render(true);
+  }
+
   private async updateDay(mutator: (day: TimelineDayState) => void): Promise<void> {
     const key = dateKey(this.date);
     await this.plugin.store.update(state => {
@@ -769,6 +868,7 @@ export class BranchTimelineView extends ItemView {
     }
     menu.addItem(item => item.setTitle("添加代办").setIcon("circle-plus").onClick(() => void this.addTimelineTodo(minute, null)));
     menu.addItem(item => item.setTitle("添加分支").setIcon("git-branch-plus").onClick(() => void this.addTimelineBranch(minute)));
+    menu.addItem(item => item.setTitle("添加精力区间").setIcon("layers-2").onClick(() => void this.addEnergyPhase(minute, 1)));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("记录项目工时").setIcon("timer").onClick(() => void this.plugin.recordProjectWork(this.date)));
     menu.addItem(item => item.setTitle("记录分类时长").setIcon("tags").onClick(() => void this.plugin.recordCategoryDuration(this.date)));
