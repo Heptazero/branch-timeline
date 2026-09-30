@@ -120,7 +120,16 @@ export interface Achievement {
   name: string;
   color: string;
   createdDate: string;
-  manualDates: string[];
+  records: AchievementRecord[];
+  /** 0.3.12 以前的按日打钩数据，仅用于无损迁移。 */
+  manualDates?: string[];
+}
+
+export interface AchievementRecord {
+  id: string;
+  date: string;
+  minute: number;
+  note: string;
 }
 
 export type PolicyMode = "triggered" | "passive" | "daily" | "mechanism";

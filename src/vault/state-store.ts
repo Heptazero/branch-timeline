@@ -1,4 +1,5 @@
 import { App, normalizePath } from "obsidian";
+import { normalizeAchievement } from "../pages/achievement-model";
 import { normalizeTimelineDay } from "../rhythm";
 import type { BranchTimelineState, PolicyNode, PolicyPeriod, RhythmSchedule, TimelineDayState } from "../types";
 import type { UndoAction } from "../undo-manager";
@@ -34,7 +35,7 @@ export class StateStore {
           ? Object.fromEntries(Object.entries(parsed.days).map(([date, day]) => [date, normalizeTimelineDay(day)]))
           : {},
         projects: parsed.projects && typeof parsed.projects === "object" ? parsed.projects : {},
-        achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
+        achievements: Array.isArray(parsed.achievements) ? parsed.achievements.map(normalizeAchievement) : [],
         policySides: Array.isArray(parsed.policySides) && parsed.policySides.length
           ? parsed.policySides
           : [{ id: "policy-side-routine", name: "作息", mode: "dayparts" }],

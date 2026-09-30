@@ -18,6 +18,7 @@ import { loadTags, tagCategoryKey } from "../src/tags";
 import { countdownLabel, normalizeRhythmSchedule, normalizeTimelineDay, rhythmProgress, rhythmProgressLabel } from "../src/rhythm";
 import { pageDateTitle, shiftPageDate, startOfWeek } from "../src/pages/navigation";
 import { policyPeriodAt } from "../src/pages/policy";
+import { achievementStats, normalizeAchievement, sortAchievementRecords } from "../src/pages/achievement-model";
 import {
   absoluteMinute,
   pickProjectBranch,
@@ -66,6 +67,30 @@ test("assigns anchors to morning afternoon and evening", () => {
   assert.equal(policyPeriodAt(new Date(2026, 7, 13, 14, 0)), "afternoon");
   assert.equal(policyPeriodAt(new Date(2026, 7, 13, 20, 0)), "evening");
   assert.equal(policyPeriodAt(new Date(2026, 7, 14, 1, 0)), "evening");
+});
+
+test("migrates legacy achievement checks into editable records", () => {
+  const achievement = normalizeAchievement({
+    id: "read",
+    name: "读完一本书",
+    color: "#3b6ea5",
+    createdDate: "2026-08-01",
+    manualDates: ["2026-08-10", "2026-08-11"]
+  });
+  assert.deepEqual(achievement.records.map(record => [record.date, record.minute]), [
+    ["2026-08-11", 720],
+    ["2026-08-10", 720]
+  ]);
+  assert.deepEqual(achievementStats(achievement), { total: 2, current: 2, latest: achievement.records[0] });
+});
+
+test("sorts achievement records by their editable date and time", () => {
+  const records = sortAchievementRecords([
+    { id: "a", date: "2026-08-12", minute: 600, note: "早" },
+    { id: "b", date: "2026-08-12", minute: 900, note: "晚" },
+    { id: "c", date: "2026-08-11", minute: 1200, note: "昨天" }
+  ]);
+  assert.deepEqual(records.map(record => record.id), ["b", "a", "c"]);
 });
 
 test("toggles an exact habit without touching similarly named tasks", () => {

@@ -113,7 +113,12 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
       return;
     }
     if (this.page === "achievements") {
-      void this.achievementActions.add();
+      if (this.selectedAchievementId) {
+        void this.plugin.store.load().then(state => {
+          const achievement = state.achievements.find(candidate => candidate.id === this.selectedAchievementId);
+          if (achievement) this.achievementActions.addRecord(achievement);
+        });
+      } else void this.achievementActions.add();
       return;
     }
     if (this.page === "habits") {

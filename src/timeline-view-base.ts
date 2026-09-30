@@ -7,7 +7,7 @@ import {
   type TimelineItemDraftResult
 } from "./modals";
 import { AchievementActions } from "./pages/achievement-actions";
-import { renderAchievementsPage } from "./pages/achievements";
+import { renderAchievementDetail, renderAchievementsPage } from "./pages/achievements";
 import { renderHabitsPage } from "./pages/habits";
 import { renderPageNavigation, type TimelinePage } from "./pages/navigation";
 import { ProjectTimelineActions } from "./pages/project-actions";
@@ -49,6 +49,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected clockTimer: number | null = null;
   protected followsToday = true;
   protected selectedProjectPath: string | null = null;
+  protected selectedAchievementId: string | null = null;
   protected projectScale = clampProjectScale(Number(localStorage.getItem("branch-timeline-hz-project-scale")) || 120);
   protected projectAnchor: ProjectScaleAnchor | undefined;
   protected getProjectAnchor: (() => ProjectScaleAnchor) | null = null;
@@ -70,7 +71,11 @@ export abstract class BranchTimelineViewBase extends ItemView {
       refresh: () => this.render(false),
       text: (title: string, placeholder: string, value?: string) => this.text(title, placeholder, value)
     };
-    this.achievementActions = new AchievementActions({ ...shared, colors: BRANCH_COLORS });
+    this.achievementActions = new AchievementActions({
+      ...shared,
+      colors: BRANCH_COLORS,
+      onDeleteAchievement: id => { if (this.selectedAchievementId === id) this.selectedAchievementId = null; }
+    });
     this.policyActions = new PolicyActions(shared);
   }
   getViewType(): string { return BRANCH_TIMELINE_VIEW; }
@@ -104,6 +109,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     this.followsToday = true;
     this.page = "day";
     this.selectedProjectPath = null;
+    this.selectedAchievementId = null;
     await this.render(false);
     window.requestAnimationFrame(() => {
       this.scroller?.querySelector<HTMLElement>(`.btl-canvas-item[data-item-id="${CSS.escape(itemId)}"]`)
@@ -125,6 +131,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     if (!this.plugin.settings.visiblePages.includes(this.page)) {
       this.page = "day";
       this.selectedProjectPath = null;
+      this.selectedAchievementId = null;
     }
 
     const root = this.contentEl;
@@ -148,6 +155,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     renderPageNavigation(navigationRow, this.page, page => {
       this.page = page;
       if (page !== "projects") this.selectedProjectPath = null;
+      if (page !== "achievements") this.selectedAchievementId = null;
       void this.render(false);
     }, this.plugin.settings.visiblePages);
     this.countdownButton = navigationRow.createEl("button", { cls: "btl-day-countdown", attr: { "aria-label": "设置节律" } });
@@ -259,14 +267,27 @@ export abstract class BranchTimelineViewBase extends ItemView {
         });
       }
       else if (this.page === "achievements") {
-        renderAchievementsPage({
-          container: pageContent,
-          date: this.date,
-          achievements: state.achievements,
-          onAdd: () => void this.achievementActions.add(),
-          onToggle: (achievementId, date) => void this.achievementActions.toggle(achievementId, date),
-          onMenu: (achievement, event) => this.achievementActions.openMenu(achievement, event)
-        });
+        const achievement = this.selectedAchievementId
+          ? state.achievements.find(candidate => candidate.id === this.selectedAchievementId)
+          : undefined;
+        if (achievement) {
+          renderAchievementDetail({
+            container: pageContent,
+            achievement,
+            onBack: () => { this.selectedAchievementId = null; void this.render(false); },
+            onEditRecord: record => this.achievementActions.editRecord(achievement, record),
+            onRecordMenu: (record, event) => this.achievementActions.openRecordMenu(achievement, record, event),
+            onMenu: event => this.achievementActions.openMenu(achievement, event)
+          });
+        } else {
+          this.selectedAchievementId = null;
+          renderAchievementsPage({
+            container: pageContent,
+            achievements: state.achievements,
+            onOpen: target => { this.selectedAchievementId = target.id; void this.render(false); },
+            onMenu: (target, event) => this.achievementActions.openMenu(target, event)
+          });
+        }
       } else {
         const activeSide = state.policySides.find(side => side.id === this.policySideId) || state.policySides[0];
         this.policySideId = activeSide?.id || "policy-side-routine";

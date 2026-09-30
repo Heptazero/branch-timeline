@@ -1,77 +1,107 @@
-import type { Achievement } from "../types";
-import { dateKey } from "../vault/format";
-import { startOfWeek } from "./navigation";
+import { setIcon } from "obsidian";
+import { formatTime } from "../timeline/model";
+import type { Achievement, AchievementRecord } from "../types";
+import { achievementStats, sortAchievementRecords } from "./achievement-model";
 
 export interface AchievementsPageOptions {
   container: HTMLElement;
-  date: Date;
   achievements: readonly Achievement[];
-  onAdd: () => void;
-  onToggle: (achievementId: string, date: string) => void;
+  onOpen: (achievement: Achievement) => void;
   onMenu: (achievement: Achievement, event: PointerEvent) => void;
 }
 
-export function renderAchievementsPage(options: AchievementsPageOptions): void {
-  const { container, achievements } = options;
-  const dates = weekDates(options.date);
-  const grid = container.createDiv({ cls: "btl-achievement-grid" });
-  grid.ondblclick = event => {
-    if (!(event.target as HTMLElement).closest(".btl-achievement-card, button")) options.onAdd();
-  };
+export interface AchievementDetailOptions {
+  container: HTMLElement;
+  achievement: Achievement;
+  onBack: () => void;
+  onEditRecord: (record: AchievementRecord) => void;
+  onRecordMenu: (record: AchievementRecord, event: PointerEvent) => void;
+  onMenu: (event: PointerEvent) => void;
+}
 
-  for (const achievement of achievements) {
-    const card = grid.createDiv({ cls: "btl-achievement-card", attr: { "data-achievement-id": achievement.id } });
+export function renderAchievementsPage(options: AchievementsPageOptions): void {
+  const grid = options.container.createDiv({ cls: "btl-achievement-grid" });
+  for (const achievement of options.achievements) {
+    const stats = achievementStats(achievement);
+    const card = grid.createDiv({
+      cls: "btl-achievement-card",
+      attr: { "data-achievement-id": achievement.id, role: "button", tabindex: "0" }
+    });
     card.style.setProperty("--btl-achievement-color", achievement.color);
+    card.onclick = event => {
+      if (!(event.target as HTMLElement).closest("button")) options.onOpen(achievement);
+    };
+    card.onkeydown = event => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); options.onOpen(achievement); }
+    };
     const head = card.createDiv({ cls: "btl-achievement-head" });
     head.createEl("h3", { text: achievement.name });
-    const menu = head.createEl("button", { text: "⋮", attr: { "aria-label": "成就菜单" } });
+    const menu = head.createEl("button", { attr: { "aria-label": "成就菜单" } });
+    menu.createSpan({ text: "⋮" });
     menu.onpointerdown = event => {
       event.preventDefault();
       event.stopPropagation();
       options.onMenu(achievement, event);
     };
-    const stats = streakStats(achievement, dateKey(options.date));
-    const streak = card.createEl("button", { cls: "btl-achievement-streak", attr: { "aria-label": "切换今日达成" } });
-    streak.createEl("strong", { text: String(stats.current) });
-    streak.createSpan({ text: "天" });
-    streak.onclick = () => options.onToggle(achievement.id, dateKey(options.date));
-
-    const week = card.createDiv({ cls: "btl-achievement-week" });
-    for (const date of dates) {
-      const key = dateKey(date);
-      const cell = week.createEl("button", {
-        cls: `${achievement.manualDates.includes(key) ? "is-done" : ""}${key === dateKey(options.date) ? " is-current" : ""}`.trim(),
-        attr: { "aria-label": key }
-      });
-      cell.createSpan({ text: String(date.getDate()) });
-      cell.onclick = () => options.onToggle(achievement.id, key);
-    }
+    const total = card.createDiv({ cls: "btl-achievement-total" });
+    total.createEl("strong", { text: String(stats.total) });
+    total.createSpan({ text: "条记录" });
+    const meta = card.createDiv({ cls: "btl-achievement-meta" });
+    meta.createSpan({ text: stats.latest ? `${shortDate(stats.latest.date)} ${formatTime(stats.latest.minute)}` : "暂无记录" });
+    if (stats.current > 1) meta.createSpan({ text: `最近连续 ${stats.current} 天` });
   }
 }
 
-function weekDates(date: Date): Date[] {
-  const start = startOfWeek(date);
-  return Array.from({ length: 7 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
+export function renderAchievementDetail(options: AchievementDetailOptions): void {
+  const { achievement } = options;
+  const page = options.container.createDiv({ cls: "btl-achievement-detail" });
+  page.style.setProperty("--btl-achievement-color", achievement.color);
+  const header = page.createDiv({ cls: "btl-achievement-detail-head" });
+  const back = header.createEl("button", { attr: { "aria-label": "返回" } });
+  setIcon(back, "chevron-left");
+  header.createEl("h2", { text: achievement.name });
+  const menu = header.createEl("button", { attr: { "aria-label": "成就菜单" } });
+  menu.createSpan({ text: "⋮" });
+  menu.onpointerdown = event => {
+    event.preventDefault();
+    event.stopPropagation();
+    options.onMenu(event);
+  };
+  back.onclick = options.onBack;
+
+  const records = sortAchievementRecords(achievement.records);
+  if (!records.length) {
+    page.createDiv({ cls: "btl-empty", text: "暂无记录" });
+    return;
+  }
+  const timeline = page.createDiv({ cls: "btl-achievement-timeline" });
+  for (const record of records) renderRecord(timeline, record, options);
 }
 
-function streakStats(achievement: Achievement, through: string): { current: number; best: number } {
-  const dates = [...new Set(achievement.manualDates)].filter(date => date <= through).sort();
-  if (!dates.length) return { current: 0, best: 0 };
-  const completed = new Set(dates);
-  let current = 0;
-  let best = 0;
-  let run = 0;
-  for (let cursor = new Date(`${dates[0]}T12:00:00`); dateKey(cursor) <= through; cursor.setDate(cursor.getDate() + 1)) {
-    if (completed.has(dateKey(cursor))) {
-      run += 1;
-      best = Math.max(best, run);
-    } else run = 0;
-  }
-  const throughDate = new Date(`${through}T12:00:00`);
-  if (!completed.has(through)) throughDate.setDate(throughDate.getDate() - 1);
-  while (completed.has(dateKey(throughDate))) {
-    current += 1;
-    throughDate.setDate(throughDate.getDate() - 1);
-  }
-  return { current, best };
+function renderRecord(container: HTMLElement, record: AchievementRecord, options: AchievementDetailOptions): void {
+  const row = container.createDiv({ cls: "btl-achievement-record" });
+  const when = row.createDiv({ cls: "btl-achievement-record-when" });
+  when.createEl("strong", { text: shortDate(record.date) });
+  when.createSpan({ text: formatTime(record.minute) });
+  row.createDiv({ cls: "btl-achievement-record-dot" });
+  const card = row.createDiv({ cls: "btl-achievement-record-card", attr: { role: "button", tabindex: "0" } });
+  card.createDiv({ cls: record.note ? "btl-achievement-record-note" : "btl-achievement-record-note is-empty", text: record.note || "记录" });
+  const menu = card.createEl("button", { attr: { "aria-label": "记录菜单" } });
+  menu.createSpan({ text: "⋮" });
+  menu.onpointerdown = event => {
+    event.preventDefault();
+    event.stopPropagation();
+    options.onRecordMenu(record, event);
+  };
+  card.onclick = event => {
+    if (!(event.target as HTMLElement).closest("button")) options.onEditRecord(record);
+  };
+  card.onkeydown = event => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); options.onEditRecord(record); }
+  };
+}
+
+function shortDate(value: string): string {
+  const [year, month, day] = value.split("-");
+  return year === String(new Date().getFullYear()) ? `${Number(month)}/${Number(day)}` : `${year}/${Number(month)}/${Number(day)}`;
 }
