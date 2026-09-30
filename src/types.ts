@@ -11,6 +11,7 @@ export interface BranchTimelineSettings {
   rhythmLabels: Record<RhythmKey, string>;
   rhythmElapsedMark: string;
   rhythmRemainingMark: string;
+  timerReminderMinutes: number;
   visiblePages: TimelinePage[];
   projectOrder: string[];
   pinnedProjects: string[];

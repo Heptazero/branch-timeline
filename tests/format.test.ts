@@ -35,6 +35,7 @@ import {
   yToMinute
 } from "../src/timeline/model";
 import { effectiveEnergyPhases, energyPhaseBounds, materializeEnergyPhases } from "../src/timeline/energy-phases";
+import { TimerService, elapsedMinutes, runningItems } from "../src/timeline/timer-service";
 import type { BranchTimelineState, TimelineDayState } from "../src/types";
 
 const date = new Date(2026, 7, 13);
@@ -138,6 +139,25 @@ test("snaps timeline motion while preserving fact duration", () => {
 test("extends running todos and facts to the current minute", () => {
   assert.equal(itemDuration({ id: "todo", title: "写作", kind: "todo", plannedMin: 500, startedMin: 520 }, 420, 575), 55);
   assert.equal(itemDuration({ id: "fact", title: "阅读", kind: "fact", startMin: 480, endMin: 480, factTiming: true }, 420, 555), 75);
+});
+
+test("starts continues and stops timers without changing previous facts", () => {
+  const day: TimelineDayState = {
+    wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
+    items: [
+      { id: "todo", title: "写作", kind: "todo", plannedMin: 500 },
+      { id: "fact", title: "阅读", kind: "fact", startMin: 480, endMin: 540 }
+    ]
+  };
+  const timers = new TimerService();
+  timers.start(day, "todo", 560, () => "unused");
+  const continued = timers.start(day, "fact", 570, () => "continued");
+  assert.equal(continued?.id, "continued");
+  assert.deepEqual(runningItems(day).map(item => item.id), ["continued", "todo"]);
+  assert.equal(elapsedMinutes(day.items[0], day, 600), 40);
+  timers.stop(day, "continued", 615);
+  assert.equal(day.items.find(item => item.id === "continued")?.endMin, 615);
+  assert.equal(day.items.find(item => item.id === "fact")?.endMin, 540);
 });
 
 test("backfills todos and facts upward from their end", () => {

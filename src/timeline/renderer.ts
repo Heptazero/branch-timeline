@@ -174,6 +174,29 @@ export function updateTimelineTemporalLayers(
   if (now) renderNow(now, day, scale, nowMinute);
 }
 
+export function updateRunningItems(
+  canvas: HTMLElement,
+  day: TimelineDayState,
+  scale: number,
+  nowMinute?: number
+): void {
+  if (nowMinute == null) return;
+  for (const item of day.items) {
+    const running = item.factTiming || (item.kind === "todo" && item.startedMin != null);
+    if (!running) continue;
+    const card = canvas.querySelector<HTMLElement>(`.btl-canvas-item[data-item-id="${CSS.escape(item.id)}"]`);
+    if (!card) continue;
+    const start = itemStart(item, day.wake);
+    const end = itemEnd(item, day.wake, nowMinute);
+    const duration = Math.max(0, end - start);
+    const height = Math.max(32, minuteToY(day, scale, end) - minuteToY(day, scale, start));
+    card.style.height = `${height}px`;
+    card.toggleClass("has-room", height >= 72);
+    card.toggleClass("has-note-room", !!item.note && height >= (item.projectPath ? 82 : 70));
+    card.querySelector<HTMLElement>(".btl-canvas-item-time")?.setText(`计时 ${durationLabel(duration)}`);
+  }
+}
+
 function renderTicks(layer: HTMLElement, day: TimelineDayState, scale: number, endMinute: number): void {
   layer.empty();
   const step = scale >= 2.2 ? 15 : scale >= 0.9 ? 30 : 60;

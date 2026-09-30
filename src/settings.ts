@@ -66,6 +66,7 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   rhythmLabels: { wake: "起床", napStart: "午休开始", napEnd: "午休结束", sleepPrep: "睡眠准备", sleep: "入睡" },
   rhythmElapsedMark: "↑",
   rhythmRemainingMark: "↓",
+  timerReminderMinutes: 45,
   visiblePages: ["day", "projects", "habits", "achievements", "policy"],
   projectOrder: [],
   pinnedProjects: [],
@@ -199,6 +200,17 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     }
     this.textSetting("经过标记", "午休结束前显示在计时左侧。", "rhythmElapsedMark");
     this.textSetting("剩余标记", "午休结束后显示在计时左侧。", "rhythmRemainingMark");
+    new Setting(containerEl)
+      .setName("计时提醒")
+      .setDesc("持续计时达到该分钟数时提醒；0 表示关闭。")
+      .addText(text => text
+        .setValue(String(this.plugin.settings.timerReminderMinutes))
+        .setPlaceholder("45")
+        .onChange(async value => {
+          const minutes = Math.max(0, Math.round(Number(value) || 0));
+          this.plugin.settings.timerReminderMinutes = minutes;
+          await this.plugin.saveSettings(false);
+        }));
 
     new Setting(containerEl).setName("页面").setHeading();
     for (const page of OPTIONAL_PAGES) {

@@ -9,12 +9,16 @@ import { dateKey, logicalToday } from "./vault/format";
 import { VaultRepository } from "./vault/repository";
 import { StateStore, defaultDay } from "./vault/state-store";
 import { UndoManager } from "./undo-manager";
+import { compactDuration, elapsedMinutes, runningItems } from "./timeline/timer-service";
 
 export default class BranchTimelinePlugin extends Plugin {
   settings: BranchTimelineSettings = DEFAULT_SETTINGS;
   store!: StateStore;
   repository!: VaultRepository;
   readonly undoManager = new UndoManager();
+  private timerStatusItem: HTMLElement | null = null;
+  private timerStatusItemId: string | null = null;
+  private readonly deliveredTimerReminders = new Set<string>();
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -23,6 +27,13 @@ export default class BranchTimelinePlugin extends Plugin {
     this.store.setUndoRecorder(action => this.undoManager.record(action));
     this.repository.setUndoRecorder(action => this.undoManager.record(action));
     await this.store.ensure();
+    if (Platform.isDesktopApp) {
+      this.timerStatusItem = this.addStatusBarItem();
+      this.timerStatusItem.addClass("btl-global-timer");
+      this.timerStatusItem.onclick = () => void this.openRunningTimer();
+    }
+    await this.refreshTimerStatus();
+    this.registerInterval(window.setInterval(() => void this.refreshTimerStatus(), 60_000));
     this.registerView(BRANCH_TIMELINE_VIEW, leaf => new BranchTimelineView(leaf, this));
     this.addSettingTab(new BranchTimelineSettingTab(this.app, this));
     this.addRibbonIcon("panel-right-open", "固定分支时间线到右侧", () => void this.openTimelineRight(true));
@@ -67,7 +78,10 @@ export default class BranchTimelinePlugin extends Plugin {
       pinnedProjects: Array.isArray(saved?.pinnedProjects) ? saved.pinnedProjects : [],
       collapsedProjectGroups: Array.isArray(saved?.collapsedProjectGroups) ? saved.collapsedProjectGroups : [],
       policySceneWidths: saved?.policySceneWidths && typeof saved.policySceneWidths === "object" ? saved.policySceneWidths : {},
-      habitCardOrder: Array.isArray(saved?.habitCardOrder) ? saved.habitCardOrder : DEFAULT_SETTINGS.habitCardOrder
+      habitCardOrder: Array.isArray(saved?.habitCardOrder) ? saved.habitCardOrder : DEFAULT_SETTINGS.habitCardOrder,
+      timerReminderMinutes: typeof saved?.timerReminderMinutes === "number" && Number.isFinite(saved.timerReminderMinutes)
+        ? Math.max(0, Math.round(saved.timerReminderMinutes))
+        : DEFAULT_SETTINGS.timerReminderMinutes
     };
   }
 
@@ -194,6 +208,53 @@ export default class BranchTimelinePlugin extends Plugin {
     for (const leaf of this.app.workspace.getLeavesOfType(BRANCH_TIMELINE_VIEW)) {
       if (leaf.view instanceof BranchTimelineView) await leaf.view.refresh();
     }
+    await this.refreshTimerStatus();
+  }
+
+  async refreshTimerStatus(): Promise<void> {
+    const state = await this.store.load();
+    const day = state.days[dateKey(logicalToday())];
+    const now = this.logicalMinuteNow();
+    const active = day ? runningItems(day) : [];
+    const primary = active[0];
+    this.timerStatusItemId = primary?.id || null;
+    if (this.timerStatusItem) {
+      this.timerStatusItem.empty();
+      this.timerStatusItem.toggleClass("is-hidden", !primary);
+      if (primary && day) {
+        this.timerStatusItem.createSpan({ text: `${primary.title}${active.length > 1 ? ` +${active.length - 1}` : ""}` });
+        this.timerStatusItem.createEl("strong", { text: compactDuration(elapsedMinutes(primary, day, now)) });
+      }
+    }
+    if (day) this.maybeRemindTimers(day, active, now);
+  }
+
+  private async openRunningTimer(): Promise<void> {
+    const itemId = this.timerStatusItemId;
+    if (!itemId) return;
+    await this.openTimelineRight(true);
+    const leaf = this.app.workspace.getLeavesOfType(BRANCH_TIMELINE_VIEW)[0];
+    if (leaf?.view instanceof BranchTimelineView) await leaf.view.focusRunningItem(itemId);
+  }
+
+  private maybeRemindTimers(day: import("./types").TimelineDayState, active: import("./types").TimelineItem[], now: number): void {
+    const interval = this.settings.timerReminderMinutes;
+    if (interval <= 0) return;
+    for (const item of active) {
+      const elapsed = elapsedMinutes(item, day, now);
+      const bucket = Math.floor(elapsed / interval);
+      if (bucket < 1) continue;
+      const key = `${dateKey(logicalToday())}:${item.id}:${bucket}`;
+      if (this.deliveredTimerReminders.has(key)) continue;
+      this.deliveredTimerReminders.add(key);
+      new Notice(`${item.title} · 已计时 ${compactDuration(elapsed)}`);
+    }
+  }
+
+  private logicalMinuteNow(): number {
+    const now = new Date();
+    const minute = now.getHours() * 60 + now.getMinutes();
+    return minute + (now.getHours() < 2 ? 1440 : 0);
   }
 
   private chooseProject(): Promise<ProjectRef | null> {

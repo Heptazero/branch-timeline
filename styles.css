@@ -37,6 +37,17 @@
 .btl-day-countdown > strong { color: var(--interactive-accent); font-size: 18px; font-weight: 780; font-variant-numeric: tabular-nums; letter-spacing: -.6px; line-height: 1; }
 .btl-day-countdown.is-elapsed > strong { color: var(--text-muted); }
 .btl-day-countdown:hover { background: var(--background-modifier-hover); }
+.btl-running-bar { display: flex; min-width: 0; flex: 0 0 auto; align-items: center; gap: 4px; margin: 0 0 8px; border: 1px solid color-mix(in srgb, var(--interactive-accent) 28%, var(--background-modifier-border)); border-radius: 11px; padding: 4px; background: color-mix(in srgb, var(--interactive-accent) 7%, var(--background-primary)); }
+.btl-running-bar.is-hidden, .btl-global-timer.is-hidden { display: none; }
+.btl-running-open { display: flex; min-width: 0; flex: 1 1 auto; align-items: center; gap: 7px; border: 0; padding: 5px 7px; background: transparent; color: var(--text-normal); text-align: left; }
+.btl-running-icon { display: grid; flex: 0 0 auto; color: var(--interactive-accent); place-items: center; }
+.btl-running-icon svg { width: 15px; height: 15px; }
+.btl-running-title { min-width: 0; overflow: hidden; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.btl-running-duration { margin-left: auto; color: var(--interactive-accent); font-size: 12px; font-variant-numeric: tabular-nums; }
+.btl-running-stop { display: grid; width: 34px; height: 34px; flex: 0 0 34px; border: 0; border-radius: 9px; padding: 0; background: transparent; color: var(--text-muted); place-items: center; }
+.btl-running-stop:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.btl-global-timer { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.btl-global-timer strong { color: var(--interactive-accent); font-variant-numeric: tabular-nums; }
 .btl-page-content { display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; }
 
 .btl-habit-strip { display: flex; flex: 0 0 auto; gap: 6px; overflow-x: auto; padding: 0 0 8px; scrollbar-width: none; }

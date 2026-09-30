@@ -1,13 +1,14 @@
 {
   "name": "branch-timeline-hz",
-  "version": "0.3.11",
+  "version": "0.3.12",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
     "test": "node esbuild.config.mjs test && node --test .test-dist/format.test.cjs",
-    "check": "tsc --noEmit && npm test"
+    "check:lines": "node scripts/check-file-lines.mjs",
+    "check": "npm run check:lines && tsc --noEmit && npm test"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
