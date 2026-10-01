@@ -13,6 +13,8 @@ import {
 } from "./modals";
 import { pageDateTitle, shiftPageDate } from "./pages/navigation";
 import { absoluteMinute } from "./pages/project-model";
+import { projectPlanOn } from "./pages/project-time";
+import { openProjectPlanPopover } from "./project-plan-popover";
 import { rhythmProgress, rhythmProgressLabel } from "./rhythm";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { MAX_SCALE, MIN_SCALE, TIMELINE_TOP } from "./timeline/model";
@@ -144,16 +146,25 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
   }
 
   protected shiftDate(amount: number): void {
+    if (this.page === "projects" && !this.selectedProjectPath) {
+      if (this.projectTimeScope === "total") return;
+      if (this.projectTimeScope === "week") amount *= 7;
+    }
     this.followsToday = false;
     this.date = shiftPageDate(this.date, this.page, amount);
     void this.render(false);
   }
 
   protected dateTitle(): string {
+    if (this.page === "projects" && !this.selectedProjectPath) {
+      if (this.projectTimeScope === "total") return "全部时间";
+      if (this.projectTimeScope === "week") return pageDateTitle(this.date, "habits");
+    }
     return pageDateTitle(this.date, this.page);
   }
 
   protected async openDatePicker(anchor: HTMLElement): Promise<void> {
+    if (this.page === "projects" && !this.selectedProjectPath && this.projectTimeScope === "total") return;
     const state = await this.plugin.store.load();
     openDateHeatmapPopover(anchor, this.date, state, date => {
       this.date = date;
@@ -226,6 +237,22 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     await leaf.openFile(file, { active: true });
     this.app.workspace.setActiveLeaf(leaf, { focus: true });
     await this.app.workspace.revealLeaf(leaf);
+  }
+
+  protected openProjectDailyPlan(path: string, anchor: HTMLElement): void {
+    const key = dateKey(this.date);
+    void this.plugin.store.load().then(state => {
+      openProjectPlanPopover(anchor, projectPlanOn(state, path, key), async minutes => {
+        await this.plugin.store.update(next => {
+          const project = next.projects[path] ||= { branches: [] };
+          const plans = project.dailyPlans ||= {};
+          if (minutes > 0) plans[key] = minutes;
+          else delete plans[key];
+          if (!Object.keys(plans).length) delete project.dailyPlans;
+        });
+        await this.render(true);
+      });
+    });
   }
 
   protected async toggleProjectGroup(label: string): Promise<void> {

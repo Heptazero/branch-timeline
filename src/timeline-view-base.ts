@@ -18,6 +18,7 @@ import {
   type ProjectScaleAnchor
 } from "./pages/project-detail";
 import { renderProjectsPage } from "./pages/projects";
+import type { ProjectTimeScope } from "./pages/project-time";
 import { policyPeriodAt, renderPolicyPage } from "./pages/policy";
 import { PolicyActions } from "./pages/policy-actions";
 import { TimelineGestures } from "./timeline/gestures";
@@ -50,6 +51,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected clockTimer: number | null = null;
   protected followsToday = true;
   protected selectedProjectPath: string | null = null;
+  protected projectTimeScope: ProjectTimeScope = readProjectTimeScope();
   protected selectedAchievementId: string | null = null;
   protected projectScale = clampProjectScale(Number(localStorage.getItem("branch-timeline-hz-project-scale")) || 120);
   protected projectAnchor: ProjectScaleAnchor | undefined;
@@ -151,10 +153,14 @@ export abstract class BranchTimelineViewBase extends ItemView {
     undo.addClass("btl-undo-button");
     undo.disabled = !this.plugin.undoManager.canUndo;
     const dateNav = toolbar.createDiv({ cls: "btl-date-nav" });
-    this.iconButton(dateNav, "chevron-left", "前一天", () => this.shiftDate(-1));
+    const previousDate = this.iconButton(dateNav, "chevron-left", "前一天", () => this.shiftDate(-1));
     const dateButton = dateNav.createEl("button", { cls: "btl-date-button", text: this.dateTitle() });
     dateButton.onclick = () => void this.openDatePicker(dateButton);
-    this.iconButton(dateNav, "chevron-right", "后一天", () => this.shiftDate(1));
+    const nextDate = this.iconButton(dateNav, "chevron-right", "后一天", () => this.shiftDate(1));
+    const allProjectTime = this.page === "projects" && !this.selectedProjectPath && this.projectTimeScope === "total";
+    previousDate.disabled = allProjectTime;
+    dateButton.disabled = allProjectTime;
+    nextDate.disabled = allProjectTime;
     const toolbarActions = toolbar.createDiv({ cls: "btl-toolbar-actions" });
     this.iconButton(toolbarActions, "settings", "设置", () => this.openPluginSettings());
     const add = this.iconButton(toolbarActions, "plus", "添加", event => this.openAddMenu(event));
@@ -244,13 +250,19 @@ export abstract class BranchTimelineViewBase extends ItemView {
             pinnedProjects: this.plugin.settings.pinnedProjects,
             collapsedGroups: this.plugin.settings.collapsedProjectGroups,
             focusDate: this.date,
-            showProjectLog: this.plugin.settings.showProjectLogHeatmap,
+            timeScope: this.projectTimeScope,
             openProject: path => {
               this.selectedProjectPath = path;
               this.projectAnchor = undefined;
               void this.render(false);
             },
             openProjectFile: path => void this.openProjectFile(path),
+            onTimeScope: scope => {
+              this.projectTimeScope = scope;
+              localStorage.setItem("branch-timeline-hz-project-time-scope", scope);
+              void this.render(false);
+            },
+            onSetDailyPlan: (path, anchor) => this.openProjectDailyPlan(path, anchor),
             onTogglePin: path => void this.toggleProjectPin(path),
             onToggleGroup: label => void this.toggleProjectGroup(label),
             onReorder: paths => void this.reorderProjects(paths)
@@ -426,6 +438,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract stepScale(factor: number): void;
   protected abstract toggleProjectPin(path: string): Promise<void>;
   protected abstract openProjectFile(path: string): Promise<void>;
+  protected abstract openProjectDailyPlan(path: string, anchor: HTMLElement): void;
   protected abstract toggleProjectGroup(label: string): Promise<void>;
   protected abstract reorderProjects(paths: string[]): Promise<void>;
   protected abstract reorderHabits(names: string[]): Promise<void>;
@@ -445,3 +458,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
 
 function clampScale(value: number): number { return Math.max(MIN_SCALE, Math.min(MAX_SCALE, value)); }
 function clampProjectScale(value: number): number { return Math.max(PROJECT_SCALE_MIN, Math.min(PROJECT_SCALE_MAX, value)); }
+function readProjectTimeScope(): ProjectTimeScope {
+  const value = localStorage.getItem("branch-timeline-hz-project-time-scope");
+  return value === "week" || value === "total" ? value : "day";
+}

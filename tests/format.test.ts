@@ -27,6 +27,7 @@ import {
   projectTimelineRange,
   splitAbsoluteMinute
 } from "../src/pages/project-model";
+import { projectPlanOn, projectTimeSummary } from "../src/pages/project-time";
 import {
   backfillItem,
   computeTimelineLayout,
@@ -221,6 +222,21 @@ test("starts continues and stops timers without changing previous facts", () => 
   });
 });
 
+test("stops a timed todo as a fact without completing the todo", () => {
+  const day: TimelineDayState = {
+    wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
+    items: [{ id: "todo", title: "研究", kind: "todo", plannedMin: 500, startedMin: 560, projectPath: "21_project/test.md", projectTaskId: "task" }]
+  };
+  const fact = new TimerService().stopTodo(day, "todo", 605, () => "fact");
+  assert.equal(day.items[0].kind, "todo");
+  assert.equal(day.items[0].startedMin, undefined);
+  assert.deepEqual(fact, {
+    id: "fact", title: "研究", kind: "fact", plannedMin: 500,
+    startMin: 560, endMin: 605, factTiming: false,
+    projectPath: "21_project/test.md", projectTaskId: undefined, milestone: false
+  });
+});
+
 test("backfills todos and facts upward from their end", () => {
   const todo = { id: "todo", title: "写作", kind: "todo" as const, plannedMin: 600, startedMin: 620 };
   backfillItem(todo, 700, 45, 420);
@@ -324,4 +340,32 @@ test("builds a multi-day project timeline without changing item dates", () => {
   const range = projectTimelineRange(entries, [branch], absoluteMinute("2026-08-13", 720));
   assert.ok(range.start < entries[0].abs && range.end > entries[1].abs);
   assert.equal(pickProjectBranch(entries[1].abs, 345, [branch], 195, 150), "branch");
+});
+
+test("summarizes project time by day week and total with daily plans", () => {
+  const path = "21_project/test.md";
+  const state: BranchTimelineState = {
+    version: 1,
+    achievements: [], policyCards: [], policyNodes: [], policyEvents: [],
+    policySides: [{ id: "policy-side-routine", name: "作息", mode: "dayparts" }],
+    projects: { [path]: { branches: [], dailyPlans: { "2026-08-12": 60, "2026-08-13": 90 } } },
+    days: {
+      "2026-08-12": { wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [], items: [
+        { id: "a", title: "输入", kind: "fact", startMin: 500, endMin: 530, projectPath: path }
+      ] },
+      "2026-08-13": { wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [], items: [
+        { id: "b", title: "输出", kind: "fact", startMin: 600, endMin: 675, projectPath: path }
+      ] }
+    }
+  };
+  const focus = new Date(2026, 7, 12);
+  assert.equal(projectPlanOn(state, path, "2026-08-12"), 60);
+  assert.deepEqual(projectTimeSummary(state, path, focus, "day"), {
+    actual: 30, planned: 60, days: [{ date: "2026-08-12", actual: 30, planned: 60 }]
+  });
+  const week = projectTimeSummary(state, path, focus, "week");
+  assert.equal(week.actual, 105);
+  assert.equal(week.planned, 150);
+  assert.equal(week.days.length, 7);
+  assert.deepEqual(projectTimeSummary(state, path, focus, "total"), { actual: 105, planned: 0, days: [] });
 });

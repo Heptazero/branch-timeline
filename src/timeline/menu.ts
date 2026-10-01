@@ -23,12 +23,13 @@ export function showItemMenu(
 ): void {
   const menu = new Menu();
   const running = item.factTiming || (item.kind === "todo" && item.startedMin != null);
-  if (item.kind === "todo") menu.addItem(entry => entry.setTitle(running ? "完成并停止计时" : "完成").setIcon("check").onClick(actions.complete));
+  if (item.kind === "todo") menu.addItem(entry => entry.setTitle(running ? "完成并结束计时" : "完成").setIcon("check").onClick(actions.complete));
   if (running) {
     menu.addItem(entry => entry
-      .setTitle(item.kind === "fact" ? "结束计时" : "取消计时")
-      .setIcon(item.kind === "fact" ? "square" : "x")
-      .onClick(item.kind === "fact" ? actions.stopTiming : actions.cancelTiming));
+      .setTitle("结束计时")
+      .setIcon("square")
+      .onClick(actions.stopTiming));
+    if (item.kind === "todo") menu.addItem(entry => entry.setTitle("取消计时").setIcon("x").onClick(actions.cancelTiming));
   } else {
     menu.addItem(entry => entry.setTitle(item.kind === "fact" ? "继续计时" : "开始计时").setIcon("timer").onClick(actions.startTiming));
   }

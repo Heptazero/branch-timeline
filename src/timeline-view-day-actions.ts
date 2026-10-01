@@ -70,10 +70,13 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     let summary = "";
     await this.updateDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
-      if (!target || target.kind !== "fact" || !target.factTiming) return;
-      const now = this.nowOnAxis(day) ?? target.endMin ?? target.startMin ?? day.wake;
+      if (!target) return;
+      const running = target.factTiming || (target.kind === "todo" && target.startedMin != null);
+      if (!running) return;
+      const now = this.nowOnAxis(day) ?? target.endMin ?? target.startedMin ?? target.startMin ?? day.wake;
       summary = `${target.title} · ${compactDuration(elapsedMinutes(target, day, now))}`;
-      this.timers.stop(day, itemId, now);
+      if (target.kind === "todo") this.timers.stopTodo(day, itemId, now, () => this.uid("fact"));
+      else this.timers.stop(day, itemId, now);
     });
     if (summary) new Notice(`计时结束 · ${summary}`);
   }
@@ -85,9 +88,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
   }
 
   protected async stopRunningItem(itemId: string): Promise<void> {
-    const item = this.day?.items.find(candidate => candidate.id === itemId);
-    if (item?.kind === "todo") await this.completeItem(itemId);
-    else await this.stopTiming(itemId);
+    await this.stopTiming(itemId);
   }
 
   protected openItemMenu(itemId: string, event: MouseEvent): void {

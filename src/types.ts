@@ -3,7 +3,6 @@ export interface BranchTimelineSettings {
   diaryFolder: string;
   projectFolder: string;
   projectTypes: ProjectTypeConfig[];
-  showProjectLogHeatmap: boolean;
   itemMetadataRequirement: ItemMetadataRequirement;
   habits: string[];
   tags: TimelineTag[];
@@ -181,6 +180,7 @@ export interface ProjectTimelineBranch {
 
 export interface ProjectTimelineState {
   branches: ProjectTimelineBranch[];
+  dailyPlans?: Record<string, number>;
 }
 
 export interface ProjectRef {

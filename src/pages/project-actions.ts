@@ -196,9 +196,25 @@ export class ProjectTimelineActions {
 
   private async stopItemTiming(date: string, itemId: string): Promise<void> {
     await this.updateItem(date, itemId, (target, day) => {
-      if (target.kind !== "fact") return;
-      target.endMin = this.minuteForDate(date, day, target.endMin ?? target.startMin ?? day.napEnd);
-      target.factTiming = false;
+      const end = this.minuteForDate(date, day, target.endMin ?? target.startedMin ?? target.startMin ?? day.napEnd);
+      if (target.kind === "todo" && target.startedMin != null) {
+        const fact: TimelineItem = {
+          ...target,
+          id: this.uid("fact"),
+          kind: "fact",
+          startMin: target.startedMin,
+          endMin: Math.max(target.startedMin, end),
+          factTiming: false,
+          projectTaskId: undefined,
+          milestone: false
+        };
+        delete fact.startedMin;
+        delete target.startedMin;
+        day.items.push(fact);
+      } else if (target.kind === "fact") {
+        target.endMin = end;
+        target.factTiming = false;
+      }
     });
   }
 

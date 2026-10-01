@@ -1,7 +1,7 @@
 import { App, normalizePath } from "obsidian";
 import { normalizeAchievement } from "../pages/achievement-model";
 import { normalizeTimelineDay } from "../rhythm";
-import type { BranchTimelineState, PolicyNode, PolicyPeriod, RhythmSchedule, TimelineDayState } from "../types";
+import type { BranchTimelineState, PolicyNode, PolicyPeriod, ProjectTimelineState, RhythmSchedule, TimelineDayState } from "../types";
 import type { UndoAction } from "../undo-manager";
 
 const EMPTY_STATE: BranchTimelineState = {
@@ -34,7 +34,9 @@ export class StateStore {
         days: parsed.days && typeof parsed.days === "object"
           ? Object.fromEntries(Object.entries(parsed.days).map(([date, day]) => [date, normalizeTimelineDay(day)]))
           : {},
-        projects: parsed.projects && typeof parsed.projects === "object" ? parsed.projects : {},
+        projects: parsed.projects && typeof parsed.projects === "object"
+          ? Object.fromEntries(Object.entries(parsed.projects).map(([path, project]) => [path, normalizeProject(project)]))
+          : {},
         achievements: Array.isArray(parsed.achievements) ? parsed.achievements.map(normalizeAchievement) : [],
         policySides: Array.isArray(parsed.policySides) && parsed.policySides.length
           ? parsed.policySides
@@ -87,6 +89,18 @@ export class StateStore {
 
 function normalizePolicyNode(node: PolicyNode): PolicyNode {
   return { ...node, period: isPolicyPeriod(node.period) ? node.period : "morning" };
+}
+
+function normalizeProject(project: ProjectTimelineState): ProjectTimelineState {
+  const plans = project?.dailyPlans && typeof project.dailyPlans === "object"
+    ? Object.fromEntries(Object.entries(project.dailyPlans)
+      .filter(([, minutes]) => typeof minutes === "number" && Number.isFinite(minutes) && minutes > 0)
+      .map(([date, minutes]) => [date, Math.round(minutes)]))
+    : undefined;
+  return {
+    branches: Array.isArray(project?.branches) ? project.branches : [],
+    ...(plans && Object.keys(plans).length ? { dailyPlans: plans } : {})
+  };
 }
 
 function isPolicyPeriod(value: unknown): value is PolicyPeriod {

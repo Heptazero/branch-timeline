@@ -64,6 +64,25 @@ export class TimerService {
     return target;
   }
 
+  stopTodo(day: TimelineDayState, itemId: string, now: number, uid: () => string): TimelineItem | null {
+    const target = day.items.find(candidate => candidate.id === itemId);
+    if (!target || target.kind !== "todo" || target.startedMin == null) return null;
+    const fact: TimelineItem = {
+      ...target,
+      id: uid(),
+      kind: "fact",
+      startMin: target.startedMin,
+      endMin: Math.max(target.startedMin, now),
+      factTiming: false,
+      projectTaskId: undefined,
+      milestone: false
+    };
+    delete fact.startedMin;
+    delete target.startedMin;
+    day.items.push(fact);
+    return fact;
+  }
+
   cancel(day: TimelineDayState, itemId: string): TimelineItem | null {
     const target = day.items.find(candidate => candidate.id === itemId);
     if (!target || target.kind !== "todo") return null;

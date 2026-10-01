@@ -57,8 +57,9 @@ export default class BranchTimelinePlugin extends Plugin {
       dayStartMinute?: number;
       dayEndMinute?: number;
       requireItemMetadata?: boolean;
+      showProjectLogHeatmap?: boolean;
     }) | null;
-    const { tagMap, dayStartMinute, dayEndMinute, requireItemMetadata, ...settings } = saved || {};
+    const { tagMap, dayStartMinute, dayEndMinute, requireItemMetadata, showProjectLogHeatmap: _legacyProjectLog, ...settings } = saved || {};
     this.settings = {
       ...DEFAULT_SETTINGS,
       ...settings,
@@ -67,7 +68,6 @@ export default class BranchTimelinePlugin extends Plugin {
           .filter(item => item && typeof item.type === "string" && typeof item.color === "string")
           .map(item => ({ type: item.type.trim(), color: item.color }))
         : DEFAULT_SETTINGS.projectTypes.map(item => ({ ...item })),
-      showProjectLogHeatmap: saved?.showProjectLogHeatmap !== false,
       itemMetadataRequirement: this.metadataRequirement(saved),
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
       tags: loadTags(saved?.tags, tagMap),
