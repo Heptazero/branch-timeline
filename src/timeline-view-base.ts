@@ -46,6 +46,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected pendingScale: number | null = null;
   protected pendingScaleAnchor: ScrollAnchor | null = null;
   protected scaleButtonTimer: number | null = null;
+  protected viewResizeTimer: number | null = null;
   protected clockTimer: number | null = null;
   protected followsToday = true;
   protected selectedProjectPath: string | null = null;
@@ -101,6 +102,14 @@ export abstract class BranchTimelineViewBase extends ItemView {
     this.destroyProjectDetail?.();
     if (this.clockTimer != null) window.clearInterval(this.clockTimer);
     if (this.scaleButtonTimer != null) window.clearTimeout(this.scaleButtonTimer);
+    if (this.viewResizeTimer != null) window.clearTimeout(this.viewResizeTimer);
+  }
+  onResize(): void {
+    if (this.viewResizeTimer != null) window.clearTimeout(this.viewResizeTimer);
+    this.viewResizeTimer = window.setTimeout(() => {
+      this.viewResizeTimer = null;
+      void this.render(true);
+    }, 90);
   }
   async refresh(): Promise<void> { await this.render(true); }
 

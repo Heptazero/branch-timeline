@@ -338,7 +338,7 @@ function renderItem(
     cls: `btl-canvas-item is-${item.kind}${timed ? " is-timed" : ""}${running ? " is-running" : ""}${!branch || branch.side < 0 ? " compact-left" : ""}`,
     attr: { "data-item-id": item.id }
   });
-  card.style.left = `${x}px`;
+  card.style.left = branch ? `${x}px` : "50%";
   card.style.setProperty("--btl-item-color", color);
   card.style.zIndex = String(timed ? 20 + Math.max(0, Math.floor((720 - duration) / 60)) : 36);
   if (timed) {
@@ -379,8 +379,9 @@ function renderItem(
   }
 
   if (timed && !running) {
-    renderSpanHandle(canvas, item.id, "start", x, minuteToY(day, layout.scale, start), formatTime(start), color);
-    renderSpanHandle(canvas, item.id, "end", x, minuteToY(day, layout.scale, end), formatTime(end), color);
+    const handleX = branch ? `${x}px` : "50%";
+    renderSpanHandle(canvas, item.id, "start", handleX, minuteToY(day, layout.scale, start), formatTime(start), color);
+    renderSpanHandle(canvas, item.id, "end", handleX, minuteToY(day, layout.scale, end), formatTime(end), color);
   }
 }
 
@@ -397,7 +398,7 @@ function renderSpanHandle(
   canvas: HTMLElement,
   itemId: string,
   edge: "start" | "end",
-  x: number,
+  x: string,
   y: number,
   time: string,
   color: string
@@ -406,7 +407,7 @@ function renderSpanHandle(
     cls: `btl-span-handle is-${edge}`,
     attr: { "data-item-id": itemId, "data-edge": edge }
   });
-  handle.style.left = `${x}px`;
+  handle.style.left = x;
   handle.style.top = `${y}px`;
   handle.style.borderColor = color;
   if (edge === "end") handle.style.background = color;

@@ -75,7 +75,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       summary = `${target.title} · ${compactDuration(elapsedMinutes(target, day, now))}`;
       this.timers.stop(day, itemId, now);
     });
-    if (summary) new Notice(`停止计时 · ${summary}`);
+    if (summary) new Notice(`计时结束 · ${summary}`);
   }
 
   protected async cancelTiming(itemId: string): Promise<void> {
@@ -86,7 +86,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
 
   protected async stopRunningItem(itemId: string): Promise<void> {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
-    if (item?.kind === "todo") await this.cancelTiming(itemId);
+    if (item?.kind === "todo") await this.completeItem(itemId);
     else await this.stopTiming(itemId);
   }
 

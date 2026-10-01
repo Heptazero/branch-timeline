@@ -214,6 +214,11 @@ test("starts continues and stops timers without changing previous facts", () => 
   timers.stop(day, "continued", 615);
   assert.equal(day.items.find(item => item.id === "continued")?.endMin, 615);
   assert.equal(day.items.find(item => item.id === "fact")?.endMin, 540);
+  timers.complete(day, "todo", 620);
+  assert.deepEqual(day.items[0], {
+    id: "todo", title: "写作", kind: "fact", plannedMin: 500,
+    startMin: 560, endMin: 620, factTiming: false
+  });
 });
 
 test("backfills todos and facts upward from their end", () => {

@@ -21,7 +21,7 @@ export class RunningBar {
     open.onclick = () => { if (this.primaryId) actions.open(this.primaryId); };
     const stop = element.createEl("button", {
       cls: "btl-running-stop",
-      attr: { type: "button", "aria-label": "停止计时", title: "停止计时" }
+      attr: { type: "button", "aria-label": "结束计时", title: "结束计时" }
     });
     setIcon(stop, "square");
     stop.onclick = event => {
