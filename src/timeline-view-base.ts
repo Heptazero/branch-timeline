@@ -315,7 +315,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
           onAddChild: (parentId, period, sideId) => void this.policyActions.add(true, parentId, period, sideId),
           onDeploy: (cardId, parentId, period, sideId) => void this.policyActions.deployTo(cardId, parentId, period, sideId),
           onMoveNode: (nodeId, parentId, period, sideId) => void this.policyActions.moveNode(nodeId, parentId, period, sideId),
-          onToggleNode: (node, card) => void this.policyActions.toggleSettlement(node, card),
+          onSettleNode: (node, card, event) => void this.policyActions.openSettlementMenu(node, card, event),
           onNodeMenu: (node, card, event) => this.policyActions.openNodeMenu(node, card, event),
           onCardMenu: (card, event) => this.policyActions.openCardMenu(card, event)
         });

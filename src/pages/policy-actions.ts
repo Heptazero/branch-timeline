@@ -2,7 +2,7 @@ import { App, Menu } from "obsidian";
 import type BranchTimelinePlugin from "../main";
 import { ChoiceTextModal, ConfirmModal } from "../modals";
 import type { PolicyCard, PolicyMode, PolicyNode, PolicyPeriod, PolicySide } from "../types";
-import { dateKey } from "../vault/format";
+import { dateKey, logicalToday } from "../vault/format";
 
 const POLICY_CHOICES = [
   { id: "triggered", label: "条件" },
@@ -107,15 +107,40 @@ export class PolicyActions {
     await this.options.refresh();
   }
 
-  async toggleSettlement(node: PolicyNode, card: PolicyCard): Promise<void> {
+  async openSettlementMenu(node: PolicyNode, card: PolicyCard, event: MouseEvent): Promise<void> {
+    const date = dateKey(this.options.getDate());
+    const state = await this.options.plugin.store.load();
+    const todayEvents = state.policyEvents.filter(entry => entry.cardId === card.id && entry.date === date);
+    const menu = new Menu();
+    menu.addItem(item => item.setTitle(successLabel(card.mode)).setIcon("check").onClick(() => void this.settle(node, card, card.mode === "mechanism" ? "used" : "success")));
+    menu.addItem(item => item.setTitle("破戒").setIcon("x").setWarning(true).onClick(() => void this.settle(node, card, "violation")));
+    if (todayEvents.length) {
+      menu.addSeparator();
+      menu.addItem(item => item.setTitle("撤销最近记录").setIcon("undo-2").onClick(() => void this.undoLatest(card.id, date)));
+    }
+    menu.showAtPosition({ x: event.clientX, y: event.clientY });
+  }
+
+  private async settle(node: PolicyNode, card: PolicyCard, result: "success" | "violation" | "used"): Promise<void> {
     const date = dateKey(this.options.getDate());
     await this.options.plugin.store.update(state => {
-      const index = state.policyEvents.findIndex(event => event.nodeId === node.id && event.date === date);
-      if (index >= 0) state.policyEvents.splice(index, 1);
-      else state.policyEvents.push({
-        id: this.uid("policy-event"), cardId: card.id, nodeId: node.id, date,
-        result: card.mode === "mechanism" ? "used" : "success"
-      });
+      if (card.mode === "daily" || card.mode === "passive") {
+        state.policyEvents = state.policyEvents.filter(event => event.cardId !== card.id || event.date !== date);
+      }
+      state.policyEvents.push({ id: this.uid("policy-event"), cardId: card.id, nodeId: node.id, date, minute: this.eventMinute(date), result });
+      if (result === "violation") this.removeSubtree(state.policyNodes, node.id);
+    });
+    await this.options.refresh();
+  }
+
+  private async undoLatest(cardId: string, date: string): Promise<void> {
+    await this.options.plugin.store.update(state => {
+      const candidates = state.policyEvents
+        .map((event, index) => ({ event, index }))
+        .filter(value => value.event.cardId === cardId && value.event.date === date)
+        .sort((a, b) => (a.event.minute ?? 0) - (b.event.minute ?? 0) || a.event.id.localeCompare(b.event.id));
+      const latest = candidates.at(-1);
+      if (latest) state.policyEvents.splice(latest.index, 1);
     });
     await this.options.refresh();
   }
@@ -214,18 +239,7 @@ export class PolicyActions {
   private confirmReturn(node: PolicyNode, card: PolicyCard): void {
     new ConfirmModal(this.options.app, `退回“${card.name}”？`, "它及所有子节点会回到手牌。", async () => {
       await this.options.plugin.store.update(state => {
-        const ids = new Set<string>([node.id]);
-        let changed = true;
-        while (changed) {
-          changed = false;
-          for (const candidate of state.policyNodes) {
-            if (candidate.parentId && ids.has(candidate.parentId) && !ids.has(candidate.id)) {
-              ids.add(candidate.id);
-              changed = true;
-            }
-          }
-        }
-        state.policyNodes = state.policyNodes.filter(candidate => !ids.has(candidate.id));
+        this.removeSubtree(state.policyNodes, node.id);
       });
       await this.options.refresh();
     }, "退回").open();
@@ -245,4 +259,33 @@ export class PolicyActions {
   private uid(prefix: string): string {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   }
+
+  private removeSubtree(nodes: PolicyNode[], nodeId: string): void {
+    const ids = new Set<string>([nodeId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const candidate of nodes) {
+        if (candidate.parentId && ids.has(candidate.parentId) && !ids.has(candidate.id)) {
+          ids.add(candidate.id);
+          changed = true;
+        }
+      }
+    }
+    const kept = nodes.filter(candidate => !ids.has(candidate.id));
+    nodes.splice(0, nodes.length, ...kept);
+  }
+
+  private eventMinute(date: string): number {
+    if (date !== dateKey(logicalToday())) return 12 * 60;
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  }
+}
+
+function successLabel(mode: PolicyMode): string {
+  if (mode === "mechanism") return "已使用";
+  if (mode === "passive") return "守住了";
+  if (mode === "daily") return "今日做到";
+  return "这次做到";
 }

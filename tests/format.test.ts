@@ -18,6 +18,7 @@ import { loadTags, tagCategoryKey } from "../src/tags";
 import { countdownLabel, normalizeRhythmSchedule, normalizeTimelineDay, rhythmProgress, rhythmProgressLabel } from "../src/rhythm";
 import { pageDateTitle, shiftPageDate, startOfWeek } from "../src/pages/navigation";
 import { policyPeriodAt } from "../src/pages/policy";
+import { policyProgress } from "../src/pages/policy-progress";
 import { achievementStats, normalizeAchievement, sortAchievementRecords } from "../src/pages/achievement-model";
 import {
   absoluteMinute,
@@ -67,6 +68,36 @@ test("assigns anchors to morning afternoon and evening", () => {
   assert.equal(policyPeriodAt(new Date(2026, 7, 13, 14, 0)), "afternoon");
   assert.equal(policyPeriodAt(new Date(2026, 7, 13, 20, 0)), "evening");
   assert.equal(policyPeriodAt(new Date(2026, 7, 14, 1, 0)), "evening");
+});
+
+test("counts an anchor run from the latest explicit violation", () => {
+  const card = { id: "focus", name: "神圣座位", mode: "mechanism" as const, createdDate: "2026-08-01" };
+  const events = [
+    { id: "a", cardId: "focus", nodeId: "n", date: "2026-08-10", result: "used" as const },
+    { id: "b", cardId: "focus", nodeId: "n", date: "2026-08-11", result: "violation" as const },
+    { id: "c", cardId: "focus", nodeId: "n2", date: "2026-08-12", result: "used" as const },
+    { id: "d", cardId: "focus", nodeId: "n2", date: "2026-08-12", minute: 900, result: "used" as const }
+  ];
+  assert.equal(policyProgress(card, events, "2026-08-12", "2026-08-12").count, 2);
+});
+
+test("breaks a daily anchor streak on a missed historical day", () => {
+  const card = { id: "sleep", name: "早睡", mode: "daily" as const, createdDate: "2026-08-01" };
+  const events = [
+    { id: "a", cardId: "sleep", nodeId: "n", date: "2026-08-10", result: "success" as const },
+    { id: "b", cardId: "sleep", nodeId: "n", date: "2026-08-12", result: "success" as const }
+  ];
+  assert.equal(policyProgress(card, events, "2026-08-12", "2026-08-12").count, 1);
+  assert.equal(policyProgress(card, events.slice(0, 1), "2026-08-11", "2026-08-12").count, 0);
+});
+
+test("keeps yesterday's daily streak while today is still unsettled", () => {
+  const card = { id: "sleep", name: "早睡", mode: "daily" as const, createdDate: "2026-08-01" };
+  const events = [
+    { id: "a", cardId: "sleep", nodeId: "n", date: "2026-08-10", result: "success" as const },
+    { id: "b", cardId: "sleep", nodeId: "n", date: "2026-08-11", result: "success" as const }
+  ];
+  assert.equal(policyProgress(card, events, "2026-08-12", "2026-08-12").count, 2);
 });
 
 test("migrates legacy achievement checks into editable records", () => {

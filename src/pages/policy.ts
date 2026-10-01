@@ -1,4 +1,6 @@
 import type { PolicyCard, PolicyEvent, PolicyNode, PolicyPeriod, PolicySide } from "../types";
+import { dateKey, logicalToday } from "../vault/format";
+import { policyProgress, type PolicyProgress } from "./policy-progress";
 
 const PERIODS: ReadonlyArray<{ id: PolicyPeriod; label: string }> = [
   { id: "morning", label: "上午" },
@@ -26,7 +28,7 @@ export interface PolicyPageOptions {
   onAddChild: (parentId: string, period: PolicyPeriod, sideId: string) => void;
   onDeploy: (cardId: string, parentId: string | null, period: PolicyPeriod, sideId: string) => void;
   onMoveNode: (nodeId: string, parentId: string | null, period: PolicyPeriod, sideId: string) => void;
-  onToggleNode: (node: PolicyNode, card: PolicyCard) => void;
+  onSettleNode: (node: PolicyNode, card: PolicyCard, event: MouseEvent) => void;
   onNodeMenu: (node: PolicyNode, card: PolicyCard, event: PointerEvent) => void;
   onCardMenu: (card: PolicyCard, event: PointerEvent) => void;
 }
@@ -35,6 +37,8 @@ export function renderPolicyPage(options: PolicyPageOptions): void {
   const page = options.container.createDiv({ cls: "btl-policy-page" });
   const sides = options.sides.length ? options.sides : [{ id: "policy-side-routine", name: "作息", mode: "dayparts" as const }];
   const active = sides.find(side => side.id === options.activeSideId) || sides[0];
+  const progress = new Map(options.cards.map(card => [card.id, policyProgress(card, options.events, options.date, dateKey(logicalToday()))]));
+  const maxCount = Math.max(1, ...[...progress.values()].map(value => value.count));
   const tabs = page.createDiv({ cls: "btl-policy-scene-tabs" });
   for (const side of sides) {
     const button = tabs.createEl("button", { text: side.name, cls: side.id === active.id ? "is-active" : "" });
@@ -49,13 +53,13 @@ export function renderPolicyPage(options: PolicyPageOptions): void {
   const visibleSides = compact ? [active] : sides;
   visibleSides.forEach((side, index) => {
     if (index > 0) renderDivider(workspace, visibleSides[index - 1], options);
-    renderScene(workspace, side, side.id === active.id, options);
+    renderScene(workspace, side, side.id === active.id, options, progress, maxCount);
   });
-  renderHand(page, active, options);
+  renderHand(page, active, options, progress, maxCount);
   installPolicyDrag(page, options);
 }
 
-function renderScene(container: HTMLElement, side: PolicySide, active: boolean, options: PolicyPageOptions): void {
+function renderScene(container: HTMLElement, side: PolicySide, active: boolean, options: PolicyPageOptions, progress: ReadonlyMap<string, PolicyProgress>, maxCount: number): void {
   const panel = container.createDiv({ cls: `btl-policy-scene${active ? " is-active" : ""}`, attr: { "data-policy-side": side.id } });
   panel.style.flexBasis = `${options.sceneWidths[side.id] || 360}px`;
   panel.onclick = event => {
@@ -90,7 +94,7 @@ function renderScene(container: HTMLElement, side: PolicySide, active: boolean, 
     if (!(event.target as HTMLElement).closest(".btl-policy-node, button")) options.onAddRoot(options.activePeriod, side.id);
   };
   const row = tree.createDiv({ cls: "btl-policy-roots" });
-  for (const root of roots) renderNode(row, root, pool, cards, options);
+  for (const root of roots) renderNode(row, root, pool, cards, options, progress, maxCount);
 }
 
 function renderDivider(container: HTMLElement, left: PolicySide, options: PolicyPageOptions): void {
@@ -116,7 +120,7 @@ function renderDivider(container: HTMLElement, left: PolicySide, options: Policy
   };
 }
 
-function renderHand(page: HTMLElement, side: PolicySide, options: PolicyPageOptions): void {
+function renderHand(page: HTMLElement, side: PolicySide, options: PolicyPageOptions, progress: ReadonlyMap<string, PolicyProgress>, maxCount: number): void {
   const activeCardIds = new Set(options.nodes.map(node => node.cardId));
   const handCards = options.cards.filter(card => !card.deletedDate && card.sideId === side.id && !activeCardIds.has(card.id));
   const hand = page.createDiv({ cls: "btl-policy-hand" });
@@ -129,8 +133,11 @@ function renderHand(page: HTMLElement, side: PolicySide, options: PolicyPageOpti
   head.createEl("strong", { text: String(handCards.length) });
   const list = hand.createDiv({ cls: "btl-policy-hand-list" });
   for (const card of handCards) {
-    const element = list.createDiv({ cls: `btl-policy-hand-card is-${card.mode}`, attr: { "data-policy-card": card.id } });
+    const value = progress.get(card.id) || { count: 0, latest: null, settledToday: false };
+    const element = list.createDiv({ cls: policyClass("btl-policy-hand-card", card, value), attr: { "data-policy-card": card.id } });
+    element.style.setProperty("--btl-policy-level", String(Math.sqrt(value.count / maxCount)));
     element.createSpan({ text: card.name });
+    element.createEl("small", { cls: "btl-policy-count", text: String(value.count) });
     const menu = element.createEl("button", { text: "⋮", attr: { "aria-label": "手牌菜单" } });
     menu.onclick = event => {
       event.preventDefault();
@@ -149,16 +156,20 @@ function renderNode(
   node: PolicyNode,
   nodes: readonly PolicyNode[],
   cards: ReadonlyMap<string, PolicyCard>,
-  options: PolicyPageOptions
+  options: PolicyPageOptions,
+  progress: ReadonlyMap<string, PolicyProgress>,
+  maxCount: number
 ): void {
   const card = cards.get(node.cardId);
   if (!card) return;
-  const done = options.events.some(event => event.nodeId === node.id && event.date === options.date);
+  const value = progress.get(card.id) || { count: 0, latest: null, settledToday: false };
+  const done = options.events.some(event => event.nodeId === node.id && event.date === options.date && event.result !== "violation");
   const wrap = container.createDiv({ cls: "btl-policy-node-wrap" });
-  const element = wrap.createDiv({ cls: `btl-policy-node is-${card.mode}${done ? " is-done" : ""}`, attr: { "data-policy-node": node.id, "data-policy-side": card.sideId || "policy-side-routine", "data-policy-period": node.period } });
+  const element = wrap.createDiv({ cls: `${policyClass("btl-policy-node", card, value)}${done ? " is-done" : ""}`, attr: { "data-policy-node": node.id, "data-policy-side": card.sideId || "policy-side-routine", "data-policy-period": node.period } });
+  element.style.setProperty("--btl-policy-level", String(Math.sqrt(value.count / maxCount)));
   element.onclick = event => {
     if (element.dataset.suppressClick === "true" || (event.target as HTMLElement).closest("button")) return;
-    options.onToggleNode(node, card);
+    options.onSettleNode(node, card, event);
   };
   const menu = element.createEl("button", { cls: "btl-policy-node-menu", text: "⋮", attr: { "aria-label": "锚点菜单" } });
   menu.onclick = event => {
@@ -168,6 +179,7 @@ function renderNode(
   };
   element.createSpan({ cls: "btl-policy-mode", text: modeLabel(card.mode) });
   element.createEl("strong", { text: card.name });
+  element.createEl("small", { cls: "btl-policy-count", text: String(value.count) });
   const add = wrap.createEl("button", { cls: "btl-policy-child-add", text: "+", attr: { "aria-label": "添加子锚点" } });
   add.onclick = event => {
     event.stopPropagation();
@@ -177,7 +189,7 @@ function renderNode(
   if (!children.length) return;
   wrap.addClass("has-children");
   const row = wrap.createDiv({ cls: `btl-policy-children${children.length === 1 ? " is-single" : ""}` });
-  for (const child of children) renderNode(row, child, nodes, cards, options);
+  for (const child of children) renderNode(row, child, nodes, cards, options, progress, maxCount);
 }
 
 function installPolicyDrag(page: HTMLElement, options: PolicyPageOptions): void {
@@ -252,4 +264,10 @@ function modeLabel(mode: PolicyCard["mode"]): string {
   if (mode === "daily") return "每日";
   if (mode === "mechanism") return "机制";
   return "条件";
+}
+
+function policyClass(base: string, card: PolicyCard, progress: PolicyProgress): string {
+  const violation = progress.latest?.result === "violation" ? " is-violation" : "";
+  const active = progress.count > 0 ? " has-progress" : "";
+  return `${base} is-${card.mode}${active}${violation}`;
 }

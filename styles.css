@@ -239,8 +239,10 @@
 .btl-policy-period-canvas { min-width: max-content; padding: 10px 12px 18px 0; }
 .btl-policy-roots, .btl-policy-children { display: flex; width: max-content; min-width: 100%; align-items: flex-start; justify-content: center; gap: 12px; padding: 10px 8px 18px; }
 .btl-policy-node-wrap { position: relative; display: flex; min-width: 112px; flex-direction: column; align-items: center; }
-.btl-policy-node { position: relative; display: flex; width: 116px; min-height: 56px; flex-direction: column; align-items: center; justify-content: center; border: 1.5px solid var(--btl-policy-tone, var(--text-muted)); border-radius: 10px; padding: 12px 8px 8px; background: color-mix(in srgb, var(--btl-policy-tone, var(--text-muted)) 9%, var(--background-primary)); color: var(--text-normal); text-align: center; cursor: pointer; }
-.btl-policy-node.is-done { background: color-mix(in srgb, var(--color-green) 22%, var(--background-primary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-green) 40%, transparent); }
+.btl-policy-node { position: relative; display: flex; width: 116px; min-height: 56px; flex-direction: column; align-items: center; justify-content: center; border: 1.5px solid var(--btl-policy-tone, var(--text-muted)); border-radius: 10px; padding: 12px 8px 8px; background: var(--background-primary); color: var(--text-normal); text-align: center; cursor: pointer; }
+.btl-policy-node.has-progress, .btl-policy-hand-card.has-progress { background: color-mix(in srgb, var(--color-green) calc(var(--btl-policy-level) * 32%), var(--background-primary)); }
+.btl-policy-node.is-done { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-green) 52%, transparent); }
+.btl-policy-node.is-violation, .btl-policy-hand-card.is-violation { background: color-mix(in srgb, var(--color-red) 18%, var(--background-primary)); }
 .btl-policy-node.is-drop-target { box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 36%, transparent); }
 .btl-policy-tree.is-drop-target { background: color-mix(in srgb, var(--interactive-accent) 5%, transparent); }
 .btl-policy-node.is-triggered, .btl-policy-hand-card.is-triggered { --btl-policy-tone: var(--color-blue); }
@@ -262,9 +264,10 @@
 .btl-policy-hand-head { display: flex; height: 28px; align-items: center; gap: 5px; padding: 0 9px; color: var(--text-muted); font-size: 10px; font-weight: 750; }
 .btl-policy-hand-head strong { color: var(--text-faint); font-size: 9px; }
 .btl-policy-hand-list { display: flex; min-height: calc(100% - 28px); align-content: flex-start; gap: 5px; overflow: auto; padding: 4px 7px 9px; }
-.btl-policy-hand-card { position: relative; display: flex; width: 104px; min-width: 104px; height: 46px; align-items: center; border: 1px solid color-mix(in srgb, var(--btl-policy-tone) 55%, var(--background-modifier-border)); border-radius: 9px; padding: 6px 26px 6px 8px; background: color-mix(in srgb, var(--btl-policy-tone) 7%, var(--background-primary)); }
+.btl-policy-hand-card { position: relative; display: flex; width: 104px; min-width: 104px; height: 46px; align-items: center; border: 1px solid color-mix(in srgb, var(--btl-policy-tone) 55%, var(--background-modifier-border)); border-radius: 9px; padding: 6px 26px 6px 8px; background: var(--background-primary); }
 .btl-policy-hand-card > span { overflow: hidden; color: var(--text-normal); font-size: 9px; font-weight: 680; line-height: 1.2; text-overflow: ellipsis; }
 .btl-policy-hand-card > button { position: absolute; top: 6px; right: 0; width: 28px; height: 32px; border: 0; padding: 0; background: transparent !important; box-shadow: none !important; color: var(--text-faint); font-size: 17px; }
+.btl-policy-count { position: absolute; right: 6px; bottom: 3px; color: var(--btl-policy-tone); font-size: 8px; font-weight: 800; font-variant-numeric: tabular-nums; pointer-events: none; }
 .btl-project-card-menu, .btl-item-menu, .btl-branch-menu,
 .btl-project-item-menu, .btl-project-branch-menu,
 .btl-achievement-head button, .btl-policy-node-menu,

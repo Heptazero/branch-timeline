@@ -164,6 +164,7 @@ export interface PolicyEvent {
   cardId: string;
   nodeId: string;
   date: string;
+  minute?: number;
   result: "success" | "violation" | "used";
 }
 
