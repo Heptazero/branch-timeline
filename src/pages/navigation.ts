@@ -5,7 +5,7 @@ export type { TimelinePage } from "../types";
 const PAGES: ReadonlyArray<{ id: TimelinePage; label: string }> = [
   { id: "day", label: "今天" },
   { id: "projects", label: "项目" },
-  { id: "habits", label: "习惯" },
+  { id: "habits", label: "统计" },
   { id: "achievements", label: "成就" },
   { id: "policy", label: "锚点" }
 ];

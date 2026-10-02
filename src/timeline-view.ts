@@ -48,14 +48,6 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     }
   }
 
-  protected async addHabit(): Promise<void> {
-    const name = await this.text("添加习惯", "习惯名称");
-    if (!name || this.plugin.settings.habits.includes(name)) return;
-    this.plugin.settings.habits.push(name);
-    await this.plugin.saveSettings();
-    await this.render(false);
-  }
-
   protected async previewScale(next: number, anchorClientY: number, commit: boolean): Promise<void> {
     if (!this.scroller || !this.day) return;
     next = clampScale(next);
@@ -123,10 +115,6 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
       } else void this.achievementActions.add();
       return;
     }
-    if (this.page === "habits") {
-      void this.addHabit();
-      return;
-    }
     if (this.page === "policy") {
       menu.addItem(item => item.setTitle("添加根锚点").setIcon("circle-plus").onClick(() => void this.policyActions.add(true, null, this.policyPeriod, this.policySideId)));
       menu.addItem(item => item.setTitle("加入手牌").setIcon("layers").onClick(() => void this.policyActions.add(false, null, this.policyPeriod, this.policySideId)));
@@ -138,7 +126,6 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     menu.addItem(item => item.setTitle("添加精力区间").setIcon("layers-2").onClick(() => void this.addEnergyPhase(minute, 1)));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("记录项目工时").setIcon("timer").onClick(() => void this.plugin.recordProjectWork(this.date)));
-    menu.addItem(item => item.setTitle("打卡习惯").setIcon("check-circle").onClick(() => void this.plugin.toggleHabit(this.date)));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("添加项目待办").setIcon("list-plus").onClick(() => void this.plugin.addProjectTask(this.date)));
     menu.showAtMouseEvent(event);
@@ -266,17 +253,6 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     const moved = new Set(paths);
     this.plugin.settings.projectOrder = [...this.plugin.settings.projectOrder.filter(path => !moved.has(path)), ...paths];
     await this.plugin.saveSettings(false);
-  }
-
-  protected async reorderHabits(names: string[]): Promise<void> {
-    const moved = new Set(names);
-    this.plugin.settings.habits = [...names, ...this.plugin.settings.habits.filter(name => !moved.has(name))];
-    await this.plugin.saveSettings();
-  }
-
-  protected async reorderHabitCards(ids: string[]): Promise<void> {
-    this.plugin.settings.habitCardOrder = ids;
-    await this.plugin.saveSettings();
   }
 
   protected openPluginSettings(): void {

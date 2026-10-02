@@ -45,7 +45,7 @@ class ProjectTypeSuggest extends AbstractInputSuggest<ProjectTypeSuggestion> {
 
 const OPTIONAL_PAGES: ReadonlyArray<{ id: "projects" | "habits" | "achievements" | "policy"; label: string }> = [
   { id: "projects", label: "项目" },
-  { id: "habits", label: "习惯" },
+  { id: "habits", label: "统计" },
   { id: "achievements", label: "成就" },
   { id: "policy", label: "锚点" }
 ];
@@ -168,9 +168,11 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     for (const key of RHYTHM_BOUNDARIES) {
       new Setting(containerEl)
         .setName(rhythmLabel(key, this.plugin.settings.rhythmLabels))
+        .setDesc("可修改默认时间，不可删除；只影响以后没有实际记录的日期。")
         .addButton(button => {
           const refresh = () => button.setButtonText(this.timeLabel(this.plugin.settings.rhythm[key]));
           refresh();
+          button.setTooltip("编辑默认时间");
           button.onClick(() => openRhythmSchedulePopover(
             button.buttonEl,
             this.plugin.settings.rhythm,

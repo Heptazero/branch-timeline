@@ -40,7 +40,6 @@ export default class BranchTimelinePlugin extends Plugin {
     this.addRibbonIcon("git-branch", "在中间打开分支时间线", () => void this.openTimelineCenter());
     this.addCommand({ id: "open-timeline", name: "固定时间线到右侧", callback: () => void this.openTimelineRight(true) });
     this.addCommand({ id: "open-timeline-center", name: "在中间打开时间线", callback: () => void this.openTimelineCenter() });
-    this.addCommand({ id: "toggle-habit", name: "打卡习惯", callback: () => void this.toggleHabit(logicalToday()) });
     this.addCommand({ id: "record-project-work", name: "记录项目工时", callback: () => void this.recordProjectWork(logicalToday()) });
     this.addCommand({ id: "add-project-task", name: "添加项目待办", callback: () => void this.addProjectTask(logicalToday()) });
     this.app.workspace.onLayoutReady(() => {
@@ -137,16 +136,6 @@ export default class BranchTimelinePlugin extends Plugin {
     const leaf = this.app.workspace.getLeaf("tab");
     await leaf.setViewState({ type: BRANCH_TIMELINE_VIEW, active: true });
     this.app.workspace.revealLeaf(leaf);
-  }
-
-  async toggleHabit(date: Date): Promise<void> {
-    const choice = await this.choose("选择习惯", this.settings.habits.map(name => ({ id: name, label: name })));
-    if (!choice) return;
-    const snapshot = await this.repository.readDiaryDay(date);
-    const next = !snapshot.habits[choice.id];
-    await this.repository.setHabit(date, choice.id, next);
-    new Notice(`${choice.label} · ${next ? "完成" : "取消"}`);
-    await this.refreshViews();
   }
 
   async recordProjectWork(date: Date): Promise<void> {

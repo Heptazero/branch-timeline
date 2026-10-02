@@ -99,14 +99,6 @@ export class PolicyActions {
     }).open();
   }
 
-  async toggleHabit(cardId: string): Promise<void> {
-    await this.options.plugin.store.update(state => {
-      const card = state.policyCards.find(candidate => candidate.id === cardId);
-      if (card) card.habit = !card.habit;
-    });
-    await this.options.refresh();
-  }
-
   async openSettlementMenu(node: PolicyNode, card: PolicyCard, event: MouseEvent): Promise<void> {
     const date = dateKey(this.options.getDate());
     const state = await this.options.plugin.store.load();
@@ -141,17 +133,6 @@ export class PolicyActions {
         .sort((a, b) => (a.event.minute ?? 0) - (b.event.minute ?? 0) || a.event.id.localeCompare(b.event.id));
       const latest = candidates.at(-1);
       if (latest) state.policyEvents.splice(latest.index, 1);
-    });
-    await this.options.refresh();
-  }
-
-  async toggleHabitOn(cardId: string, date: string): Promise<void> {
-    await this.options.plugin.store.update(state => {
-      const node = state.policyNodes.find(candidate => candidate.cardId === cardId);
-      if (!node) return;
-      const index = state.policyEvents.findIndex(event => event.cardId === cardId && event.date === date);
-      if (index >= 0) state.policyEvents.splice(index, 1);
-      else state.policyEvents.push({ id: this.uid("policy-event"), cardId, nodeId: node.id, date, result: "success" });
     });
     await this.options.refresh();
   }
@@ -205,7 +186,6 @@ export class PolicyActions {
   openNodeMenu(node: PolicyNode, card: PolicyCard, event: PointerEvent): void {
     const menu = new Menu();
     menu.addItem(item => item.setTitle("重命名").setIcon("pencil").onClick(() => void this.rename(card)));
-    menu.addItem(item => item.setTitle(card.habit ? "取消习惯" : "显示为习惯").setIcon("check-circle").onClick(() => void this.toggleHabit(card.id)));
     menu.addItem(item => item.setTitle("退回手牌").setIcon("undo-2").onClick(() => this.confirmReturn(node, card)));
     menu.showAtPosition({ x: event.clientX, y: event.clientY });
   }
@@ -213,7 +193,6 @@ export class PolicyActions {
   openCardMenu(card: PolicyCard, event: PointerEvent): void {
     const menu = new Menu();
     menu.addItem(item => item.setTitle("重命名").setIcon("pencil").onClick(() => void this.rename(card)));
-    menu.addItem(item => item.setTitle(card.habit ? "取消习惯" : "显示为习惯").setIcon("check-circle").onClick(() => void this.toggleHabit(card.id)));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("删除手牌").setIcon("trash-2").setWarning(true).onClick(() => {
       new ConfirmModal(this.options.app, `删除“${card.name}”？`, "这张手牌会被删除。", async () => {

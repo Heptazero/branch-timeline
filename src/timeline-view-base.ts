@@ -8,7 +8,7 @@ import {
 } from "./modals";
 import { AchievementActions } from "./pages/achievement-actions";
 import { renderAchievementDetail, renderAchievementsPage } from "./pages/achievements";
-import { renderHabitsPage } from "./pages/habits";
+import { renderStatsPage } from "./pages/stats";
 import { renderPageNavigation, type TimelinePage } from "./pages/navigation";
 import { ProjectTimelineActions } from "./pages/project-actions";
 import {
@@ -269,20 +269,20 @@ export abstract class BranchTimelineViewBase extends ItemView {
           });
         }
       } else if (this.page === "habits") {
-        await renderHabitsPage({
+        renderStatsPage({
           container: pageContent,
           date: this.date,
-          habits: this.plugin.settings.habits,
           state,
-          cardOrder: this.plugin.settings.habitCardOrder,
-          readDay: date => this.plugin.repository.readDiaryDay(date),
-          setHabit: (date, habit, done) => this.plugin.repository.setHabit(date, habit, done),
-          togglePolicyHabit: (cardId, date) => this.policyActions.toggleHabitOn(cardId, date),
-          isCurrent: () => requestId === this.renderId,
-          refresh: () => this.render(false),
-          onAdd: () => void this.addHabit(),
-          onReorderHabits: names => void this.reorderHabits(names),
-          onReorderCards: ids => void this.reorderHabitCards(ids)
+          onOpenDate: date => {
+            this.date = date;
+            this.followsToday = dateKey(date) === dateKey(logicalToday());
+            this.page = "day";
+            void this.render(false);
+          },
+          onOpenPolicy: () => {
+            this.page = "policy";
+            void this.render(false);
+          }
         });
       }
       else if (this.page === "achievements") {
@@ -418,7 +418,6 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract addTimelineBranch(minute: number): Promise<void>;
   protected abstract previewScale(next: number, anchorClientY: number, commit: boolean): Promise<void>;
   protected abstract addProject(): Promise<void>;
-  protected abstract addHabit(): Promise<void>;
   protected abstract openAddMenu(event: MouseEvent): void;
   protected abstract shiftDate(amount: number): void;
   protected abstract dateTitle(): string;
@@ -442,8 +441,6 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract openProjectDailyPlan(path: string, anchor: HTMLElement): void;
   protected abstract toggleProjectGroup(label: string): Promise<void>;
   protected abstract reorderProjects(paths: string[]): Promise<void>;
-  protected abstract reorderHabits(names: string[]): Promise<void>;
-  protected abstract reorderHabitCards(ids: string[]): Promise<void>;
   protected abstract openPluginSettings(): void;
   protected abstract openPolicySideMenu(side: import("./types").PolicySide, event: MouseEvent): void;
   protected abstract setPolicySceneWidth(sideId: string, width: number): Promise<void>;
