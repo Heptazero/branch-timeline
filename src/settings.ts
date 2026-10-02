@@ -4,16 +4,13 @@ import { installLongPressSort } from "./interactions/long-press-sort";
 import { ConfirmModal } from "./modals";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { DEFAULT_RHYTHM, DEFAULT_RHYTHM_MARKERS, RHYTHM_BOUNDARIES, rhythmLabel } from "./rhythm";
-import { cloneDefaultTags, createTag } from "./tags";
 import type { BranchTimelineSettings, ItemMetadataRequirement } from "./types";
 
 const PROJECT_TYPE_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
 
 const METADATA_REQUIREMENTS: ReadonlyArray<{ value: ItemMetadataRequirement; label: string }> = [
   { value: "none", label: "不强制" },
-  { value: "project", label: "项目" },
-  { value: "tag", label: "标签" },
-  { value: "both", label: "项目+标签" }
+  { value: "project", label: "项目" }
 ];
 
 interface ProjectTypeSuggestion { value: string; custom: boolean }
@@ -60,7 +57,7 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   projectTypes: [{ type: "project", color: PROJECT_TYPE_COLORS[0] }],
   itemMetadataRequirement: "none",
   habits: ["早睡", "阅读", "对话训练", "写日记"],
-  tags: cloneDefaultTags(),
+  tags: [],
   rhythm: { ...DEFAULT_RHYTHM },
   rhythmMarkers: DEFAULT_RHYTHM_MARKERS.map(marker => ({ ...marker })),
   rhythmLabels: { wake: "起床", napStart: "午休开始", napEnd: "午休结束", sleepPrep: "睡眠准备", sleep: "入睡" },
@@ -72,7 +69,7 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   pinnedProjects: [],
   collapsedProjectGroups: [],
   policySceneWidths: {},
-  habitCardOrder: ["week", "month", "sleep", "tags"]
+  habitCardOrder: ["week", "month", "sleep"]
 };
 
 export class BranchTimelineSettingTab extends PluginSettingTab {
@@ -84,7 +81,7 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     containerEl.createEl("h2", { text: "Branch Timeline" });
 
     this.textSetting("数据文件", "分支、节律与决策树的 Vault 内路径。", "statePath");
-    this.textSetting("周记目录", "习惯和分类时长写入的位置。", "diaryFolder");
+    this.textSetting("周记目录", "习惯数据写入的位置。", "diaryFolder");
 
     new Setting(containerEl)
       .setName("项目页 type（全库）")
@@ -249,41 +246,6 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
           }));
     }
 
-    new Setting(containerEl)
-      .setName("标签")
-      .setHeading()
-      .addButton(button => button.setButtonText("添加").setIcon("plus").onClick(async () => {
-        this.plugin.settings.tags.push(createTag(this.plugin.settings.tags));
-        await this.plugin.saveSettings();
-        this.redisplay(() => this.containerEl.querySelector<HTMLInputElement>(".btl-tag-setting:last-child input")?.select());
-      }));
-
-    for (const tag of this.plugin.settings.tags) {
-      const row = new Setting(containerEl).setClass("btl-tag-setting");
-      row.addText(text => {
-        text.setPlaceholder("标签名称").setValue(tag.name).onChange(async value => {
-          tag.name = value;
-          await this.plugin.saveSettings();
-        });
-        text.inputEl.setAttr("aria-label", "标签名称");
-      });
-      row.addColorPicker(color => color.setValue(tag.color).onChange(async value => {
-        tag.color = value;
-        await this.plugin.saveSettings();
-      }));
-      row.addExtraButton(button => button.setIcon("trash-2").setTooltip("删除标签").onClick(() => {
-        new ConfirmModal(
-          this.app,
-          `删除“${tag.name}”？`,
-          "只删除标签配置；已有时间记录保留原名称。",
-          async () => {
-            this.plugin.settings.tags = this.plugin.settings.tags.filter(item => item.id !== tag.id);
-            await this.plugin.saveSettings();
-            this.redisplay();
-          }
-        ).open();
-      }));
-    }
   }
 
   private textSetting(

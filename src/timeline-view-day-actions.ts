@@ -91,10 +91,19 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     await this.stopTiming(itemId);
   }
 
+  protected async recordDistraction(itemId: string): Promise<void> {
+    const minute = this.currentLogicalMinute();
+    if (minute == null) return;
+    await this.updateDay(day => {
+      (day.distractions ||= []).push({ id: this.uid("distract"), minute, itemId });
+    });
+    navigator.vibrate?.(18);
+  }
+
   protected openItemMenu(itemId: string, event: MouseEvent): void {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
     if (!item) return;
-    showItemMenu(event, item, this.plugin.settings.tags, this.plugin.repository.listProjects(), {
+    showItemMenu(event, item, this.plugin.repository.listProjects(), {
       complete: () => void this.completeItem(item.id),
       startTiming: () => void this.startTiming(item.id),
       stopTiming: () => void this.stopTiming(item.id),
@@ -106,7 +115,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       }) } : {}),
       rename: () => void this.renameItem(item),
       setProject: projectPath => void this.setItemProject(item.id, projectPath),
-      setTag: tagId => void this.setItemTag(item.id, tagId),
       remove: () => this.confirmRemoveItem(item)
     });
   }
@@ -118,16 +126,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       rename: () => void this.renameBranch(branch),
       flip: () => void this.updateBranch(branch.id, target => { target.side = target.side > 0 ? -1 : 1; }),
       remove: () => this.confirmRemoveBranch(branch)
-    });
-  }
-
-  protected async setItemTag(itemId: string, tagId: string | null): Promise<void> {
-    const tag = tagId ? this.plugin.settings.tags.find(candidate => candidate.id === tagId) : undefined;
-    await this.updateDay(day => {
-      const item = day.items.find(candidate => candidate.id === itemId);
-      if (!item) return;
-      item.tagId = tag?.id;
-      item.tag = tag?.name;
     });
   }
 
@@ -170,7 +168,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       submitLabel: "补记"
     });
     if (!draft) return;
-    const tag = draft.tagId ? this.plugin.settings.tags.find(candidate => candidate.id === draft.tagId) : undefined;
     if (draft.projectPath) {
       try {
         await this.plugin.repository.addProjectLog(
@@ -193,8 +190,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
         startMin: startMinute,
         endMin: endMinute,
         projectPath: draft.projectPath || undefined,
-        tagId: tag?.id,
-        tag: tag?.name,
         note: draft.note || undefined
       });
     });
@@ -307,7 +302,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     );
     const draft = await this.timelineItemDraft(projects);
     if (!draft) return;
-    const tag = draft.tagId ? this.plugin.settings.tags.find(candidate => candidate.id === draft.tagId) : undefined;
     if (draft.projectPath && draft.note) {
       try {
         await this.plugin.repository.syncProjectNote(draft.projectPath, this.date, minute, "", draft.note);
@@ -324,8 +318,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
         plannedMin: minute,
         branchId,
         projectPath: draft.projectPath || undefined,
-        tagId: tag?.id,
-        tag: tag?.name,
         note: draft.note || undefined
       });
     });

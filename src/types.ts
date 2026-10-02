@@ -47,6 +47,12 @@ export interface TimelineRhythmMarker {
   real?: boolean;
 }
 
+export interface TimelineDistraction {
+  id: string;
+  minute: number;
+  itemId?: string;
+}
+
 export interface TimelineTag {
   id: string;
   name: string;
@@ -100,6 +106,7 @@ export interface TimelineDayState {
   sleepPrepReal?: boolean;
   sleepReal?: boolean;
   rhythmMarkers?: TimelineRhythmMarker[];
+  distractions?: TimelineDistraction[];
   /** 旧版单一午休节点，仅用于读取迁移。 */
   pivot?: number;
   /** 旧版单一午休完成状态，仅用于读取迁移。 */

@@ -1,5 +1,5 @@
 import { Menu } from "obsidian";
-import type { ProjectRef, TimelineBranch, TimelineItem, TimelineTag } from "../types";
+import type { ProjectRef, TimelineBranch, TimelineItem } from "../types";
 
 export interface ItemMenuActions {
   complete: () => void;
@@ -10,14 +10,12 @@ export interface ItemMenuActions {
   toggleMilestone?: () => void;
   rename: () => void;
   setProject: (projectPath: string | null) => void;
-  setTag: (tagId: string | null) => void;
   remove: () => void;
 }
 
 export function showItemMenu(
   event: MouseEvent,
   item: TimelineItem,
-  tags: readonly TimelineTag[],
   projects: readonly ProjectRef[],
   actions: ItemMenuActions
 ): void {
@@ -47,15 +45,6 @@ export function showItemMenu(
       .setTitle(project.name)
       .setChecked(item.projectPath === project.path)
       .onClick(() => actions.setProject(project.path)));
-  }
-  menu.addSeparator();
-  menu.addItem(entry => entry.setTitle("标签").setIsLabel(true));
-  menu.addItem(entry => entry.setTitle("无标签").setChecked(!item.tagId && !item.tag).onClick(() => actions.setTag(null)));
-  for (const tag of tags) {
-    menu.addItem(entry => entry
-      .setTitle(tag.name)
-      .setChecked(item.tagId === tag.id || (!item.tagId && item.tag === tag.name))
-      .onClick(() => actions.setTag(tag.id)));
   }
   menu.addSeparator();
   menu.addItem(entry => entry.setTitle("删除").setIcon("trash-2").setWarning(true).onClick(actions.remove));

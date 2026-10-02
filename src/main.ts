@@ -2,7 +2,7 @@ import { Notice, Platform, Plugin, WorkspaceLeaf } from "obsidian";
 import { ChoiceSuggestModal, DurationModal, ProjectSuggestModal, TextEntryModal } from "./modals";
 import { normalizeRhythmMarkers, normalizeRhythmSchedule } from "./rhythm";
 import { BranchTimelineSettingTab, DEFAULT_SETTINGS } from "./settings";
-import { loadTags, tagCategoryKey } from "./tags";
+import { loadTags } from "./tags";
 import { BRANCH_TIMELINE_VIEW, BranchTimelineView } from "./timeline-view";
 import type { BranchTimelineSettings, ProjectRef } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
@@ -42,7 +42,6 @@ export default class BranchTimelinePlugin extends Plugin {
     this.addCommand({ id: "open-timeline-center", name: "在中间打开时间线", callback: () => void this.openTimelineCenter() });
     this.addCommand({ id: "toggle-habit", name: "打卡习惯", callback: () => void this.toggleHabit(logicalToday()) });
     this.addCommand({ id: "record-project-work", name: "记录项目工时", callback: () => void this.recordProjectWork(logicalToday()) });
-    this.addCommand({ id: "record-category-duration", name: "记录分类时长", callback: () => void this.recordCategoryDuration(logicalToday()) });
     this.addCommand({ id: "add-project-task", name: "添加项目待办", callback: () => void this.addProjectTask(logicalToday()) });
     this.app.workspace.onLayoutReady(() => {
       if (Platform.isDesktopApp) void this.openTimelineRight(false);
@@ -72,7 +71,7 @@ export default class BranchTimelinePlugin extends Plugin {
         : DEFAULT_SETTINGS.projectTypes.map(item => ({ ...item })),
       itemMetadataRequirement: this.metadataRequirement(saved),
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
-      tags: loadTags(saved?.tags, tagMap),
+      tags: Array.isArray(saved?.tags) || tagMap ? loadTags(saved?.tags, tagMap) : [],
       rhythm,
       rhythmMarkers: normalizeRhythmMarkers(saved?.rhythmMarkers, rhythm, rhythmLabels),
       rhythmLabels,
@@ -90,8 +89,8 @@ export default class BranchTimelinePlugin extends Plugin {
 
   private metadataRequirement(saved: (Partial<BranchTimelineSettings> & { requireItemMetadata?: boolean }) | null): BranchTimelineSettings["itemMetadataRequirement"] {
     const requirement = saved?.itemMetadataRequirement;
-    if (requirement === "none" || requirement === "project" || requirement === "tag" || requirement === "both") return requirement;
-    return saved?.requireItemMetadata === true ? "both" : "none";
+    if (requirement === "project" || requirement === "both") return "project";
+    return "none";
   }
 
   async saveSettings(refresh = true): Promise<void> {
@@ -166,29 +165,6 @@ export default class BranchTimelinePlugin extends Plugin {
       });
     });
     new Notice(`${project.name} · ${result.minutes} 分钟`);
-    await this.refreshViews();
-  }
-
-  async recordCategoryDuration(date: Date): Promise<void> {
-    const tags = this.settings.tags.filter(tag => tag.name.trim());
-    if (!tags.length) { new Notice("请先添加标签。"); return; }
-    const choice = await this.choose("选择标签", tags.map(tag => ({ id: tag.id, label: tag.name })));
-    if (!choice) return;
-    const tag = tags.find(item => item.id === choice.id);
-    if (!tag) return;
-    const result = await this.duration(`记录 · ${choice.label}`);
-    if (!result) return;
-    const end = this.minuteNow(date);
-    const start = Math.max(this.settings.rhythm.wake, end - result.minutes);
-    await this.repository.addCategoryDuration(date, tagCategoryKey(tag), result.minutes);
-    await this.store.update(state => {
-      const day = state.days[dateKey(date)] ||= defaultDay(this.settings.rhythm);
-      day.items.push({
-        id: this.uid("fact"), title: result.note || choice.label, kind: "fact", startMin: start, endMin: end,
-        tagId: tag.id, tag: tag.name, note: result.note || undefined
-      });
-    });
-    new Notice(`${choice.label} · ${result.minutes} 分钟`);
     await this.refreshViews();
   }
 

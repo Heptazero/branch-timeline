@@ -191,6 +191,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     this.energyPhases = effectiveEnergyPhases(state.days, key);
     this.runningBar = new RunningBar(runningHost, {
       open: itemId => void this.focusRunningItem(itemId),
+      distract: itemId => void this.recordDistraction(itemId),
       stop: itemId => void this.stopRunningItem(itemId)
     });
     this.updateRunningBar();
@@ -216,7 +217,6 @@ export abstract class BranchTimelineViewBase extends ItemView {
             container: pageContent,
             project,
             state,
-            tags: this.plugin.settings.tags,
             focusDate: this.date,
             scale: this.projectScale,
             anchor: this.projectAnchor,
@@ -273,7 +273,6 @@ export abstract class BranchTimelineViewBase extends ItemView {
           container: pageContent,
           date: this.date,
           habits: this.plugin.settings.habits,
-          tags: this.plugin.settings.tags,
           state,
           cardOrder: this.plugin.settings.habitCardOrder,
           readDay: date => this.plugin.repository.readDiaryDay(date),
@@ -283,8 +282,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
           refresh: () => this.render(false),
           onAdd: () => void this.addHabit(),
           onReorderHabits: names => void this.reorderHabits(names),
-          onReorderCards: ids => void this.reorderHabitCards(ids),
-          onEditTags: () => this.openPluginSettings()
+          onReorderCards: ids => void this.reorderHabitCards(ids)
         });
       }
       else if (this.page === "achievements") {
@@ -351,7 +349,6 @@ export abstract class BranchTimelineViewBase extends ItemView {
     const gapHorizon = this.gapHorizon(day);
     const rendered = renderTimeline(scroller, {
       day,
-      tags: this.plugin.settings.tags,
       scale: this.scale,
       width,
       nowMinute,
@@ -405,6 +402,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract completeItem(itemId: string): Promise<void>;
   protected abstract stopTiming(itemId: string): Promise<void>;
   protected abstract stopRunningItem(itemId: string): Promise<void>;
+  protected abstract recordDistraction(itemId: string): Promise<void>;
   protected abstract editItemNote(itemId: string): Promise<void>;
   protected abstract openItemMenu(itemId: string, event: MouseEvent): void;
   protected abstract openBranchMenu(branchId: string, event: MouseEvent): void;

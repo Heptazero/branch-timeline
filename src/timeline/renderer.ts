@@ -1,6 +1,6 @@
 import { setIcon } from "obsidian";
 import { RHYTHM_BOUNDARIES, rhythmLabel, rhythmMarkerMinute, rhythmMarkerReal, rhythmRealKey } from "../rhythm";
-import type { RhythmKey, RhythmMarkerDefinition, TimelineDayState, TimelineEnergyPhase, TimelineItem, TimelineTag } from "../types";
+import type { RhythmKey, RhythmMarkerDefinition, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "../types";
 import {
   TIMELINE_BOTTOM,
   branchPath,
@@ -19,7 +19,6 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 export interface TimelineRenderOptions {
   day: TimelineDayState;
-  tags: readonly TimelineTag[];
   scale: number;
   width: number;
   nowMinute?: number;
@@ -52,7 +51,7 @@ export function applyTimelineLod(canvas: HTMLElement, scale: number): void {
 }
 
 export function renderTimeline(container: HTMLElement, options: TimelineRenderOptions): TimelineRenderResult {
-  const { day, tags, scale, width, nowMinute } = options;
+  const { day, scale, width, nowMinute } = options;
   const layout = computeTimelineLayout(day, width, scale, nowMinute);
   const canvas = container.createDiv({ cls: "btl-canvas" });
   canvas.style.height = `${layout.height}px`;
@@ -70,12 +69,20 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   canvas.createDiv({ cls: "btl-gap-layer" });
   canvas.createDiv({ cls: "btl-now-layer" });
   updateTimelineTemporalLayers(canvas, day, scale, nowMinute, options.gapHorizon);
+  renderDistractions(canvas, day, scale);
   renderRhythm(canvas, day, scale, options.rhythmLabels, options.rhythmMarkers || []);
   renderBranches(canvas, svg, day, layout);
 
   const orderedItems = [...day.items].sort((a, b) => itemDuration(b, day.wake, nowMinute) - itemDuration(a, day.wake, nowMinute));
-  for (const item of orderedItems) renderItem(canvas, day, layout, item, tags, nowMinute);
+  for (const item of orderedItems) renderItem(canvas, day, layout, item, nowMinute);
   return { canvas, layout };
+}
+
+function renderDistractions(canvas: HTMLElement, day: TimelineDayState, scale: number): void {
+  for (const event of day.distractions || []) {
+    const dot = canvas.createDiv({ cls: "btl-distraction-dot", attr: { title: `分神 · ${formatTime(event.minute)}` } });
+    dot.style.top = `${minuteToY(day, scale, event.minute)}px`;
+  }
 }
 
 function renderEnergyPhases(
@@ -332,7 +339,6 @@ function renderItem(
   day: TimelineDayState,
   layout: TimelineLayout,
   item: TimelineItem,
-  tags: readonly TimelineTag[],
   nowMinute?: number
 ): void {
   const start = itemStart(item, day.wake);
@@ -343,9 +349,8 @@ function renderItem(
   const xOffset = itemX(item, layout);
   const x = layout.center + xOffset;
   const branch = item.branchId ? layout.branches.get(item.branchId)?.branch : undefined;
-  const tag = item.tagId ? tags.find(candidate => candidate.id === item.tagId) : tags.find(candidate => candidate.name === item.tag);
   const project = projectName(item.projectPath);
-  const color = tag?.color || "var(--text-faint)";
+  const color = "var(--text-faint)";
   const card = canvas.createDiv({
     cls: `btl-canvas-item is-${item.kind}${timed ? " is-timed" : ""}${running ? " is-running" : ""}${!branch || branch.side < 0 ? " compact-left" : ""}`,
     attr: { "data-item-id": item.id }
@@ -377,7 +382,6 @@ function renderItem(
     const body = card.createDiv({ cls: `btl-canvas-item-body${project ? " has-project" : ""}` });
     if (project) body.createDiv({ cls: "btl-canvas-item-project", text: `@${project}` });
     if (item.note) body.createDiv({ cls: "btl-canvas-item-note", text: item.note });
-    if (tag?.name || item.tag) body.createDiv({ cls: "btl-canvas-item-tag", text: `#${tag?.name || item.tag}` });
   }
 
   const time = card.createDiv({

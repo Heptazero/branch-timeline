@@ -1,7 +1,6 @@
 import { Menu } from "obsidian";
 import { installLongPressSort } from "../interactions/long-press-sort";
-import { itemDuration } from "../timeline/model";
-import type { BranchTimelineState, DiaryDaySnapshot, PolicyCard, TimelineTag } from "../types";
+import type { BranchTimelineState, DiaryDaySnapshot, PolicyCard } from "../types";
 import { dateKey } from "../vault/format";
 import { startOfWeek } from "./navigation";
 
@@ -11,7 +10,6 @@ export interface HabitPageOptions {
   container: HTMLElement;
   date: Date;
   habits: readonly string[];
-  tags: readonly TimelineTag[];
   state: BranchTimelineState;
   cardOrder: readonly string[];
   readDay: (date: Date) => Promise<DiaryDaySnapshot>;
@@ -22,7 +20,6 @@ export interface HabitPageOptions {
   onAdd: () => void;
   onReorderHabits: (names: string[]) => void;
   onReorderCards: (ids: string[]) => void;
-  onEditTags: () => void;
 }
 
 export async function renderHabitsPage(options: HabitPageOptions): Promise<void> {
@@ -49,8 +46,7 @@ export async function renderHabitsPage(options: HabitPageOptions): Promise<void>
     const card = dashboard.createDiv({ cls: `btl-habit-card is-${id}`, attr: { "data-habit-card": id } });
     if (id === "week") renderWeekCard(card, refs, dates, snapshots, policyHabits, options);
     else if (id === "month") renderMonthCard(card, refs, monthStart, monthDates, snapshots, options);
-    else if (id === "sleep") renderSleepCard(card, dates, options.state);
-    else renderTagCard(card, dates, options);
+    else renderSleepCard(card, dates, options.state);
   }
   installLongPressSort(dashboard, {
     itemSelector: ".btl-habit-card",
@@ -180,51 +176,6 @@ function renderStat(container: HTMLElement, label: string, value: string, change
   if (change) tile.createEl("small", { text: change.text, cls: change.tone });
 }
 
-function renderTagCard(card: HTMLElement, dates: readonly Date[], options: HabitPageOptions): void {
-  const head = card.createDiv({ cls: "btl-habit-card-head" });
-  head.createEl("strong", { text: "标签趋势" });
-  const more = head.createEl("button", { text: "⋮", attr: { "aria-label": "标签趋势菜单", "data-no-sort": "true" } });
-  more.onclick = event => {
-    const menu = new Menu();
-    menu.addItem(item => item.setTitle("编辑标签").setIcon("tags").onClick(options.onEditTags));
-    menu.showAtMouseEvent(event);
-  };
-  const totals = options.tags.map(tag => ({
-    tag,
-    values: dates.map(date => tagMinutes(options.state, dateKey(date), tag.id, tag.name))
-  }));
-  const max = Math.max(60, ...totals.flatMap(series => series.values));
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.addClass("btl-tag-chart");
-  svg.setAttribute("viewBox", "0 0 320 150");
-  for (let index = 0; index < 4; index++) {
-    const line = document.createElementNS(svg.namespaceURI, "line");
-    const y = 12 + index * 34;
-    line.setAttribute("x1", "28"); line.setAttribute("x2", "312"); line.setAttribute("y1", String(y)); line.setAttribute("y2", String(y));
-    line.addClass("btl-tag-grid-line"); svg.appendChild(line);
-  }
-  for (const series of totals) {
-    const polyline = document.createElementNS(svg.namespaceURI, "polyline");
-    polyline.setAttribute("points", series.values.map((value, index) => `${30 + index * 46},${114 - value / max * 100}`).join(" "));
-    polyline.setAttribute("stroke", series.tag.color); polyline.addClass("btl-tag-series"); svg.appendChild(polyline);
-  }
-  dates.forEach((date, index) => {
-    const label = document.createElementNS(svg.namespaceURI, "text");
-    label.setAttribute("x", String(30 + index * 46));
-    label.setAttribute("y", "136");
-    label.setAttribute("text-anchor", "middle");
-    label.addClass("btl-tag-axis-label");
-    label.textContent = weekdayLabel(date);
-    svg.appendChild(label);
-  });
-  card.appendChild(svg);
-  const legend = card.createDiv({ cls: "btl-tag-legend" });
-  for (const series of totals) {
-    const item = legend.createSpan({ text: `● ${series.tag.name}` });
-    item.style.color = series.tag.color;
-  }
-}
-
 function habitDone(ref: HabitRef, date: string, snapshots: ReadonlyMap<string, DiaryDaySnapshot>, state: BranchTimelineState): boolean {
   if (ref.kind === "diary") return !!snapshots.get(date)?.habits[ref.name];
   const cardId = ref.id.slice(7);
@@ -261,14 +212,8 @@ function trend(current: number | undefined, previous: number | undefined, earlie
   return { text: `${difference > 0 ? "+" : "−"}${Math.abs(difference)}m`, tone: good ? "is-good" : "is-bad" };
 }
 
-function tagMinutes(state: BranchTimelineState, date: string, tagId: string, tagName: string): number {
-  const day = state.days[date];
-  if (!day) return 0;
-  return day.items.reduce((total, item) => total + (item.kind === "fact" && (item.tagId === tagId || item.tag === tagName) ? itemDuration(item, day.wake) : 0), 0);
-}
-
 function normalizeCardOrder(order: readonly string[]): string[] {
-  const allowed = ["week", "month", "sleep", "tags"];
+  const allowed = ["week", "month", "sleep"];
   return [...order.filter(id => allowed.includes(id)), ...allowed.filter(id => !order.includes(id))];
 }
 

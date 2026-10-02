@@ -2,8 +2,7 @@ import { setIcon } from "obsidian";
 import type {
   BranchTimelineState,
   ProjectRef,
-  ProjectTimelineBranch,
-  TimelineTag
+  ProjectTimelineBranch
 } from "../types";
 import { formatTime, itemDuration } from "../timeline/model";
 import { ProjectDetailGestures } from "./project-detail-gestures";
@@ -37,7 +36,6 @@ export interface ProjectDetailOptions {
   container: HTMLElement;
   project: ProjectRef;
   state: BranchTimelineState;
-  tags: readonly TimelineTag[];
   focusDate: Date;
   scale: number;
   anchor?: ProjectScaleAnchor;
@@ -114,7 +112,7 @@ export function renderProjectDetail(options: ProjectDetailOptions): ProjectDetai
   renderTicks(canvas, range.start, range.end, scale, yOf);
   renderNow(canvas, today, now, yOf, height);
   renderBranches(canvas, svg, branches, center, gap, yOf);
-  renderEntries(canvas, state, entries, branches, options.tags, center, gap, yOf);
+  renderEntries(canvas, state, entries, branches, center, gap, yOf);
   const zoom = container.createDiv({ cls: "btl-project-zoom" });
   const zoomOut = zoom.createEl("button", { text: "−", attr: { "aria-label": "缩小" } });
   const zoomIn = zoom.createEl("button", { text: "+", attr: { "aria-label": "放大" } });
@@ -238,7 +236,6 @@ function renderEntries(
   state: BranchTimelineState,
   entries: readonly ProjectTimelineEntry[],
   branches: readonly ProjectTimelineBranch[],
-  tags: readonly TimelineTag[],
   center: number,
   gap: number,
   yOf: (abs: number) => number
@@ -246,8 +243,7 @@ function renderEntries(
   const occupied = new Map<string, { left: number; right: number }>();
   for (const entry of entries) {
     const item = entry.item;
-    const tag = item.tagId ? tags.find(candidate => candidate.id === item.tagId) : tags.find(candidate => candidate.name === item.tag);
-    const color = tag?.color || "var(--text-faint)";
+    const color = "var(--text-faint)";
     const card = canvas.createDiv({
       cls: `btl-project-item is-${item.kind}${item.milestone ? " is-milestone" : ""}`,
       attr: {

@@ -138,7 +138,6 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     menu.addItem(item => item.setTitle("添加精力区间").setIcon("layers-2").onClick(() => void this.addEnergyPhase(minute, 1)));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("记录项目工时").setIcon("timer").onClick(() => void this.plugin.recordProjectWork(this.date)));
-    menu.addItem(item => item.setTitle("记录分类时长").setIcon("tags").onClick(() => void this.plugin.recordCategoryDuration(this.date)));
     menu.addItem(item => item.setTitle("打卡习惯").setIcon("check-circle").onClick(() => void this.plugin.toggleHabit(this.date)));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("添加项目待办").setIcon("list-plus").onClick(() => void this.plugin.addProjectTask(this.date)));
@@ -327,7 +326,6 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     return new Promise(resolve => new TimelineItemDraftModal(
       this.app,
       projects,
-      this.plugin.settings.tags,
       this.plugin.settings.itemMetadataRequirement,
       resolve,
       copy

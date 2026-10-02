@@ -1,5 +1,5 @@
 import { App, FuzzySuggestModal, Menu, Modal } from "obsidian";
-import type { ItemMetadataRequirement, ProjectRef, TimelineTag } from "./types";
+import type { ItemMetadataRequirement, ProjectRef } from "./types";
 
 export class ProjectSuggestModal extends FuzzySuggestModal<ProjectRef> {
   constructor(app: App, private projects: ProjectRef[], private resolve: (project: ProjectRef | null) => void) {
@@ -101,7 +101,6 @@ export interface TimelineItemDraftResult {
   title: string;
   note: string;
   projectPath: string | null;
-  tagId: string | null;
 }
 
 export interface TimelineItemDraftCopy {
@@ -114,16 +113,13 @@ export class TimelineItemDraftModal extends Modal {
   private titleValue = "";
   private noteValue = "";
   private projectPath: string | null = null;
-  private tagId: string | null = null;
   private resolved = false;
   private projectButton!: HTMLButtonElement;
-  private tagButton!: HTMLButtonElement;
   private submitButton!: HTMLButtonElement;
 
   constructor(
     app: App,
     private projects: readonly ProjectRef[],
-    private tags: readonly TimelineTag[],
     private metadataRequirement: ItemMetadataRequirement,
     private resolve: (value: TimelineItemDraftResult | null) => void,
     private copy: TimelineItemDraftCopy = { heading: "添加代办", titlePlaceholder: "代办内容", submitLabel: "添加" }
@@ -149,8 +145,6 @@ export class TimelineItemDraftModal extends Modal {
     const selectors = this.contentEl.createDiv({ cls: "btl-item-compose-selectors" });
     this.projectButton = selectors.createEl("button", { attr: { type: "button" } });
     this.projectButton.onclick = event => this.openProjectMenu(event);
-    this.tagButton = selectors.createEl("button", { attr: { type: "button" } });
-    this.tagButton.onclick = event => this.openTagMenu(event);
     this.refreshSelectors();
 
     const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
@@ -187,53 +181,25 @@ export class TimelineItemDraftModal extends Modal {
     menu.showAtMouseEvent(event);
   }
 
-  private openTagMenu(event: MouseEvent): void {
-    const menu = new Menu();
-    if (!this.requiresTag()) {
-      menu.addItem(item => item.setTitle("无标签").setChecked(!this.tagId).onClick(() => {
-        this.tagId = null;
-        this.refreshSelectors();
-        this.refreshSubmit();
-      }));
-      menu.addSeparator();
-    }
-    if (!this.tags.length) menu.addItem(item => item.setTitle("没有标签").setDisabled(true));
-    for (const tag of this.tags) {
-      menu.addItem(item => item.setTitle(tag.name).setChecked(this.tagId === tag.id).onClick(() => {
-        this.tagId = tag.id;
-        this.refreshSelectors();
-        this.refreshSubmit();
-      }));
-    }
-    menu.showAtMouseEvent(event);
-  }
-
   private refreshSelectors(): void {
     const project = this.projects.find(item => item.path === this.projectPath);
-    const tag = this.tags.find(item => item.id === this.tagId);
     this.projectButton.setText(project ? `@${project.name}` : "选择项目");
-    this.tagButton.setText(tag ? `#${tag.name}` : "选择标签");
     this.projectButton.toggleClass("is-selected", !!project);
-    this.tagButton.toggleClass("is-selected", !!tag);
     this.projectButton.style.setProperty("--btl-choice-color", project?.color || "var(--interactive-accent)");
-    this.tagButton.style.setProperty("--btl-choice-color", tag?.color || "var(--interactive-accent)");
   }
 
   private refreshSubmit(): void {
     if (!this.submitButton) return;
-    this.submitButton.disabled = !this.titleValue.trim()
-      || (this.requiresProject() && !this.projectPath)
-      || (this.requiresTag() && !this.tagId);
+    this.submitButton.disabled = !this.titleValue.trim() || (this.requiresProject() && !this.projectPath);
   }
 
   private submit(): void {
-    if (!this.titleValue.trim() || (this.requiresProject() && !this.projectPath) || (this.requiresTag() && !this.tagId)) return;
+    if (!this.titleValue.trim() || (this.requiresProject() && !this.projectPath)) return;
     this.resolved = true;
     this.resolve({
       title: this.titleValue.trim(),
       note: this.noteValue.trim(),
-      projectPath: this.projectPath,
-      tagId: this.tagId
+      projectPath: this.projectPath
     });
     this.close();
   }
@@ -242,9 +208,6 @@ export class TimelineItemDraftModal extends Modal {
     return this.metadataRequirement === "project" || this.metadataRequirement === "both";
   }
 
-  private requiresTag(): boolean {
-    return this.metadataRequirement === "tag" || this.metadataRequirement === "both";
-  }
 }
 
 export class MinuteEntryModal extends Modal {

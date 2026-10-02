@@ -326,6 +326,21 @@ test("moves custom rhythm markers without crossing their neighbours", () => {
   ]);
 });
 
+test("keeps valid distraction markers inside the logical day", () => {
+  const day = normalizeTimelineDay({
+    wake: 420, sleep: 1560, branches: [], items: [],
+    distractions: [
+      { id: "early", minute: 300, itemId: "focus" },
+      { id: "late", minute: 1700 },
+      { id: "invalid", minute: Number.NaN }
+    ]
+  });
+  assert.deepEqual(day.distractions, [
+    { id: "early", minute: 420, itemId: "focus" },
+    { id: "late", minute: 1560 }
+  ]);
+});
+
 test("shows elapsed time from wake before nap end and remaining time afterwards", () => {
   const rhythm = normalizeRhythmSchedule();
   assert.deepEqual(rhythmProgress(rhythm, new Date(2026, 7, 13, 10, 0)), { minutes: 180, mode: "elapsed" });

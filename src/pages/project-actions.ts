@@ -119,7 +119,7 @@ export class ProjectTimelineActions {
 
   openItemMenu(entry: ProjectTimelineEntry, event: MouseEvent): void {
     const { date, item } = entry;
-    showItemMenu(event, item, this.options.plugin.settings.tags, this.options.plugin.repository.listProjects(), {
+    showItemMenu(event, item, this.options.plugin.repository.listProjects(), {
       complete: () => void this.completeItem(date, item.id),
       startTiming: () => void this.startItemTiming(date, item.id),
       stopTiming: () => void this.stopItemTiming(date, item.id),
@@ -128,7 +128,6 @@ export class ProjectTimelineActions {
       toggleMilestone: () => void this.updateItem(date, item.id, target => { target.milestone = !target.milestone; }),
       rename: () => void this.renameItem(date, item),
       setProject: projectPath => void this.setItemProject(date, item.id, projectPath),
-      setTag: tagId => void this.setItemTag(date, item.id, tagId),
       remove: () => this.confirmRemoveItem(date, item)
     });
   }
@@ -242,14 +241,6 @@ export class ProjectTimelineActions {
     const title = await this.options.text("重命名", "标题", item.title);
     if (title == null) return;
     await this.updateItem(date, item.id, target => { target.title = title; });
-  }
-
-  private async setItemTag(date: string, itemId: string, tagId: string | null): Promise<void> {
-    const tag = tagId ? this.options.plugin.settings.tags.find(candidate => candidate.id === tagId) : undefined;
-    await this.updateItem(date, itemId, target => {
-      target.tagId = tag?.id;
-      target.tag = tag?.name;
-    });
   }
 
   private async setItemProject(date: string, itemId: string, projectPath: string | null): Promise<void> {
