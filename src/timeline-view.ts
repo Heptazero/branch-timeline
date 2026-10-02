@@ -202,11 +202,11 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     const button = this.countdownButton;
     if (!button) return;
     const now = new Date();
-    const progress = rhythmProgress(this.plugin.settings.rhythm, now);
+    const progress = rhythmProgress(this.plugin.settings.rhythm, now, this.plugin.settings.rhythmMarkers);
     button.querySelector("span")?.setText(progress.mode === "elapsed"
       ? this.plugin.settings.rhythmElapsedMark
       : this.plugin.settings.rhythmRemainingMark);
-    button.querySelector("strong")?.setText(rhythmProgressLabel(this.plugin.settings.rhythm, now));
+    button.querySelector("strong")?.setText(rhythmProgressLabel(this.plugin.settings.rhythm, now, this.plugin.settings.rhythmMarkers));
     button.toggleClass("is-elapsed", progress.mode === "elapsed");
   }
 
@@ -301,8 +301,9 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
   }
 
   protected openRhythmSettings(anchor: HTMLElement): void {
-    openRhythmSchedulePopover(anchor, this.plugin.settings.rhythm, async next => {
+    openRhythmSchedulePopover(anchor, this.plugin.settings.rhythm, this.plugin.settings.rhythmMarkers, async (next, markers) => {
       this.plugin.settings.rhythm = next;
+      this.plugin.settings.rhythmMarkers = markers;
       await this.plugin.saveSettings();
     }, undefined, this.plugin.settings.rhythmLabels);
   }

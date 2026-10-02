@@ -15,7 +15,7 @@ import {
   upsertProjectNote
 } from "../src/vault/format";
 import { loadTags, tagCategoryKey } from "../src/tags";
-import { countdownLabel, normalizeRhythmSchedule, normalizeTimelineDay, rhythmProgress, rhythmProgressLabel } from "../src/rhythm";
+import { countdownLabel, normalizeRhythmMarkers, normalizeRhythmSchedule, normalizeTimelineDay, rhythmProgress, rhythmProgressLabel, updateRhythmMarker } from "../src/rhythm";
 import { pageDateTitle, shiftPageDate, startOfWeek } from "../src/pages/navigation";
 import { policyPeriodAt } from "../src/pages/policy";
 import { policyProgress } from "../src/pages/policy-progress";
@@ -296,23 +296,42 @@ test("keeps energy phase boundaries ordered", () => {
   assert.deepEqual(energyPhaseBounds(phases, "b", 420, 1560), [485, 1195]);
 });
 
-test("migrates the legacy single nap marker and counts down to sleep preparation", () => {
+test("migrates legacy nap markers without restoring sleep preparation", () => {
   const day = normalizeTimelineDay({ wake: 420, pivot: 840, pivotReal: true, sleep: 1560, branches: [], items: [] });
   assert.equal(day.napStart, 840);
   assert.equal(day.napEnd, 870);
   assert.equal(day.sleepPrep, 1500);
   assert.equal(day.napStartReal, true);
+  assert.deepEqual(day.rhythmMarkers, [
+    { id: "nap-start", minute: 840, real: true },
+    { id: "nap-end", minute: 870, real: false }
+  ]);
   const rhythm = normalizeRhythmSchedule(undefined, 420, 1560);
-  assert.equal(countdownLabel(rhythm, new Date(2026, 7, 13, 23, 0)), "02:00");
-  assert.equal(countdownLabel(rhythm, new Date(2026, 7, 14, 1, 15)), "+00:15");
+  assert.equal(countdownLabel(rhythm, new Date(2026, 7, 13, 23, 0)), "03:00");
+  assert.equal(countdownLabel(rhythm, new Date(2026, 7, 14, 1, 15)), "00:45");
+  assert.deepEqual(normalizeRhythmMarkers(undefined, rhythm).map(marker => marker.id), ["nap-start", "nap-end"]);
+  assert.deepEqual(normalizeRhythmMarkers([], rhythm), []);
+  assert.deepEqual(normalizeTimelineDay({ wake: 420, sleep: 1560, rhythmMarkers: [], branches: [], items: [] }).rhythmMarkers, []);
+});
+
+test("moves custom rhythm markers without crossing their neighbours", () => {
+  const rhythm = normalizeRhythmSchedule();
+  const markers = [
+    { id: "lunch", name: "午饭", minute: 720 },
+    { id: "walk", name: "散步", minute: 750 }
+  ];
+  assert.deepEqual(updateRhythmMarker(markers, "lunch", 900, rhythm), [
+    { id: "lunch", name: "午饭", minute: 745 },
+    { id: "walk", name: "散步", minute: 750 }
+  ]);
 });
 
 test("shows elapsed time from wake before nap end and remaining time afterwards", () => {
   const rhythm = normalizeRhythmSchedule();
   assert.deepEqual(rhythmProgress(rhythm, new Date(2026, 7, 13, 10, 0)), { minutes: 180, mode: "elapsed" });
   assert.equal(rhythmProgressLabel(rhythm, new Date(2026, 7, 13, 10, 0)), "03:00");
-  assert.deepEqual(rhythmProgress(rhythm, new Date(2026, 7, 13, 15, 0)), { minutes: 600, mode: "remaining" });
-  assert.equal(rhythmProgressLabel(rhythm, new Date(2026, 7, 13, 15, 0)), "10:00");
+  assert.deepEqual(rhythmProgress(rhythm, new Date(2026, 7, 13, 15, 0)), { minutes: 660, mode: "remaining" });
+  assert.equal(rhythmProgressLabel(rhythm, new Date(2026, 7, 13, 15, 0)), "11:00");
 });
 
 test("builds a multi-day project timeline without changing item dates", () => {

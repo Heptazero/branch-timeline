@@ -1,6 +1,6 @@
 import { Notice, Platform, Plugin, WorkspaceLeaf } from "obsidian";
 import { ChoiceSuggestModal, DurationModal, ProjectSuggestModal, TextEntryModal } from "./modals";
-import { normalizeRhythmSchedule } from "./rhythm";
+import { normalizeRhythmMarkers, normalizeRhythmSchedule } from "./rhythm";
 import { BranchTimelineSettingTab, DEFAULT_SETTINGS } from "./settings";
 import { loadTags, tagCategoryKey } from "./tags";
 import { BRANCH_TIMELINE_VIEW, BranchTimelineView } from "./timeline-view";
@@ -60,6 +60,8 @@ export default class BranchTimelinePlugin extends Plugin {
       showProjectLogHeatmap?: boolean;
     }) | null;
     const { tagMap, dayStartMinute, dayEndMinute, requireItemMetadata, showProjectLogHeatmap: _legacyProjectLog, ...settings } = saved || {};
+    const rhythm = normalizeRhythmSchedule(saved?.rhythm, dayStartMinute, dayEndMinute);
+    const rhythmLabels = { ...DEFAULT_SETTINGS.rhythmLabels, ...(saved?.rhythmLabels || {}) };
     this.settings = {
       ...DEFAULT_SETTINGS,
       ...settings,
@@ -71,8 +73,9 @@ export default class BranchTimelinePlugin extends Plugin {
       itemMetadataRequirement: this.metadataRequirement(saved),
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
       tags: loadTags(saved?.tags, tagMap),
-      rhythm: normalizeRhythmSchedule(saved?.rhythm, dayStartMinute, dayEndMinute),
-      rhythmLabels: { ...DEFAULT_SETTINGS.rhythmLabels, ...(saved?.rhythmLabels || {}) },
+      rhythm,
+      rhythmMarkers: normalizeRhythmMarkers(saved?.rhythmMarkers, rhythm, rhythmLabels),
+      rhythmLabels,
       visiblePages: Array.isArray(saved?.visiblePages) ? ["day", ...saved.visiblePages.filter(page => page !== "day")] : DEFAULT_SETTINGS.visiblePages,
       projectOrder: Array.isArray(saved?.projectOrder) ? saved.projectOrder : [],
       pinnedProjects: Array.isArray(saved?.pinnedProjects) ? saved.pinnedProjects : [],

@@ -1,5 +1,5 @@
-import { rhythmBounds, rhythmLabel } from "../rhythm";
-import type { RhythmKey, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "../types";
+import { rhythmBoundaryBounds, rhythmLabel, rhythmMarkerBounds, rhythmMarkerMinute } from "../rhythm";
+import type { RhythmBoundaryKey, RhythmMarkerDefinition, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "../types";
 import { energyPhaseBounds } from "./energy-phases";
 import {
   branchPath,
@@ -20,7 +20,8 @@ export type TimelineDragState =
   | { kind: "branch-start"; pointerId: number; branchId: string; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean }
   | { kind: "branch-end"; pointerId: number; branchId: string; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean }
   | { kind: "branch-label"; pointerId: number; branchId: string; element: HTMLElement; x0: number; y0: number; moved: boolean }
-  | { kind: "rhythm"; pointerId: number; key: RhythmKey; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean }
+  | { kind: "rhythm"; pointerId: number; key: RhythmBoundaryKey; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean }
+  | { kind: "rhythm-marker"; pointerId: number; id: string; name: string; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean }
   | { kind: "energy-phase"; pointerId: number; phaseId: string; element: HTMLElement; y0: number; minute0: number; minute: number; moved: boolean };
 
 export class TimelineGesturePreview {
@@ -28,7 +29,8 @@ export class TimelineGesturePreview {
     private canvas: HTMLElement,
     private day: TimelineDayState,
     private layout: TimelineLayout,
-    private energyPhases: readonly TimelineEnergyPhase[]
+    private energyPhases: readonly TimelineEnergyPhase[],
+    private rhythmMarkers: readonly RhythmMarkerDefinition[]
   ) {}
 
   item(drag: Extract<TimelineDragState, { kind: "item" }>, dx: number, dy: number): void {
@@ -113,11 +115,20 @@ export class TimelineGesturePreview {
   }
 
   rhythm(drag: Extract<TimelineDragState, { kind: "rhythm" }>, dy: number): void {
-    const bounds = rhythmBounds(this.day, drag.key);
+    const effectiveMarkers = this.rhythmMarkers.map(marker => ({ ...marker, minute: rhythmMarkerMinute(this.day, marker) }));
+    const bounds = rhythmBoundaryBounds(this.day, drag.key, effectiveMarkers);
     drag.minute = Math.max(bounds[0], Math.min(bounds[1], drag.minute0 + dy / this.layout.scale));
     drag.element.style.top = `${minuteToY(this.day, this.layout.scale, drag.minute)}px`;
     const label = drag.element.lastElementChild;
     if (label) label.textContent = `${rhythmLabel(drag.key)} ${formatTime(snapMinute(drag.minute))}`;
+  }
+
+  rhythmMarker(drag: Extract<TimelineDragState, { kind: "rhythm-marker" }>, dy: number): void {
+    const bounds = rhythmMarkerBounds(this.day, this.rhythmMarkers, drag.id);
+    drag.minute = Math.max(bounds[0], Math.min(bounds[1], drag.minute0 + dy / this.layout.scale));
+    drag.element.style.top = `${minuteToY(this.day, this.layout.scale, drag.minute)}px`;
+    const label = drag.element.lastElementChild;
+    if (label) label.textContent = `${drag.name} ${formatTime(snapMinute(drag.minute))}`;
   }
 
   energyPhase(drag: Extract<TimelineDragState, { kind: "energy-phase" }>, dy: number): void {

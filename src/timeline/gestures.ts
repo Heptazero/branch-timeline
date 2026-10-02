@@ -1,4 +1,5 @@
-import type { RhythmKey, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "../types";
+import { rhythmMarkerMinute } from "../rhythm";
+import type { RhythmBoundaryKey, RhythmKey, RhythmMarkerDefinition, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "../types";
 import { TimelineGesturePreview, type TimelineDragState } from "./gesture-preview";
 import {
   MAX_SCALE,
@@ -27,6 +28,7 @@ export interface TimelineGestureCallbacks {
   onBranchFlip: (branchId: string) => void;
   onBranchMenu: (branchId: string, event: MouseEvent) => void;
   onRhythm: (key: RhythmKey, minute: number, moved: boolean) => void;
+  onRhythmMarker: (id: string, minute: number, moved: boolean) => void;
   onEnergyPhaseMove: (phaseId: string, minute: number) => void;
   onEnergyPhaseColor: (phaseId: string, anchor: HTMLElement) => void;
   onEnergyPhaseMenu: (phaseId: string, event: MouseEvent) => void;
@@ -61,10 +63,11 @@ export class TimelineGestures {
     private day: TimelineDayState,
     private layout: TimelineLayout,
     private energyPhases: readonly TimelineEnergyPhase[],
+    private rhythmMarkers: readonly RhythmMarkerDefinition[],
     private callbacks: TimelineGestureCallbacks
   ) {
     this.previewScale = layout.scale;
-    this.preview = new TimelineGesturePreview(canvas, day, layout, energyPhases);
+    this.preview = new TimelineGesturePreview(canvas, day, layout, energyPhases, rhythmMarkers);
     canvas.addEventListener("pointerdown", this.pointerDown);
     canvas.addEventListener("pointermove", this.pointerMove);
     canvas.addEventListener("pointerup", this.pointerUp);
@@ -203,10 +206,19 @@ export class TimelineGestures {
     }
 
     const rhythm = target.closest<HTMLElement>(".btl-rhythm-marker");
-    const rhythmKey = rhythm?.dataset.rhythmKey as RhythmKey | undefined;
+    const rhythmKey = rhythm?.dataset.rhythmKey as RhythmBoundaryKey | undefined;
     if (rhythm && rhythmKey) {
       const minute0 = this.day[rhythmKey];
       this.drag = { kind: "rhythm", pointerId: event.pointerId, key: rhythmKey, element: rhythm, y0: event.clientY, minute0, minute: minute0, moved: false };
+      this.capture(rhythm, event.pointerId);
+      return;
+    }
+    const rhythmId = rhythm?.dataset.rhythmId;
+    const definition = this.rhythmMarkers.find(marker => marker.id === rhythmId);
+    if (rhythm && rhythmId && definition) {
+      const minute0 = rhythmMarkerMinute(this.day, definition);
+      this.drag = { kind: "rhythm-marker", pointerId: event.pointerId, id: rhythmId, name: definition.name,
+        element: rhythm, y0: event.clientY, minute0, minute: minute0, moved: false };
       this.capture(rhythm, event.pointerId);
       return;
     }
@@ -293,6 +305,7 @@ export class TimelineGestures {
       else if (drag.kind === "branch-start") this.preview.branchStart(drag, dy);
       else if (drag.kind === "branch-end") this.preview.branchEnd(drag, dy);
       else if (drag.kind === "rhythm") this.preview.rhythm(drag, dy);
+      else if (drag.kind === "rhythm-marker") this.preview.rhythmMarker(drag, dy);
       else if (drag.kind === "energy-phase") this.preview.energyPhase(drag, dy);
       return;
     }
@@ -322,6 +335,8 @@ export class TimelineGestures {
         this.callbacks.onBranchFlip(drag.branchId);
       } else if (drag.kind === "rhythm") {
         this.callbacks.onRhythm(drag.key, snapMinute(drag.minute), drag.moved);
+      } else if (drag.kind === "rhythm-marker") {
+        this.callbacks.onRhythmMarker(drag.id, snapMinute(drag.minute), drag.moved);
       } else if (drag.kind === "energy-phase" && drag.moved) {
         this.callbacks.onEnergyPhaseMove(drag.phaseId, snapMinute(drag.minute));
       }

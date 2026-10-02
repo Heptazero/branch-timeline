@@ -395,9 +395,9 @@
 .btl-color-popover button::after { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--btl-color-choice); box-shadow: 0 0 0 1px color-mix(in srgb, var(--btl-color-choice) 60%, var(--background-modifier-border)); }
 .btl-color-popover button:hover { background: var(--background-modifier-hover); }
 .btl-color-popover button.is-selected { border-color: var(--btl-color-choice); background: color-mix(in srgb, var(--btl-color-choice) 12%, var(--background-primary)); }
-.btl-tag-setting .setting-item-info, .btl-project-type-setting .setting-item-info { display: none; }
-.btl-tag-setting .setting-item-control, .btl-project-type-setting .setting-item-control { width: 100%; flex-wrap: nowrap; }
-.btl-tag-setting input[type="text"], .btl-project-type-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }
+.btl-tag-setting .setting-item-info, .btl-project-type-setting .setting-item-info, .btl-rhythm-setting .setting-item-info { display: none; }
+.btl-tag-setting .setting-item-control, .btl-project-type-setting .setting-item-control, .btl-rhythm-setting .setting-item-control { width: 100%; flex-wrap: nowrap; }
+.btl-tag-setting input[type="text"], .btl-project-type-setting input[type="text"], .btl-rhythm-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }
 .btl-project-type-drag { cursor: grab; touch-action: none; }
 .btl-project-type-drag:active { cursor: grabbing; }
 .btl-setting-segments {

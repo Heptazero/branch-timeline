@@ -279,6 +279,28 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     });
   }
 
+  protected async updateRhythmMarker(id: string, minute: number, moved: boolean): Promise<void> {
+    const definition = this.plugin.settings.rhythmMarkers.find(marker => marker.id === id);
+    if (!definition) return;
+    await this.updateDay(day => {
+      const markers = day.rhythmMarkers ||= [];
+      let marker = markers.find(candidate => candidate.id === id);
+      if (!marker) {
+        marker = { id, minute: definition.minute, real: false };
+        markers.push(marker);
+      }
+      if (moved) {
+        marker.minute = minute;
+        marker.real = true;
+      } else if (marker.real) {
+        marker.real = false;
+      } else {
+        marker.minute = this.currentLogicalMinute() ?? marker.minute;
+        marker.real = true;
+      }
+    });
+  }
+
   protected async addTimelineTodo(minute: number, branchId: string | null): Promise<void> {
     const projects = this.plugin.repository.listProjects().filter(project =>
       ["active", "doing", "进行中"].includes(project.status.trim().toLowerCase())

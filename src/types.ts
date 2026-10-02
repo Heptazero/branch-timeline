@@ -7,6 +7,7 @@ export interface BranchTimelineSettings {
   habits: string[];
   tags: TimelineTag[];
   rhythm: RhythmSchedule;
+  rhythmMarkers: RhythmMarkerDefinition[];
   rhythmLabels: Record<RhythmKey, string>;
   rhythmElapsedMark: string;
   rhythmRemainingMark: string;
@@ -24,6 +25,7 @@ export type ItemMetadataRequirement = "none" | "project" | "tag" | "both";
 export type TimelinePage = "day" | "projects" | "habits" | "achievements" | "policy";
 
 export type RhythmKey = "wake" | "napStart" | "napEnd" | "sleepPrep" | "sleep";
+export type RhythmBoundaryKey = "wake" | "sleep";
 
 export interface RhythmSchedule {
   wake: number;
@@ -31,6 +33,18 @@ export interface RhythmSchedule {
   napEnd: number;
   sleepPrep: number;
   sleep: number;
+}
+
+export interface RhythmMarkerDefinition {
+  id: string;
+  name: string;
+  minute: number;
+}
+
+export interface TimelineRhythmMarker {
+  id: string;
+  minute: number;
+  real?: boolean;
 }
 
 export interface TimelineTag {
@@ -85,6 +99,7 @@ export interface TimelineDayState {
   napEndReal?: boolean;
   sleepPrepReal?: boolean;
   sleepReal?: boolean;
+  rhythmMarkers?: TimelineRhythmMarker[];
   /** 旧版单一午休节点，仅用于读取迁移。 */
   pivot?: number;
   /** 旧版单一午休完成状态，仅用于读取迁移。 */

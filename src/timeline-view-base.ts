@@ -357,9 +357,10 @@ export abstract class BranchTimelineViewBase extends ItemView {
       nowMinute,
       gapHorizon,
       rhythmLabels: this.plugin.settings.rhythmLabels,
+      rhythmMarkers: this.plugin.settings.rhythmMarkers,
       energyPhases: this.energyPhases
     });
-    this.gestures = new TimelineGestures(scroller, rendered.canvas, day, rendered.layout, this.energyPhases, {
+    this.gestures = new TimelineGestures(scroller, rendered.canvas, day, rendered.layout, this.energyPhases, this.plugin.settings.rhythmMarkers, {
       onItemMove: (itemId, startMin, branchId) => void this.moveItem(itemId, startMin, branchId),
       onItemResize: (itemId, edge, minute) => void this.resizeItem(itemId, edge, minute),
       onItemComplete: itemId => void this.completeItem(itemId),
@@ -371,6 +372,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
       onBranchFlip: branchId => void this.updateBranch(branchId, branch => { branch.side = branch.side > 0 ? -1 : 1; }),
       onBranchMenu: (branchId, event) => this.openBranchMenu(branchId, event),
       onRhythm: (rhythm, minute, moved) => void this.updateRhythm(rhythm, minute, moved),
+      onRhythmMarker: (id, minute, moved) => void this.updateRhythmMarker(id, minute, moved),
       onEnergyPhaseMove: (phaseId, minute) => void this.moveEnergyPhase(phaseId, minute),
       onEnergyPhaseColor: (phaseId, anchor) => this.openEnergyPhaseColor(phaseId, anchor),
       onEnergyPhaseMenu: (phaseId, event) => this.openEnergyPhaseMenu(phaseId, event),
@@ -408,6 +410,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract openBranchMenu(branchId: string, event: MouseEvent): void;
   protected abstract updateBranch(branchId: string, mutate: (branch: TimelineBranch) => void): Promise<void>;
   protected abstract updateRhythm(key: RhythmKey, minute: number, moved: boolean): Promise<void>;
+  protected abstract updateRhythmMarker(id: string, minute: number, moved: boolean): Promise<void>;
   protected abstract moveEnergyPhase(phaseId: string, minute: number): Promise<void>;
   protected abstract openEnergyPhaseColor(phaseId: string, anchor: HTMLElement): void;
   protected abstract openEnergyPhaseMenu(phaseId: string, event: MouseEvent): void;

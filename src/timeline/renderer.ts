@@ -1,6 +1,6 @@
 import { setIcon } from "obsidian";
-import { RHYTHM_KEYS, rhythmLabel, rhythmRealKey } from "../rhythm";
-import type { RhythmKey, TimelineDayState, TimelineEnergyPhase, TimelineItem, TimelineTag } from "../types";
+import { RHYTHM_BOUNDARIES, rhythmLabel, rhythmMarkerMinute, rhythmMarkerReal, rhythmRealKey } from "../rhythm";
+import type { RhythmKey, RhythmMarkerDefinition, TimelineDayState, TimelineEnergyPhase, TimelineItem, TimelineTag } from "../types";
 import {
   TIMELINE_BOTTOM,
   branchPath,
@@ -25,6 +25,7 @@ export interface TimelineRenderOptions {
   nowMinute?: number;
   gapHorizon?: number;
   rhythmLabels?: Partial<Record<RhythmKey, string>>;
+  rhythmMarkers?: readonly RhythmMarkerDefinition[];
   energyPhases?: readonly TimelineEnergyPhase[];
 }
 
@@ -69,7 +70,7 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   canvas.createDiv({ cls: "btl-gap-layer" });
   canvas.createDiv({ cls: "btl-now-layer" });
   updateTimelineTemporalLayers(canvas, day, scale, nowMinute, options.gapHorizon);
-  renderRhythm(canvas, day, scale, options.rhythmLabels);
+  renderRhythm(canvas, day, scale, options.rhythmLabels, options.rhythmMarkers || []);
   renderBranches(canvas, svg, day, layout);
 
   const orderedItems = [...day.items].sort((a, b) => itemDuration(b, day.wake, nowMinute) - itemDuration(a, day.wake, nowMinute));
@@ -256,14 +257,25 @@ function renderGaps(
   }
 }
 
-function renderRhythm(canvas: HTMLElement, day: TimelineDayState, scale: number, labels?: Partial<Record<RhythmKey, string>>): void {
-  for (const key of RHYTHM_KEYS) {
-    const minute = day[key];
-    const real = !!day[rhythmRealKey(key as RhythmKey)];
-    const element = canvas.createDiv({ cls: "btl-rhythm-marker", attr: { "data-rhythm-key": key } });
-    element.style.top = `${minuteToY(day, scale, minute)}px`;
-    element.createSpan({ cls: `btl-rhythm-dot${real ? " is-real" : ""}` });
-    element.createSpan({ text: `${rhythmLabel(key, labels)} ${formatTime(minute)}` });
+function renderRhythm(
+  canvas: HTMLElement,
+  day: TimelineDayState,
+  scale: number,
+  labels: Partial<Record<RhythmKey, string>> | undefined,
+  definitions: readonly RhythmMarkerDefinition[]
+): void {
+  const entries = [
+    ...RHYTHM_BOUNDARIES.map(key => ({ key, id: "", name: rhythmLabel(key, labels), minute: day[key], real: !!day[rhythmRealKey(key)] })),
+    ...definitions.map(definition => ({ key: null, id: definition.id, name: definition.name,
+      minute: rhythmMarkerMinute(day, definition), real: rhythmMarkerReal(day, definition.id) }))
+  ].sort((left, right) => left.minute - right.minute);
+  for (const entry of entries) {
+    const element = canvas.createDiv({ cls: "btl-rhythm-marker" });
+    if (entry.key) element.dataset.rhythmKey = entry.key;
+    else element.dataset.rhythmId = entry.id;
+    element.style.top = `${minuteToY(day, scale, entry.minute)}px`;
+    element.createSpan({ cls: `btl-rhythm-dot${entry.real ? " is-real" : ""}` });
+    element.createSpan({ text: `${entry.name} ${formatTime(entry.minute)}` });
   }
 }
 

@@ -3,7 +3,7 @@ import type BranchTimelinePlugin from "./main";
 import { installLongPressSort } from "./interactions/long-press-sort";
 import { ConfirmModal } from "./modals";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
-import { DEFAULT_RHYTHM, RHYTHM_KEYS, rhythmLabel } from "./rhythm";
+import { DEFAULT_RHYTHM, DEFAULT_RHYTHM_MARKERS, RHYTHM_BOUNDARIES, rhythmLabel } from "./rhythm";
 import { cloneDefaultTags, createTag } from "./tags";
 import type { BranchTimelineSettings, ItemMetadataRequirement } from "./types";
 
@@ -62,6 +62,7 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   habits: ["早睡", "阅读", "对话训练", "写日记"],
   tags: cloneDefaultTags(),
   rhythm: { ...DEFAULT_RHYTHM },
+  rhythmMarkers: DEFAULT_RHYTHM_MARKERS.map(marker => ({ ...marker })),
   rhythmLabels: { wake: "起床", napStart: "午休开始", napEnd: "午休结束", sleepPrep: "睡眠准备", sleep: "入睡" },
   rhythmElapsedMark: "↑",
   rhythmRemainingMark: "↓",
@@ -161,35 +162,66 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
       };
     }
 
-    new Setting(containerEl).setName("节律").setHeading();
-    for (const key of RHYTHM_KEYS) {
+    new Setting(containerEl).setName("节律").setHeading().addButton(button => button
+      .setButtonText("添加").setIcon("plus").onClick(async () => {
+        this.plugin.settings.rhythmMarkers.push(createRhythmMarker(this.plugin.settings));
+        await this.plugin.saveSettings();
+        this.redisplay(() => this.containerEl.querySelector<HTMLInputElement>(".btl-rhythm-setting:last-child input")?.select());
+      }));
+    for (const key of RHYTHM_BOUNDARIES) {
       new Setting(containerEl)
         .setName(rhythmLabel(key, this.plugin.settings.rhythmLabels))
-        .addText(text => text
-          .setValue(this.plugin.settings.rhythmLabels[key])
-          .setPlaceholder(rhythmLabel(key))
-          .onChange(async value => {
-            this.plugin.settings.rhythmLabels = { ...this.plugin.settings.rhythmLabels, [key]: value.trim() || rhythmLabel(key) };
-            await this.plugin.saveSettings();
-          }))
         .addButton(button => {
           const refresh = () => button.setButtonText(this.timeLabel(this.plugin.settings.rhythm[key]));
           refresh();
           button.onClick(() => openRhythmSchedulePopover(
             button.buttonEl,
             this.plugin.settings.rhythm,
-            async next => {
+            this.plugin.settings.rhythmMarkers,
+            async (next, markers) => {
               this.plugin.settings.rhythm = next;
-              refresh();
+              this.plugin.settings.rhythmMarkers = markers;
               await this.plugin.saveSettings();
+              this.redisplay();
             },
-            key,
+            { kind: "boundary", key },
             this.plugin.settings.rhythmLabels
           ));
         });
     }
-    this.textSetting("经过标记", "午休结束前显示在计时左侧。", "rhythmElapsedMark");
-    this.textSetting("剩余标记", "午休结束后显示在计时左侧。", "rhythmRemainingMark");
+    for (const marker of this.plugin.settings.rhythmMarkers) {
+      const row = new Setting(containerEl).setClass("btl-rhythm-setting");
+      row.addText(text => text.setValue(marker.name).setPlaceholder("节律名称").onChange(async value => {
+        marker.name = value.trim() || "未命名";
+        await this.plugin.saveSettings(false);
+      }));
+      row.addButton(button => {
+        const refresh = () => button.setButtonText(this.timeLabel(marker.minute));
+        refresh();
+        button.onClick(() => openRhythmSchedulePopover(
+          button.buttonEl,
+          this.plugin.settings.rhythm,
+          this.plugin.settings.rhythmMarkers,
+          async (next, markers) => {
+            this.plugin.settings.rhythm = next;
+            this.plugin.settings.rhythmMarkers = markers;
+            await this.plugin.saveSettings();
+            this.redisplay();
+          },
+          { kind: "marker", id: marker.id },
+          this.plugin.settings.rhythmLabels
+        ));
+      });
+      row.addExtraButton(button => button.setIcon("trash-2").setTooltip("删除节律").onClick(() => {
+        new ConfirmModal(this.app, `删除“${marker.name}”？`, "时间轴将不再显示这个节点；事项和时间记录不会删除。", async () => {
+          this.plugin.settings.rhythmMarkers = this.plugin.settings.rhythmMarkers.filter(item => item.id !== marker.id);
+          await this.plugin.saveSettings();
+          this.redisplay();
+        }).open();
+      }));
+    }
+    this.textSetting("经过标记", "一天前半段显示在计时左侧。", "rhythmElapsedMark");
+    this.textSetting("剩余标记", "一天后半段显示在计时左侧。", "rhythmRemainingMark");
     new Setting(containerEl)
       .setName("计时提醒")
       .setDesc("持续计时达到该分钟数时提醒；0 表示关闭。")
@@ -327,4 +359,16 @@ function fuzzyScore(candidate: string, query: string): number | null {
     cursor = next;
   }
   return 100 + gap + cursor;
+}
+
+function createRhythmMarker(settings: BranchTimelineSettings): BranchTimelineSettings["rhythmMarkers"][number] {
+  const points = [settings.rhythm.wake, ...settings.rhythmMarkers.map(marker => marker.minute), settings.rhythm.sleep]
+    .sort((left, right) => left - right);
+  let lower = points[0];
+  let upper = points[1];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    if (points[index + 1] - points[index] > upper - lower) [lower, upper] = [points[index], points[index + 1]];
+  }
+  const minute = Math.round(((lower + upper) / 2) / 5) * 5;
+  return { id: `rhythm-${Date.now().toString(36)}`, name: "新节律", minute };
 }
