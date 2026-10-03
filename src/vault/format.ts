@@ -120,22 +120,90 @@ function ensureNamedSection(content: string, title: string): { lines: string[]; 
   return ensureSection(content, title);
 }
 
+function projectLogDate(line: string | undefined): { mmdd: string; yearDate?: string } | null {
+  if (!line) return null;
+  const match = line.match(/^-\s+(\d{4})(?=\s|\[|$)/);
+  if (!match) return null;
+  return { mmdd: match[1], yearDate: line.match(/<!-- btl:(\d{4}-\d{2}-\d{2}) -->/)?.[1] };
+}
+
+function findProjectDateLine(lines: string[], start: number, end: number, date: string): number {
+  const mmdd = date.length === 10 ? `${date.slice(5, 7)}${date.slice(8, 10)}` : date;
+  let unmarked = -1;
+  for (let index = start; index < end; index += 1) {
+    const entry = projectLogDate(lines[index]);
+    if (entry?.mmdd !== mmdd) continue;
+    if (date.length === 10 && entry.yearDate === date) return index;
+    if (!entry.yearDate && unmarked < 0) unmarked = index;
+  }
+  return unmarked;
+}
+
+export function projectDayTotal(content: string, date: string): { kind: "absent" | "owned" | "manual" | "conflict"; minutes: number; owned: boolean } {
+  const lines = content.split("\n");
+  const range = sectionRange(lines, "log");
+  if (!range) return { kind: "absent", minutes: 0, owned: false };
+  const owned = lines.slice(range.headingLine + 1, range.endLine)
+    .filter(line => projectLogDate(line)?.yearDate === date);
+  if (owned.length > 1) return { kind: "conflict", minutes: 0, owned: true };
+  const index = findProjectDateLine(lines, range.headingLine + 1, range.endLine, date);
+  if (index < 0) return { kind: "absent", minutes: 0, owned: false };
+  const line = lines[index];
+  const marked = projectLogDate(line)?.yearDate === date;
+  let blockEnd = index + 1;
+  while (blockEnd < range.endLine && !projectLogDate(lines[blockEnd])) blockEnd += 1;
+  if (lines.slice(index + 1, blockEnd).some(entry => /\[\s*\+?\s*\d+(?:\.\d+)?\s*h\s*\]/i.test(entry))) {
+    return { kind: "conflict", minutes: 0, owned: marked };
+  }
+  const token = line.match(/\[\s*(\+?)\s*(\d+(?:\.\d+)?)\s*h\s*\]/i);
+  const rest = line.replace(/^-\s+\d{4}/, "").replace(/<!-- btl:\d{4}-\d{2}-\d{2} -->/, "").trim();
+  if (!token) return { kind: rest || marked ? "conflict" : "absent", minutes: 0, owned: marked };
+  if (rest !== token[0] || token[1]) return { kind: "conflict", minutes: 0, owned: marked };
+  return { kind: marked ? "owned" : "manual", minutes: Math.round(Number(token[2]) * 60), owned: marked };
+}
+
+export function upsertProjectDayTotal(content: string, date: string, minutes: number): string {
+  const current = projectDayTotal(content, date);
+  if (current.kind === "manual" || current.kind === "conflict") throw new Error(`项目日志 ${date} 的时长需要手动检查`);
+  if (minutes <= 0 && current.kind === "absent") return content;
+  const { lines, range } = ensureNamedSection(content, "log");
+  const mmdd = `${date.slice(5, 7)}${date.slice(8, 10)}`;
+  const index = findProjectDateLine(lines, range.headingLine + 1, range.endLine, date);
+  if (minutes <= 0) {
+    if (index >= 0) lines[index] = `- ${mmdd}`;
+  } else {
+    const hours = Number((minutes / 60).toFixed(2));
+    const header = `- ${mmdd} [${hours}h] <!-- btl:${date} -->`;
+    if (index >= 0) lines[index] = header;
+    else {
+      let insertAt = range.endLine;
+      for (let line = range.headingLine + 1; line < range.endLine; line += 1) {
+        const entry = projectLogDate(lines[line]);
+        if (entry && entry.mmdd.localeCompare(mmdd) > 0) { insertAt = line; break; }
+      }
+      while (insertAt > range.headingLine + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
+      lines.splice(insertAt, 0, header);
+    }
+  }
+  return lines.join("\n");
+}
+
 export function appendProjectLog(
   content: string,
-  mmdd: string,
+  date: string,
   time: string,
   hours: number,
   note: string
 ): string {
   const { lines, range } = ensureNamedSection(content, "log");
   sortProjectLogDateBlocks(lines, range.headingLine + 1, range.endLine);
-  let dateLine = -1;
+  const mmdd = date.length === 10 ? `${date.slice(5, 7)}${date.slice(8, 10)}` : date;
+  let dateLine = findProjectDateLine(lines, range.headingLine + 1, range.endLine, date);
   let sectionEnd = range.endLine;
-  for (let index = range.headingLine + 1; index < range.endLine; index += 1) {
-    const match = lines[index].match(/^-\s+(\d{4})\s*$/);
-    if (!match) continue;
-    if (match[1] === mmdd) { dateLine = index; break; }
-    if (dateLine < 0 && match[1].localeCompare(mmdd) > 0) {
+  for (let index = range.headingLine + 1; dateLine < 0 && index < range.endLine; index += 1) {
+    const entry = projectLogDate(lines[index]);
+    if (!entry) continue;
+    if (entry.mmdd.localeCompare(mmdd) > 0) {
       dateLine = index;
       lines.splice(index, 0, `- ${mmdd}`);
       sectionEnd += 1;
@@ -148,7 +216,7 @@ export function appendProjectLog(
     sectionEnd += 1;
   }
   let blockEnd = dateLine + 1;
-  while (blockEnd < sectionEnd && !/^-\s+\d{4}\s*$/.test(lines[blockEnd])) blockEnd += 1;
+  while (blockEnd < sectionEnd && !projectLogDate(lines[blockEnd])) blockEnd += 1;
   let insertAt = blockEnd;
   for (let index = dateLine + 1; index < blockEnd; index += 1) {
     const match = lines[index].trim().match(/^-\s+\[?(\d{2}:\d{2})\]?/);
@@ -157,27 +225,27 @@ export function appendProjectLog(
   while (insertAt > dateLine + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
   const value = Number(hours.toFixed(2));
   const suffix = note.trim() ? ` ${note.trim()}` : "";
-  lines.splice(insertAt, 0, `\t- [${time}] [+${value}]${suffix}`);
+  lines.splice(insertAt, 0, `\t- [${time}] ${value}h${suffix}`);
   sortProjectLogEntries(lines, dateLine, blockEnd + 1);
   return lines.join("\n");
 }
 
 export function upsertProjectNote(
   content: string,
-  mmdd: string,
+  date: string,
   time: string,
   previousNote: string,
   nextNote: string
 ): string {
   const { lines, range } = ensureNamedSection(content, "log");
   sortProjectLogDateBlocks(lines, range.headingLine + 1, range.endLine);
+  const mmdd = date.length === 10 ? `${date.slice(5, 7)}${date.slice(8, 10)}` : date;
   let sectionEnd = range.endLine;
-  let dateLine = -1;
-  for (let index = range.headingLine + 1; index < sectionEnd; index += 1) {
-    const match = lines[index].match(/^-\s+(\d{4})\s*$/);
-    if (!match) continue;
-    if (match[1] === mmdd) { dateLine = index; break; }
-    if (dateLine < 0 && match[1].localeCompare(mmdd) > 0) {
+  let dateLine = findProjectDateLine(lines, range.headingLine + 1, range.endLine, date);
+  for (let index = range.headingLine + 1; dateLine < 0 && index < sectionEnd; index += 1) {
+    const entry = projectLogDate(lines[index]);
+    if (!entry) continue;
+    if (entry.mmdd.localeCompare(mmdd) > 0) {
       dateLine = index;
       lines.splice(dateLine, 0, `- ${mmdd}`);
       sectionEnd += 1;
@@ -191,7 +259,7 @@ export function upsertProjectNote(
   }
 
   let blockEnd = dateLine + 1;
-  while (blockEnd < sectionEnd && !/^-\s+\d{4}\s*$/.test(lines[blockEnd])) blockEnd += 1;
+  while (blockEnd < sectionEnd && !projectLogDate(lines[blockEnd])) blockEnd += 1;
   const old = previousNote.trim();
   if (old) {
     const expected = `${time} ${old}`;
@@ -220,7 +288,7 @@ export function upsertProjectNote(
 
 function sortProjectLogDateBlocks(lines: string[], start: number, end: number): void {
   const starts: number[] = [];
-  for (let index = start; index < end; index += 1) if (/^-\s+\d{4}\s*$/.test(lines[index])) starts.push(index);
+  for (let index = start; index < end; index += 1) if (projectLogDate(lines[index])) starts.push(index);
   if (starts.length < 2) return;
   const prefix = lines.slice(start, starts[0]);
   const blocks = starts.map((line, index) => {

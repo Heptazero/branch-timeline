@@ -8,6 +8,7 @@ import type { BranchTimelineSettings, ProjectRef } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { VaultRepository } from "./vault/repository";
 import { StateStore, defaultDay } from "./vault/state-store";
+import { changedProjectDates, projectPathsOn, ProjectTimeSync } from "./vault/project-time-sync";
 import { UndoManager } from "./undo-manager";
 import { compactDuration, elapsedMinutes, runningItems } from "./timeline/timer-service";
 
@@ -15,6 +16,7 @@ export default class BranchTimelinePlugin extends Plugin {
   settings: BranchTimelineSettings = DEFAULT_SETTINGS;
   store!: StateStore;
   repository!: VaultRepository;
+  projectTimeSync!: ProjectTimeSync;
   readonly undoManager = new UndoManager();
   private timerStatusItem: HTMLElement | null = null;
   private timerStatusItemId: string | null = null;
@@ -24,7 +26,11 @@ export default class BranchTimelinePlugin extends Plugin {
     await this.loadSettings();
     this.store = new StateStore(this.app, this.settings.statePath);
     this.repository = new VaultRepository(this.app, this.settings);
+    this.projectTimeSync = new ProjectTimeSync(this.repository, this.store, () => this.refreshSyncClouds());
     this.store.setUndoRecorder(action => this.undoManager.record(action));
+    this.store.setChangeListener((before, after) => {
+      for (const date of changedProjectDates(before, after)) this.projectTimeSync.schedule(date, projectPathsOn(before, after, date));
+    });
     this.repository.setUndoRecorder(action => this.undoManager.record(action));
     await this.store.ensure();
     if (Platform.isDesktopApp) {
@@ -107,7 +113,10 @@ export default class BranchTimelinePlugin extends Plugin {
   }
 
   async undoLast(): Promise<void> {
+    const before = await this.store.load();
     if (!(await this.undoManager.undo())) return;
+    const after = await this.store.load();
+    for (const date of changedProjectDates(before, after)) this.projectTimeSync.schedule(date, projectPathsOn(before, after, date));
     this.store.setPath(this.settings.statePath);
     this.repository.updateSettings(this.settings);
     await this.refreshViews();
@@ -177,6 +186,22 @@ export default class BranchTimelinePlugin extends Plugin {
       if (leaf.view instanceof BranchTimelineView) await leaf.view.refresh();
     }
     await this.refreshTimerStatus();
+  }
+
+  private refreshSyncClouds(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(BRANCH_TIMELINE_VIEW)) {
+      if (leaf.view instanceof BranchTimelineView) leaf.view.updateSyncCloud();
+    }
+  }
+
+  checkProjectSync(date: string): void {
+    this.projectTimeSync.schedule(date, [], status => {
+      const message = status === "synced" ? "已写入本机项目笔记"
+        : status === "idle" ? "当天没有需同步的项目工时"
+          : status === "pending" ? "计时进行中，结束后同步"
+            : `未同步：${this.projectTimeSync.error(date) || "请检查项目笔记"}`;
+      new Notice(message);
+    });
   }
 
   async refreshTimerStatus(): Promise<void> {

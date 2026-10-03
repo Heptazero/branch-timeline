@@ -144,9 +144,9 @@ test("keeps legacy absolute category values and sums new additive entries", () =
 test("groups project work below the MMDD log line", () => {
   const source = "---\ntype: project\n---\n\n## log\n- 0812\n\t- old\n";
   const next = appendProjectLog(source, "0813", "14:20", 0.5, "实验");
-  assert.match(next, /- 0813\n\t- \[14:20\] \[\+0.5\] 实验/);
+  assert.match(next, /- 0813\n\t- \[14:20\] 0.5h 实验/);
   const ordered = appendProjectLog("## log\n- 0814\n\t- [12:00] [+1] 中午\n- 0812\n", "0813", "09:00", 0.5, "早上");
-  assert.match(ordered, /- 0812\n- 0813\n\t- \[09:00\] \[\+0.5\] 早上\n- 0814/);
+  assert.match(ordered, /- 0812\n- 0813\n\t- \[09:00\] 0.5h 早上\n- 0814/);
 });
 
 test("inserts and updates project notes in date and time order", () => {

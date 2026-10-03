@@ -20,12 +20,13 @@ const external = [
 
 if (mode === "test") {
   await esbuild.build({
-    entryPoints: ["tests/format.test.ts"],
+    entryPoints: ["tests/format.test.ts", "tests/project-time-sync.test.ts"],
     bundle: true,
     platform: "node",
     format: "cjs",
     target: "node22",
-    outfile: ".test-dist/format.test.cjs"
+    outdir: ".test-dist",
+    outExtension: { ".js": ".cjs" }
   });
   process.exit(0);
 }

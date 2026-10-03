@@ -59,6 +59,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected destroyProjectDetail: (() => void) | null = null;
   protected projectActions: ProjectTimelineActions | null = null;
   protected countdownButton: HTMLButtonElement | null = null;
+  protected syncButton: HTMLButtonElement | null = null;
   protected runningBar: RunningBar | null = null;
   protected achievementActions: AchievementActions;
   protected policyActions: PolicyActions;
@@ -138,6 +139,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     this.getProjectAnchor = null;
     this.projectActions = null;
     this.countdownButton = null;
+    this.syncButton = null;
     this.runningBar = null;
     if (!this.plugin.settings.visiblePages.includes(this.page)) {
       this.page = "day";
@@ -149,9 +151,15 @@ export abstract class BranchTimelineViewBase extends ItemView {
     root.empty();
     root.addClass("branch-timeline-hz");
     const toolbar = root.createDiv({ cls: "btl-toolbar" });
-    const undo = this.iconButton(toolbar, "undo-2", "撤回", () => void this.plugin.undoLast());
+    const toolbarLeft = toolbar.createDiv({ cls: "btl-toolbar-left" });
+    const undo = this.iconButton(toolbarLeft, "undo-2", "撤回", () => void this.plugin.undoLast());
     undo.addClass("btl-undo-button");
     undo.disabled = !this.plugin.undoManager.canUndo;
+    this.syncButton = this.iconButton(toolbarLeft, "cloud", "同步云", () => {
+      this.plugin.checkProjectSync(dateKey(this.date));
+    });
+    this.syncButton.addClass("btl-sync-cloud");
+    this.updateSyncCloud();
     const dateNav = toolbar.createDiv({ cls: "btl-date-nav" });
     const previousDate = this.iconButton(dateNav, "chevron-left", "前一天", () => this.shiftDate(-1));
     const dateButton = dateNav.createEl("button", { cls: "btl-date-button", text: this.dateTitle() });
@@ -188,6 +196,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     const key = dateKey(this.date);
     const day = state.days[key] || defaultDay(this.plugin.settings.rhythm);
     this.day = day;
+    this.plugin.projectTimeSync.schedule(key);
     this.energyPhases = effectiveEnergyPhases(state.days, key);
     this.runningBar = new RunningBar(runningHost, {
       open: itemId => void this.focusRunningItem(itemId),
@@ -405,6 +414,21 @@ export abstract class BranchTimelineViewBase extends ItemView {
   }
 
   protected abstract moveItem(itemId: string, startMin: number, branchId: string | null): Promise<void>;
+  updateSyncCloud(): void {
+    if (!this.syncButton) return;
+    const key = dateKey(this.date);
+    const status = this.plugin.projectTimeSync.status(key);
+    const labels = {
+      idle: "同步云：当天没有需写入的项目工时",
+      pending: "同步云：待写入项目笔记；点击重试",
+      synced: "同步云：已写入本机项目笔记；点击核对",
+      error: `同步云：写入失败；点击重试。${this.plugin.projectTimeSync.error(key) || ""}`
+    };
+    this.syncButton.dataset.syncStatus = status;
+    this.syncButton.setAttribute("aria-label", labels[status]);
+    this.syncButton.title = labels[status];
+  }
+
   protected abstract resizeItem(itemId: string, edge: "start" | "end", minute: number): Promise<void>;
   protected abstract completeItem(itemId: string): Promise<void>;
   protected abstract stopTiming(itemId: string): Promise<void>;

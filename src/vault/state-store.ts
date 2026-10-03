@@ -18,11 +18,13 @@ const EMPTY_STATE: BranchTimelineState = {
 export class StateStore {
   private queue: Promise<void> = Promise.resolve();
   private recordUndo: ((action: UndoAction) => void) | null = null;
+  private onChange: ((before: BranchTimelineState, after: BranchTimelineState) => void) | null = null;
 
   constructor(private app: App, private path: string) {}
 
   setPath(path: string): void { this.path = path; }
   setUndoRecorder(record: (action: UndoAction) => void): void { this.recordUndo = record; }
+  setChangeListener(listener: (before: BranchTimelineState, after: BranchTimelineState) => void): void { this.onChange = listener; }
 
   async load(): Promise<BranchTimelineState> {
     const path = normalizePath(this.path);
@@ -62,6 +64,7 @@ export class StateStore {
       mutator(result);
       await this.write(result);
       this.recordUndo?.(() => this.write(before));
+      this.onChange?.(before, result);
     });
     await this.queue;
     return result;

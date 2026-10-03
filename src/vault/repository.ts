@@ -10,8 +10,10 @@ import {
   diaryFilePath,
   diaryHeading,
   parseDiaryDay,
+  projectDayTotal,
   setHabitInDiary,
   setProjectTaskDone,
+  upsertProjectDayTotal,
   upsertProjectNote
 } from "./format";
 
@@ -66,9 +68,23 @@ export class VaultRepository {
 
   async addProjectLog(projectPath: string, date: Date, endMinute: number, minutes: number, note: string): Promise<void> {
     const file = this.projectFile(projectPath);
-    const mmdd = `${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
     const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
-    await this.process(file, content => appendProjectLog(content, mmdd, time, minutes / 60, note));
+    await this.process(file, content => appendProjectLog(content, dateKey(date), time, minutes / 60, note));
+  }
+
+  async readProjectDayTotal(projectPath: string, date: string): Promise<ReturnType<typeof projectDayTotal>> {
+    return projectDayTotal(await this.app.vault.read(this.projectFile(projectPath)), date);
+  }
+
+  async syncProjectDayTotal(projectPath: string, date: string, minutes: number): Promise<void> {
+    const file = this.projectFile(projectPath);
+    const before = await this.app.vault.read(file);
+    try {
+      if (upsertProjectDayTotal(before, date, minutes) === before) return;
+      await this.app.vault.process(file, content => upsertProjectDayTotal(content, date, minutes));
+    } catch (error) {
+      throw new Error(`${file.basename}：${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   async syncProjectNote(
@@ -79,12 +95,10 @@ export class VaultRepository {
     nextNote: string
   ): Promise<void> {
     const file = this.projectFile(projectPath);
-    const mmdd = typeof date === "string"
-      ? `${date.slice(5, 7)}${date.slice(8, 10)}`
-      : `${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+    const key = typeof date === "string" ? date : dateKey(date);
     const normalized = ((minute % 1440) + 1440) % 1440;
     const time = `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
-    await this.process(file, content => upsertProjectNote(content, mmdd, time, previousNote, nextNote));
+    await this.process(file, content => upsertProjectNote(content, key, time, previousNote, nextNote));
   }
 
   async addProjectTask(projectPath: string, title: string, id: string): Promise<void> {
