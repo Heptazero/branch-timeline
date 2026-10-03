@@ -11,6 +11,7 @@ export interface RunningBarActions {
 export class RunningBar {
   private title: HTMLElement;
   private duration: HTMLElement;
+  private stopButton: HTMLButtonElement;
   private primaryId: string | null = null;
 
   constructor(private element: HTMLElement, private actions: RunningBarActions) {
@@ -32,6 +33,7 @@ export class RunningBar {
       cls: "btl-running-stop",
       attr: { type: "button", "aria-label": "结束计时", title: "结束计时" }
     });
+    this.stopButton = stop;
     setIcon(stop, "square");
     stop.onclick = event => {
       event.stopPropagation();
@@ -45,6 +47,9 @@ export class RunningBar {
     this.primaryId = primary?.id || null;
     this.element.toggleClass("is-hidden", !primary);
     if (!primary) return;
+    const stopLabel = primary.kind === "todo" ? "完成待办" : "结束计时";
+    this.stopButton.setAttr("aria-label", stopLabel);
+    this.stopButton.setAttr("title", stopLabel);
     this.title.setText(`${primary.title}${items.length > 1 ? ` +${items.length - 1}` : ""}`);
     this.duration.setText(compactDuration(elapsedMinutes(primary, day, nowMinute)));
   }

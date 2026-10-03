@@ -1,4 +1,5 @@
-import type { BranchTimelineState } from "../types";
+import type { BranchTimelineState, ProjectRef } from "../types";
+import { periodAtMinute, periodMinutes, projectFocusTotal, recordedMinutes, type DayPeriod } from "./focus-stats";
 import { policyProgress } from "./policy-progress";
 import { dateKey, logicalToday } from "../vault/format";
 import { startOfWeek } from "./navigation";
@@ -7,7 +8,9 @@ export interface StatsPageOptions {
   container: HTMLElement;
   date: Date;
   state: BranchTimelineState;
+  projects: readonly ProjectRef[];
   onOpenDate: (date: Date) => void;
+  onOpenProject: (path: string) => void;
   onOpenPolicy: () => void;
 }
 
@@ -19,9 +22,71 @@ export function renderStatsPage(options: StatsPageOptions): void {
   const previous = dates.map(date => new Date(date.getFullYear(), date.getMonth(), date.getDate() - 7));
   const dashboard = options.container.createDiv({ cls: "btl-stats-dashboard" });
   renderSleepCard(dashboard, dates, previous, options.state, options.onOpenDate);
+  renderRecordedTimeCard(dashboard, dates, options.date, options.state);
   const lower = dashboard.createDiv({ cls: "btl-stats-lower" });
   renderDistractionCard(lower, dates, previous, options.state, options.onOpenDate);
   renderAnchorCard(lower, dates, options.state, options.onOpenPolicy);
+  renderProjectFocusCard(dashboard, options);
+}
+
+function nowOnAxis(): number {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes() + (now.getHours() < 2 ? 1440 : 0);
+}
+
+function renderRecordedTimeCard(parent: HTMLElement, dates: readonly Date[], selected: Date, state: BranchTimelineState): void {
+  const card = statsCard(parent, "记录时间", rangeLabel(dates));
+  const today = dateKey(logicalToday());
+  const now = nowOnAxis();
+  const selectedKey = dateKey(selected);
+  const selectedDay = state.days[selectedKey];
+  const daily = selectedDay ? recordedMinutes(selectedDay, selectedKey === today ? now : undefined) : 0;
+  const weekly = dates.reduce((sum, date) => {
+    const key = dateKey(date);
+    const day = state.days[key];
+    return sum + (day ? recordedMinutes(day, key === today ? now : undefined) : 0);
+  }, 0);
+  const metrics = card.createDiv({ cls: "btl-stats-metrics btl-focus-metrics" });
+  metric(metrics, dateLabel(selected) + "总计", durationLabel(daily), null);
+  metric(metrics, "本周总计", durationLabel(weekly), null);
+  const periods: Record<DayPeriod, { minutes: number; distractions: number }> = {
+    morning: { minutes: 0, distractions: 0 },
+    afternoon: { minutes: 0, distractions: 0 },
+    evening: { minutes: 0, distractions: 0 }
+  };
+  for (const date of dates) {
+    const key = dateKey(date);
+    const day = state.days[key];
+    if (!day) continue;
+    const minutes = periodMinutes(day, key === today ? now : undefined);
+    for (const period of Object.keys(periods) as DayPeriod[]) periods[period].minutes += minutes[period];
+    for (const event of day.distractions || []) periods[periodAtMinute(event.minute)].distractions++;
+  }
+  const row = card.createDiv({ cls: "btl-focus-periods" });
+  for (const [period, label] of [["morning", "上午"], ["afternoon", "下午"], ["evening", "晚上"]] as const) {
+    const tile = row.createDiv({ cls: "btl-focus-period" });
+    tile.createEl("small", { text: label + " · 每次分神间隔" });
+    tile.createEl("strong", { text: periods[period].distractions ? durationLabel(periods[period].minutes / periods[period].distractions) : "–" });
+  }
+}
+
+function renderProjectFocusCard(parent: HTMLElement, options: StatsPageOptions): void {
+  const card = statsCard(parent, "项目分神", "累计");
+  const today = dateKey(logicalToday());
+  const now = nowOnAxis();
+  const rows = options.projects.map(project => ({ project, total: projectFocusTotal(options.state, project.path, today, now) }))
+    .filter(row => row.total.minutes || row.total.distractions)
+    .sort((a, b) => b.total.minutes - a.total.minutes);
+  if (!rows.length) { card.createDiv({ cls: "btl-stats-empty", text: "暂无记录" }); return; }
+  const list = card.createDiv({ cls: "btl-focus-projects" });
+  for (const { project, total } of rows) {
+    const row = list.createEl("button", { cls: "btl-focus-project", attr: { type: "button", "aria-label": "查看项目 " + project.name } });
+    row.onclick = () => options.onOpenProject(project.path);
+    const title = row.createSpan({ cls: "btl-focus-project-name", text: project.name });
+    if (project.color) title.style.color = project.color;
+    row.createEl("small", { text: durationLabel(total.minutes) + " · " + total.distractions + "次" });
+    row.createEl("strong", { text: total.distractions ? durationLabel(total.minutes / total.distractions) + "/次" : "–" });
+  }
 }
 
 function renderSleepCard(

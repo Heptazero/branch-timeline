@@ -28,6 +28,7 @@ import {
   splitAbsoluteMinute
 } from "../src/pages/project-model";
 import { projectPlanOn, projectTimeSummary } from "../src/pages/project-time";
+import { periodMinutes, projectFocusTotal, recordedMinutes } from "../src/pages/focus-stats";
 import {
   backfillItem,
   computeTimelineLayout,
@@ -220,6 +221,36 @@ test("starts continues and stops timers without changing previous facts", () => 
     id: "todo", title: "写作", kind: "fact", plannedMin: 500,
     startMin: 560, endMin: 620, factTiming: false
   });
+});
+
+test("completing a running todo keeps one item and removes its todo state", () => {
+  const day: TimelineDayState = {
+    wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
+    items: [{ id: "todo", title: "研究", kind: "todo", plannedMin: 500, startedMin: 560, projectPath: "project.md", projectTaskId: "task" }]
+  };
+  new TimerService().complete(day, "todo", 610);
+  assert.equal(day.items.length, 1);
+  assert.deepEqual(day.items[0], {
+    id: "todo", title: "研究", kind: "fact", plannedMin: 500, startMin: 560, endMin: 610,
+    factTiming: false, projectPath: "project.md", projectTaskId: "task"
+  });
+});
+
+test("focus stats merge overlapping records and split at period boundaries", () => {
+  const day: TimelineDayState = {
+    wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
+    items: [
+      { id: "a", title: "A", kind: "fact", startMin: 690, endMin: 750, projectPath: "project.md" },
+      { id: "b", title: "B", kind: "fact", startMin: 720, endMin: 780, projectPath: "project.md" },
+      { id: "todo", title: "未来", kind: "todo", plannedMin: 790 },
+      { id: "running", title: "正在做", kind: "todo", startedMin: 780, projectPath: "project.md" }
+    ],
+    distractions: [{ id: "d1", minute: 725, itemId: "a" }, { id: "d2", minute: 800, itemId: "running" }]
+  };
+  assert.equal(recordedMinutes(day, 810), 120);
+  assert.deepEqual(periodMinutes(day, 810), { morning: 30, afternoon: 90, evening: 0 });
+  const state = { days: { "2026-08-13": day } } as unknown as BranchTimelineState;
+  assert.deepEqual(projectFocusTotal(state, "project.md", "2026-08-13", 810), { minutes: 120, distractions: 2 });
 });
 
 test("stops a timed todo as a fact without completing the todo", () => {

@@ -273,6 +273,13 @@ export abstract class BranchTimelineViewBase extends ItemView {
           container: pageContent,
           date: this.date,
           state,
+          projects: this.plugin.repository.listProjects(),
+          onOpenProject: path => {
+            this.selectedProjectPath = path;
+            this.page = "projects";
+            this.projectAnchor = undefined;
+            void this.render(false);
+          },
           onOpenDate: date => {
             this.date = date;
             this.followsToday = dateKey(date) === dateKey(logicalToday());

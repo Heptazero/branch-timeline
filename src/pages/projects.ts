@@ -166,10 +166,12 @@ function renderProjectTime(
       : undefined
   });
   const row = metric.createDiv({ cls: "btl-project-time-row" });
+  if (summary.planned > 0) {
+    card.addClass("has-goal");
+    card.style.setProperty("--btl-progress", String(Math.min(1, summary.actual / summary.planned)));
+  }
   row.createEl("strong", { text: durationLabel(summary.actual) });
   row.createSpan({ text: summary.planned ? `/ ${durationLabel(summary.planned)}` : options.timeScope === "day" ? "/ 设置" : "" });
-  const progress = metric.createDiv({ cls: "btl-project-time-progress" });
-  progress.createDiv({ cls: "btl-project-time-fill" }).style.width = `${summary.planned ? Math.min(100, summary.actual / summary.planned * 100) : 0}%`;
   if (options.timeScope === "week") {
     const days = metric.createDiv({ cls: "btl-project-week" });
     for (const day of summary.days) {

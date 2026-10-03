@@ -88,7 +88,9 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
   }
 
   protected async stopRunningItem(itemId: string): Promise<void> {
-    await this.stopTiming(itemId);
+    const item = this.day?.items.find(candidate => candidate.id === itemId);
+    if (item?.kind === "todo" && item.startedMin != null) await this.completeItem(itemId);
+    else await this.stopTiming(itemId);
   }
 
   protected async recordDistraction(itemId: string): Promise<void> {
