@@ -28,7 +28,8 @@ import {
   splitAbsoluteMinute
 } from "../src/pages/project-model";
 import { projectPlanOn, projectTimeSummary } from "../src/pages/project-time";
-import { periodMinutes, projectFocusTotal, recordedMinutes } from "../src/pages/focus-stats";
+import { focusRhythm, intervalLabel, periodMinutes, projectFocusTotal, recordedMinutes } from "../src/pages/focus-stats";
+import { mapPosition, sleepSpan } from "../src/pages/time-map";
 import {
   backfillItem,
   computeTimelineLayout,
@@ -251,6 +252,36 @@ test("focus stats merge overlapping records and split at period boundaries", () 
   assert.deepEqual(periodMinutes(day, 810), { morning: 30, afternoon: 90, evening: 0 });
   const state = { days: { "2026-08-13": day } } as unknown as BranchTimelineState;
   assert.deepEqual(projectFocusTotal(state, "project.md", "2026-08-13", 810), { minutes: 120, distractions: 2 });
+});
+
+test("weekly time map keeps an overnight sleep together and places hours vertically", () => {
+  const previous: TimelineDayState = { wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1430, sleepReal: true, branches: [], items: [] };
+  const current: TimelineDayState = { wake: 425, wakeReal: true, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [], items: [] };
+  const state = { days: { "2026-08-12": previous, "2026-08-13": current } } as unknown as BranchTimelineState;
+  assert.deepEqual(sleepSpan(new Date(2026, 7, 13), state), { bed: 1430, wake: 1865, duration: 435 });
+  assert.equal(mapPosition(1080), 0);
+  assert.equal(mapPosition(3000), 100);
+  assert.ok(mapPosition(1430) < mapPosition(1865));
+  previous.sleep = 10;
+  const afterMidnight = sleepSpan(new Date(2026, 7, 13), state);
+  assert.equal(afterMidnight?.bed, 1450);
+  assert.equal(Math.round((1430 + afterMidnight!.bed) / 2), 1440);
+});
+
+test("focus rhythm omits sparse hours and treats zero distractions as a lower bound", () => {
+  const days: Record<string, TimelineDayState> = {};
+  for (const date of [11, 12, 13]) {
+    days[`2026-08-${date}`] = {
+      wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
+      items: [{ id: `work-${date}`, title: "实验", kind: "fact", startMin: 600, endMin: 630 }],
+      distractions: date === 12 ? [{ id: "d", minute: 615, itemId: "work-12" }] : []
+    };
+  }
+  const state = { days } as unknown as BranchTimelineState;
+  const profile = focusRhythm(state, new Date(2026, 7, 13), 600);
+  assert.ok(profile[10] != null && profile[10]! < 1);
+  assert.equal(profile[11], null);
+  assert.equal(intervalLabel({ minutes: 90, distractions: 0 }), "≥1h30m");
 });
 
 test("stops a timed todo as a fact without completing the todo", () => {

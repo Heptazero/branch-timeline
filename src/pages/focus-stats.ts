@@ -1,12 +1,13 @@
 import { itemEnd, itemStart } from "../timeline/model";
-import { isRunningItem } from "../timeline/timer-service";
+import { compactDuration, isRunningItem } from "../timeline/timer-service";
 import type { BranchTimelineState, TimelineDayState } from "../types";
+import { dateKey, logicalToday } from "../vault/format";
 
-type Span = { start: number; end: number };
+export type Span = { start: number; end: number };
 export type DayPeriod = "morning" | "afternoon" | "evening";
 export type FocusTotal = { minutes: number; distractions: number };
 
-function recordedSpans(day: TimelineDayState, nowMinute?: number, projectPath?: string): Span[] {
+export function recordedSpans(day: TimelineDayState, nowMinute?: number, projectPath?: string): Span[] {
   const spans = day.items.flatMap(item => {
     if (projectPath && item.projectPath !== projectPath) return [];
     if (item.kind !== "fact" && !isRunningItem(item)) return [];
@@ -22,6 +23,43 @@ function recordedSpans(day: TimelineDayState, nowMinute?: number, projectPath?: 
     else merged.push({ ...span });
   }
   return merged;
+}
+
+export function nowOnAxis(): number {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes() + (now.getHours() < 2 ? 1440 : 0);
+}
+
+export function intervalLabel(total: FocusTotal): string {
+  if (total.distractions) return compactDuration(Math.round(total.minutes / total.distractions));
+  return total.minutes ? `≥${compactDuration(Math.round(total.minutes))}` : "–";
+}
+
+/** 近 28 天每小时记录中的顺畅度；缺少至少三天和 90 分钟观察时留空。 */
+export function focusRhythm(state: BranchTimelineState, endDate: Date, nowMinute: number): (number | null)[] {
+  const end = endDate < logicalToday() ? endDate : logicalToday();
+  const today = dateKey(logicalToday());
+  const minutes = Array<number>(24).fill(0);
+  const distractions = Array<number>(24).fill(0);
+  const observedDays = Array.from({ length: 24 }, () => new Set<string>());
+  for (let offset = 0; offset < 28; offset++) {
+    const date = new Date(end.getFullYear(), end.getMonth(), end.getDate() - offset);
+    const key = dateKey(date);
+    const day = state.days[key];
+    if (!day) continue;
+    for (const span of recordedSpans(day, key === today ? nowMinute : undefined)) {
+      for (let at = span.start; at < span.end;) {
+        const hour = Math.floor(at / 60) % 24;
+        const stop = Math.min(span.end, Math.floor(at / 60) * 60 + 60);
+        minutes[hour] += stop - at;
+        observedDays[hour].add(key);
+        at = stop;
+      }
+    }
+    for (const event of day.distractions || []) distractions[Math.floor(event.minute / 60) % 24]++;
+  }
+  return minutes.map((value, hour) => value >= 90 && observedDays[hour].size >= 3
+    ? Math.exp(-distractions[hour] * 60 / value) : null);
 }
 
 export function recordedMinutes(day: TimelineDayState, nowMinute?: number, projectPath?: string): number {
