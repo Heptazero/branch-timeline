@@ -2,6 +2,7 @@ import { Menu, Notice } from "obsidian";
 import { openColorPopover } from "./color-popover";
 import { ConfirmModal } from "./modals";
 import { finishProjectTimer } from "./project-timer-finish";
+import { prepareTimelineTodoProject, rememberTimelineTodoProject } from "./timeline-todo-project";
 import { rhythmRealKey } from "./rhythm";
 import { ENERGY_PHASE_COLORS, materializeEnergyPhases } from "./timeline/energy-phases";
 import { backfillItem as applyBackfill, clampMinute } from "./timeline/model";
@@ -344,25 +345,24 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     );
     const draft = await this.timelineItemDraft(projects);
     if (!draft) return;
-    if (draft.projectPath && draft.note) {
-      try {
-        await this.plugin.repository.syncProjectNote(draft.projectPath, this.date, minute, "", draft.note);
-      } catch (error) {
-        new Notice(error instanceof Error ? error.message : "项目备注同步失败");
-        return;
-      }
-    }
+    const id = this.uid("todo");
+    let taskId: string | undefined;
+    try { taskId = await prepareTimelineTodoProject(this.plugin, draft, this.date, minute, id); }
+    catch (error) { new Notice(error instanceof Error ? error.message : "项目待办写入失败"); return; }
     await this.updateDay(day => {
       day.items.push({
-        id: this.uid("todo"),
+        id,
         title: draft.title,
         kind: "todo",
         plannedMin: minute,
         branchId,
         projectPath: draft.projectPath || undefined,
+        projectTaskId: taskId,
+        projectTaskTitle: draft.task ? draft.title : undefined,
         note: draft.note || undefined
       });
     });
+    await rememberTimelineTodoProject(this.plugin, draft, taskId);
   }
 
   protected async addTimelineBranch(minute: number): Promise<void> {

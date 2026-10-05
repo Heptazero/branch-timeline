@@ -305,7 +305,13 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
       projects,
       this.plugin.settings.itemMetadataRequirement,
       resolve,
-      copy
+      copy,
+      {
+        loadTasks: path => this.plugin.repository.projectTasks(path),
+        previousTaskId: path => this.plugin.settings.lastProjectTasks[path],
+        previousHeadingKey: path => this.plugin.settings.lastProjectTaskHeadings[path],
+        initialLink: this.plugin.settings.linkProjectWorkTasks
+      }
     ).open());
   }
 

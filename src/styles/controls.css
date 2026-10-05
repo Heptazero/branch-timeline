@@ -148,3 +148,13 @@ button.btl-rhythm-resize { position: absolute; right: 1px; bottom: 1px; width: 2
 .btl-work-option { display: flex; justify-content: space-between; gap: 8px; width: 100%; text-align: left; padding: 7px 10px; border-radius: 6px; }
 .btl-work-option small { color: var(--text-muted); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .btl-work-option span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btl-item-title-row { display: flex; align-items: center; gap: 8px; }
+.btl-item-title-row > .btl-text-input { flex: 1 1 auto; min-width: 0; }
+.btl-item-task-link { display: inline-flex; flex: none; align-items: center; gap: 5px; color: var(--text-muted); font-size: 11px; white-space: nowrap; cursor: pointer; }
+.btl-item-task-link.is-hidden, .btl-item-task-suggestions.is-hidden { display: none; }
+.btl-item-task-suggestions:not(:empty) { display: grid; max-height: min(190px, 24vh); gap: 2px; overflow-y: auto; border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 4px; margin-top: 5px; }
+.btl-item-task-suggestions > div:not(.btl-work-list) { padding: 7px 9px; color: var(--text-muted); font-size: 11px; }
+.btl-item-task-suggestions button.btl-work-option { border: 0 !important; background: transparent !important; box-shadow: none !important; color: var(--text-normal); }
+.btl-item-task-suggestions button.btl-work-option:hover, .btl-item-task-suggestions button.btl-work-option:focus-visible { background: var(--background-modifier-hover) !important; }
+.btl-item-task-heading { margin-top: 6px; }
+@media (max-width: 400px) { .btl-item-title-row { flex-wrap: wrap; }.btl-item-title-row > .btl-text-input { flex-basis: 100%; }.btl-item-task-link { margin-left: auto; } }

@@ -1,5 +1,7 @@
-import { App, FuzzySuggestModal, Menu, Modal } from "obsidian";
-import type { ItemMetadataRequirement, ProjectRef } from "./types";
+import { App, FuzzySuggestModal, Modal } from "obsidian";
+import type { ProjectRef } from "./types";
+export { TimelineItemDraftModal } from "./timeline-item-draft-modal";
+export type { TimelineItemDraftCopy, TimelineItemDraftResult } from "./timeline-item-draft-modal";
 
 export class ProjectSuggestModal extends FuzzySuggestModal<ProjectRef> {
   constructor(app: App, private projects: ProjectRef[], private resolve: (project: ProjectRef | null) => void) {
@@ -95,119 +97,6 @@ export class TextareaEntryModal extends Modal {
     this.resolve(this.value.trim());
     this.close();
   }
-}
-
-export interface TimelineItemDraftResult {
-  title: string;
-  note: string;
-  projectPath: string | null;
-}
-
-export interface TimelineItemDraftCopy {
-  heading: string;
-  titlePlaceholder: string;
-  submitLabel: string;
-}
-
-export class TimelineItemDraftModal extends Modal {
-  private titleValue = "";
-  private noteValue = "";
-  private projectPath: string | null = null;
-  private resolved = false;
-  private projectButton!: HTMLButtonElement;
-  private submitButton!: HTMLButtonElement;
-
-  constructor(
-    app: App,
-    private projects: readonly ProjectRef[],
-    private metadataRequirement: ItemMetadataRequirement,
-    private resolve: (value: TimelineItemDraftResult | null) => void,
-    private copy: TimelineItemDraftCopy = { heading: "添加代办", titlePlaceholder: "代办内容", submitLabel: "添加" }
-  ) { super(app); }
-
-  onOpen(): void {
-    this.contentEl.empty();
-    this.contentEl.addClass("btl-modal");
-    this.contentEl.addClass("btl-item-compose");
-    this.contentEl.createEl("h3", { text: this.copy.heading });
-    const title = this.contentEl.createEl("input", {
-      cls: "btl-text-input",
-      attr: { placeholder: this.copy.titlePlaceholder, "aria-label": this.copy.titlePlaceholder }
-    });
-    title.oninput = () => { this.titleValue = title.value; this.refreshSubmit(); };
-    title.onkeydown = event => { if (event.key === "Enter") this.submit(); };
-    const note = this.contentEl.createEl("textarea", {
-      cls: "btl-textarea btl-item-compose-note",
-      attr: { placeholder: "备注（可选）", rows: "4", "aria-label": "备注" }
-    });
-    note.oninput = () => { this.noteValue = note.value; };
-
-    const selectors = this.contentEl.createDiv({ cls: "btl-item-compose-selectors" });
-    this.projectButton = selectors.createEl("button", { attr: { type: "button" } });
-    this.projectButton.onclick = event => this.openProjectMenu(event);
-    this.refreshSelectors();
-
-    const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
-    actions.createEl("button", { text: "取消" }).onclick = () => this.close();
-    this.submitButton = actions.createEl("button", { text: this.copy.submitLabel, cls: "mod-cta" });
-    this.submitButton.onclick = () => this.submit();
-    this.refreshSubmit();
-    window.setTimeout(() => title.focus(), 30);
-  }
-
-  onClose(): void {
-    if (!this.resolved) this.resolve(null);
-    this.contentEl.empty();
-  }
-
-  private openProjectMenu(event: MouseEvent): void {
-    const menu = new Menu();
-    if (!this.requiresProject()) {
-      menu.addItem(item => item.setTitle("无项目").setChecked(!this.projectPath).onClick(() => {
-        this.projectPath = null;
-        this.refreshSelectors();
-        this.refreshSubmit();
-      }));
-      menu.addSeparator();
-    }
-    if (!this.projects.length) menu.addItem(item => item.setTitle("没有进行中的项目").setDisabled(true));
-    for (const project of this.projects) {
-      menu.addItem(item => item.setTitle(project.name).setChecked(this.projectPath === project.path).onClick(() => {
-        this.projectPath = project.path;
-        this.refreshSelectors();
-        this.refreshSubmit();
-      }));
-    }
-    menu.showAtMouseEvent(event);
-  }
-
-  private refreshSelectors(): void {
-    const project = this.projects.find(item => item.path === this.projectPath);
-    this.projectButton.setText(project ? `@${project.name}` : "选择项目");
-    this.projectButton.toggleClass("is-selected", !!project);
-    this.projectButton.style.setProperty("--btl-choice-color", project?.color || "var(--interactive-accent)");
-  }
-
-  private refreshSubmit(): void {
-    if (!this.submitButton) return;
-    this.submitButton.disabled = !this.titleValue.trim() || (this.requiresProject() && !this.projectPath);
-  }
-
-  private submit(): void {
-    if (!this.titleValue.trim() || (this.requiresProject() && !this.projectPath)) return;
-    this.resolved = true;
-    this.resolve({
-      title: this.titleValue.trim(),
-      note: this.noteValue.trim(),
-      projectPath: this.projectPath
-    });
-    this.close();
-  }
-
-  private requiresProject(): boolean {
-    return this.metadataRequirement === "project" || this.metadataRequirement === "both";
-  }
-
 }
 
 export class MinuteEntryModal extends Modal {

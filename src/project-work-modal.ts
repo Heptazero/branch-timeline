@@ -1,4 +1,5 @@
 import { App, Modal } from "obsidian";
+import { fuzzyMatchProjectTask } from "./vault/project-tasks";
 import type { ProjectTaskEntry, ProjectTaskIndex, ProjectWorkTask } from "./vault/project-tasks";
 
 export interface ProjectWorkResult {
@@ -114,7 +115,7 @@ export class ProjectWorkModal extends Modal {
     const render = () => {
       list.empty();
       const query = input.value.trim();
-      const matches = this.index.tasks.filter(task => fuzzyMatch(`${task.title} ${task.headingPath.join(" ")}`, query));
+      const matches = this.index.tasks.filter(task => fuzzyMatchProjectTask(`${task.title} ${task.headingPath.join(" ")}`, query));
       for (const task of matches.slice(0, 40)) {
         const button = list.createEl("button", { cls: "btl-work-option", attr: { type: "button" } });
         button.createSpan({ text: task.title });
@@ -161,7 +162,7 @@ export class ProjectWorkModal extends Modal {
     const render = () => {
       list.empty();
       const query = input.value.trim();
-      const matches = this.index.headings.filter(heading => fuzzyMatch(heading.path.join(" "), query));
+      const matches = this.index.headings.filter(heading => fuzzyMatchProjectTask(heading.path.join(" "), query));
       for (const heading of matches) {
         const button = list.createEl("button", { cls: "btl-work-option", attr: { type: "button" } });
         button.style.paddingLeft = `${12 + heading.depth * 16}px`;
@@ -208,18 +209,4 @@ export class ProjectWorkModal extends Modal {
     const rest = minutes % 60;
     return rest ? `${hours} 小时 ${rest} 分` : `${hours} 小时`;
   }
-}
-
-function fuzzyMatch(value: string, query: string): boolean {
-  if (!query) return true;
-  const haystack = value.normalize("NFC").toLowerCase();
-  const needle = query.normalize("NFC").toLowerCase();
-  if (haystack.includes(needle)) return true;
-  let position = 0;
-  for (const char of needle) {
-    position = haystack.indexOf(char, position);
-    if (position < 0) return false;
-    position += 1;
-  }
-  return true;
 }

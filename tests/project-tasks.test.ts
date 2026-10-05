@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { appendProjectLog, setProjectTaskDone, updateProjectWorkLogNote } from "../src/vault/format";
-import { appendProjectTaskAtHeading, ensureProjectTaskId, indexProjectTasks, normalizeTaskHeadings, upsertProjectTaskTotals } from "../src/vault/project-tasks";
+import { appendProjectTaskAtHeading, ensureProjectTaskId, fuzzyMatchProjectTask, indexProjectTasks, linkProjectTask, normalizeTaskHeadings, upsertProjectTaskTotals } from "../src/vault/project-tasks";
 
 test("finds open tasks below multiple configured headings and nested headings", () => {
   const source = "## 任务\n- [ ] 根任务\n### 本周\n- [ ] 实验\n#### 数据\n- [ ] 整理\n- [x] 已完成\n## 日志\n- [ ] 无关\n## 清单\n- [ ] 另一个";
@@ -42,6 +42,25 @@ test("gives a selected handwritten task an id and owns only its cumulative suffi
   assert.equal(upsertProjectTaskTotals(total, new Map([["btl-one", 90]])), total);
   assert.doesNotMatch(upsertProjectTaskTotals(total, new Map()), /累计/);
   assert.throws(() => upsertProjectTaskTotals("## 任务\n- [ ] 实验 （累计 2h） ^btl-one", new Map([["btl-one", 90]])));
+});
+
+test("links an existing project task without creating a duplicate", () => {
+  const source = "## 任务\n- [ ] 读取论文\n";
+  const entry = indexProjectTasks(source, ["任务"]).tasks[0];
+  const linked = linkProjectTask(source, ["任务"], { kind: "existing", entry }, "btl-linked");
+  assert.equal((linked.match(/- \[ \] 读取论文/g) || []).length, 1);
+  assert.match(linked, /读取论文 \^btl-linked/);
+  assert.throws(() => linkProjectTask("## 任务\n", ["任务"], { kind: "existing", entry }, "btl-linked"));
+  const indexed = indexProjectTasks(linked, ["任务"]).tasks[0];
+  assert.throws(() => linkProjectTask(linked, ["任务"], { kind: "existing", entry: indexed }, "another-id"));
+});
+
+test("creates a selected task below its chosen heading", () => {
+  const source = "## 任务\n### 本周\n- [ ] 旧任务\n## log\n";
+  const heading = indexProjectTasks(source, ["任务"]).headings[1];
+  const next = linkProjectTask(source, ["任务"], { kind: "new", title: "新实验", headingKey: heading.key }, "btl-new");
+  assert.match(next, /### 本周\n- \[ \] 旧任务\n- \[ \] 新实验 \^btl-new\n## log/);
+  assert.ok(fuzzyMatchProjectTask("新实验 任务 本周", "实周"));
 });
 
 test("edits a marked work note without duplicating its dated log entry", () => {

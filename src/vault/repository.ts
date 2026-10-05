@@ -17,7 +17,7 @@ import {
   updateProjectWorkLogNote,
   upsertProjectNote
 } from "./format";
-import { appendProjectTaskAtHeading, ensureProjectTaskId, indexProjectTasks, upsertProjectTaskTotals } from "./project-tasks";
+import { indexProjectTasks, linkProjectTask, upsertProjectTaskTotals } from "./project-tasks";
 import type { ProjectTaskIndex, ProjectWorkTask } from "./project-tasks";
 
 export class VaultRepository {
@@ -118,6 +118,17 @@ export class VaultRepository {
     return indexProjectTasks(await this.app.vault.read(this.projectFile(projectPath)), this.settings.projectTaskHeadings);
   }
 
+  async prepareTimelineTodo(projectPath: string, date: Date, minute: number, note: string, task: ProjectWorkTask | null, taskId?: string): Promise<void> {
+    if (!note && !task) return;
+    const file = this.projectFile(projectPath);
+    const time = `${String(Math.floor(minute / 60) % 24).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+    await this.process(file, content => {
+      if (task && !taskId) throw new Error("关联任务缺少 ID");
+      const withTask = task ? linkProjectTask(content, this.settings.projectTaskHeadings, task, taskId!) : content;
+      return note ? upsertProjectNote(withTask, dateKey(date), time, "", note) : withTask;
+    });
+  }
+
   async recordProjectWork(
     projectPath: string, date: Date, endMinute: number, minutes: number, note: string,
     workId: string, task: ProjectWorkTask | null, taskId: string | undefined, completeTask = false
@@ -126,17 +137,8 @@ export class VaultRepository {
     const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
     await this.process(file, content => {
       let next = content;
-      if (task?.kind === "existing") {
-        const current = indexProjectTasks(next, this.settings.projectTaskHeadings);
-        const found = task.entry.id
-          ? current.tasks.some(entry => entry.id === task.entry.id && entry.title === task.entry.title)
-          : current.tasks.some(entry => entry.line === task.entry.line && entry.title === task.entry.title && entry.headingKey === task.entry.headingKey);
-        if (!found || !taskId) throw new Error("项目任务已经改变，请重新选择");
-        next = ensureProjectTaskId(next, task.entry, taskId);
-      } else if (task?.kind === "new") {
-        if (!taskId) throw new Error("新任务缺少 ID");
-        next = appendProjectTaskAtHeading(next, task.title, taskId, task.headingKey, this.settings.projectTaskHeadings);
-      }
+      if (task && !taskId) throw new Error("关联任务缺少 ID");
+      if (task) next = linkProjectTask(next, this.settings.projectTaskHeadings, task, taskId!);
       if (completeTask && taskId) next = setProjectTaskDone(next, taskId, true);
       return minutes > 0 ? appendProjectLog(next, dateKey(date), time, minutes / 60, note, workId) : next;
     });

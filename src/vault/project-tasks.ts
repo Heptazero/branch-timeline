@@ -101,6 +101,17 @@ export function appendProjectTaskAtHeading(content: string, title: string, id: s
   return lines.join("\n");
 }
 
+export function linkProjectTask(content: string, configured: readonly string[], task: ProjectWorkTask, id: string): string {
+  if (task.kind === "new") return appendProjectTaskAtHeading(content, task.title, id, task.headingKey, configured);
+  if (task.entry.id && task.entry.id !== id) throw new Error("关联任务 ID 不一致");
+  const current = indexProjectTasks(content, configured);
+  const found = task.entry.id
+    ? current.tasks.some(entry => entry.id === task.entry.id && entry.title === task.entry.title)
+    : current.tasks.some(entry => entry.line === task.entry.line && entry.title === task.entry.title && entry.headingKey === task.entry.headingKey);
+  if (!found) throw new Error("项目任务已经改变，请重新选择");
+  return ensureProjectTaskId(content, task.entry, id);
+}
+
 export function upsertProjectTaskTotals(content: string, totals: ReadonlyMap<string, number>): string {
   const lines = content.split("\n");
   const found = new Set<string>();
@@ -121,4 +132,18 @@ export function upsertProjectTaskTotals(content: string, totals: ReadonlyMap<str
   }
   for (const id of totals.keys()) if (!found.has(id)) throw new Error(`找不到关联任务 ${id}，请检查项目笔记`);
   return lines.join("\n");
+}
+
+export function fuzzyMatchProjectTask(value: string, query: string): boolean {
+  if (!query) return true;
+  const haystack = value.normalize("NFC").toLowerCase();
+  const needle = query.normalize("NFC").toLowerCase();
+  if (haystack.includes(needle)) return true;
+  let position = 0;
+  for (const char of needle) {
+    position = haystack.indexOf(char, position);
+    if (position < 0) return false;
+    position += 1;
+  }
+  return true;
 }
