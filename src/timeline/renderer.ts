@@ -26,6 +26,7 @@ export interface TimelineRenderOptions {
   rhythmLabels?: Partial<Record<RhythmKey, string>>;
   rhythmMarkers?: readonly RhythmMarkerDefinition[];
   energyPhases?: readonly TimelineEnergyPhase[];
+  projectColors?: ReadonlyMap<string, string>;
 }
 
 export interface TimelineRenderResult {
@@ -74,7 +75,7 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   renderBranches(canvas, svg, day, layout);
 
   const orderedItems = [...day.items].sort((a, b) => itemDuration(b, day.wake, nowMinute) - itemDuration(a, day.wake, nowMinute));
-  for (const item of orderedItems) renderItem(canvas, day, layout, item, nowMinute);
+  for (const item of orderedItems) renderItem(canvas, day, layout, item, nowMinute, options.projectColors);
   return { canvas, layout };
 }
 
@@ -339,7 +340,8 @@ function renderItem(
   day: TimelineDayState,
   layout: TimelineLayout,
   item: TimelineItem,
-  nowMinute?: number
+  nowMinute?: number,
+  projectColors?: ReadonlyMap<string, string>
 ): void {
   const start = itemStart(item, day.wake);
   const end = itemEnd(item, day.wake, nowMinute);
@@ -350,7 +352,7 @@ function renderItem(
   const x = layout.center + xOffset;
   const branch = item.branchId ? layout.branches.get(item.branchId)?.branch : undefined;
   const project = projectName(item.projectPath);
-  const color = "var(--text-faint)";
+  const color = item.projectPath ? projectColors?.get(item.projectPath) || "var(--text-faint)" : "var(--text-faint)";
   const card = canvas.createDiv({
     cls: `btl-canvas-item is-${item.kind}${timed ? " is-timed" : ""}${running ? " is-running" : ""}${!branch || branch.side < 0 ? " compact-left" : ""}`,
     attr: { "data-item-id": item.id }

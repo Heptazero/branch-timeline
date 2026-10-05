@@ -371,7 +371,8 @@ export abstract class BranchTimelineViewBase extends ItemView {
       gapHorizon,
       rhythmLabels: this.plugin.settings.rhythmLabels,
       rhythmMarkers: this.plugin.settings.rhythmMarkers,
-      energyPhases: this.energyPhases
+      energyPhases: this.energyPhases,
+      projectColors: new Map(this.plugin.repository.listProjects().map(project => [project.path, project.color || "var(--text-faint)"]))
     });
     this.gestures = new TimelineGestures(scroller, rendered.canvas, day, rendered.layout, this.energyPhases, this.plugin.settings.rhythmMarkers, {
       onItemMove: (itemId, startMin, branchId) => void this.moveItem(itemId, startMin, branchId),
