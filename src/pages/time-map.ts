@@ -1,6 +1,7 @@
 import { itemEnd, itemStart, formatTime } from "../timeline/model";
 import { compactDuration, isRunningItem } from "../timeline/timer-service";
 import type { BranchTimelineState, ProjectRef, TimelineItem } from "../types";
+import { distractionLabel, distractionLevel } from "../focus-events";
 import { dateKey, logicalToday } from "../vault/format";
 import { focusRhythm, nowOnAxis } from "./focus-stats";
 
@@ -35,7 +36,7 @@ export interface TimeMapOptions {
 export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): void {
   const map = parent.createDiv({ cls: "btl-time-map" });
   const legend = map.createDiv({ cls: "btl-time-map-legend" });
-  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "分神"]] as const) {
+  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "顺畅"]] as const) {
     legend.createSpan({ cls: `btl-time-map-key is-${kind}`, text: label });
   }
   const rhythm = focusRhythm(options.state, options.dates[options.dates.length - 1], nowOnAxis());
@@ -87,9 +88,16 @@ export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): voi
     records.sort((a, b) => duration(b, day.wake, now) - duration(a, day.wake, now));
     for (const item of records) drawItem(column, item, day.wake, now, colors.get(item.projectPath || "") || "var(--interactive-accent)", show);
     for (const event of day.distractions || []) {
-      const dot = column.createEl("button", { cls: "btl-time-map-dot", attr: { type: "button", "aria-label": `分神 ${formatTime(event.minute)}`, title: `分神 · ${formatTime(event.minute)}` } });
+      const label = `${distractionLabel(event)} · ${formatTime(event.minute)}`;
+      const dot = column.createEl("button", { cls: `btl-time-map-dot is-distraction is-${distractionLevel(event)}`, attr: { type: "button", "aria-label": label, title: label } });
       dot.style.top = `${mapPosition(event.minute + 1440)}%`;
-      dot.onclick = () => show(dot, `分神 · ${formatTime(event.minute)}`);
+      dot.onclick = () => show(dot, label);
+    }
+    for (const event of day.goodStates || []) {
+      const label = `状态顺畅 · ${formatTime(event.minute)}`;
+      const dot = column.createEl("button", { cls: "btl-time-map-dot is-good", attr: { type: "button", "aria-label": label, title: label } });
+      dot.style.top = `${mapPosition(event.minute + 1440)}%`;
+      dot.onclick = () => show(dot, label);
     }
   }
   drawRhythm(plot, rhythm);

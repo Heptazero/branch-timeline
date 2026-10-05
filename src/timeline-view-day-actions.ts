@@ -7,8 +7,8 @@ import { rhythmRealKey } from "./rhythm";
 import { ENERGY_PHASE_COLORS, materializeEnergyPhases } from "./timeline/energy-phases";
 import { backfillItem as applyBackfill, clampMinute } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
-import { TimerService, compactDuration, elapsedMinutes } from "./timeline/timer-service";
-import type { RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "./types";
+import { TimerService, compactDuration, elapsedMinutes, isRunningItem, readableDuration } from "./timeline/timer-service";
+import type { DistractionLevel, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "./types";
 import { dateKey } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
 import { BRANCH_COLORS, BranchTimelineViewBase } from "./timeline-view-base";
@@ -130,13 +130,30 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     else await this.stopTiming(itemId);
   }
 
-  protected async recordDistraction(itemId: string): Promise<void> {
+  protected async recordDistraction(itemId: string, level: DistractionLevel): Promise<void> {
     const minute = this.currentLogicalMinute();
     if (minute == null) return;
     await this.updateDay(day => {
-      (day.distractions ||= []).push({ id: this.uid("distract"), minute, itemId });
+      (day.distractions ||= []).push({ id: this.uid("distract"), minute, itemId, level });
     });
     navigator.vibrate?.(18);
+  }
+
+  protected async recordGoodState(itemId: string): Promise<void> {
+    const minute = this.currentLogicalMinute();
+    if (minute == null) return;
+    await this.updateDay(day => {
+      (day.goodStates ||= []).push({ id: this.uid("good"), minute, itemId });
+    });
+    navigator.vibrate?.(12);
+  }
+
+  protected async takeFiveMinuteBreak(itemId: string): Promise<void> {
+    await this.stopRunningItem(itemId);
+    const target = this.day?.items.find(item => item.id === itemId);
+    if (target && isRunningItem(target)) return;
+    new Notice("休息 5 分钟");
+    window.setTimeout(() => new Notice("休息结束，可以继续了"), 5 * 60_000);
   }
 
   protected openItemMenu(itemId: string, event: MouseEvent): void {
@@ -202,7 +219,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       ["active", "doing", "进行中"].includes(project.status.trim().toLowerCase())
     );
     const draft = await this.timelineItemDraft(projects, {
-      heading: `补记 ${gapDurationText(minutes)}`,
+      heading: `补记 ${readableDuration(minutes)}`,
       titlePlaceholder: "做了什么",
       submitLabel: "补记"
     });
@@ -476,11 +493,4 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     await this.plugin.refreshTimerStatus();
     await this.render(true);
   }
-}
-
-function gapDurationText(minutes: number): string {
-  if (minutes < 60) return `${minutes}分钟`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return `${hours}小时${rest ? `${rest}分钟` : ""}`;
 }

@@ -26,7 +26,7 @@ import { RunningBar } from "./timeline/running-bar";
 import { effectiveEnergyPhases } from "./timeline/energy-phases";
 import { MAX_SCALE, MIN_SCALE, minuteToY } from "./timeline/model";
 import { renderTimeline } from "./timeline/renderer";
-import type { ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase } from "./types";
+import type { DistractionLevel, ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
 
@@ -200,8 +200,10 @@ export abstract class BranchTimelineViewBase extends ItemView {
     this.energyPhases = effectiveEnergyPhases(state.days, key);
     this.runningBar = new RunningBar(runningHost, {
       open: itemId => void this.focusRunningItem(itemId),
-      distract: itemId => void this.recordDistraction(itemId),
-      stop: itemId => void this.stopRunningItem(itemId)
+      distract: (itemId, level) => this.recordDistraction(itemId, level),
+      good: itemId => this.recordGoodState(itemId),
+      stop: itemId => void this.stopRunningItem(itemId),
+      break: itemId => this.takeFiveMinuteBreak(itemId)
     });
     this.updateRunningBar();
 
@@ -434,7 +436,9 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract completeItem(itemId: string): Promise<void>;
   protected abstract stopTiming(itemId: string): Promise<void>;
   protected abstract stopRunningItem(itemId: string): Promise<void>;
-  protected abstract recordDistraction(itemId: string): Promise<void>;
+  protected abstract recordDistraction(itemId: string, level: DistractionLevel): Promise<void>;
+  protected abstract recordGoodState(itemId: string): Promise<void>;
+  protected abstract takeFiveMinuteBreak(itemId: string): Promise<void>;
   protected abstract editItemNote(itemId: string): Promise<void>;
   protected abstract openItemMenu(itemId: string, event: MouseEvent): void;
   protected abstract openBranchMenu(branchId: string, event: MouseEvent): void;

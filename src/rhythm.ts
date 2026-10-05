@@ -84,6 +84,12 @@ export function normalizeTimelineDay(value: Partial<TimelineDayState>): Timeline
     distractions: Array.isArray(value.distractions) ? value.distractions.flatMap(event =>
       typeof event?.id === "string" && Number.isFinite(event.minute)
         ? [{ id: event.id, minute: clamp(Math.round(event.minute), schedule.wake, schedule.sleep),
+          ...(typeof event.itemId === "string" ? { itemId: event.itemId } : {}),
+          ...(event.level === "light" || event.level === "medium" || event.level === "heavy" ? { level: event.level } : {}) }]
+        : []) : [],
+    goodStates: Array.isArray(value.goodStates) ? value.goodStates.flatMap(event =>
+      typeof event?.id === "string" && Number.isFinite(event.minute)
+        ? [{ id: event.id, minute: clamp(Math.round(event.minute), schedule.wake, schedule.sleep),
           ...(typeof event.itemId === "string" ? { itemId: event.itemId } : {}) }]
         : []) : [],
     branches: Array.isArray(value.branches) ? value.branches : [],

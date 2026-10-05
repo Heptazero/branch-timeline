@@ -55,6 +55,15 @@ export interface TimelineDistraction {
   id: string;
   minute: number;
   itemId?: string;
+  level?: DistractionLevel;
+}
+
+export type DistractionLevel = "light" | "medium" | "heavy";
+
+export interface TimelineGoodState {
+  id: string;
+  minute: number;
+  itemId?: string;
 }
 
 export interface TimelineTag {
@@ -113,6 +122,7 @@ export interface TimelineDayState {
   sleepReal?: boolean;
   rhythmMarkers?: TimelineRhythmMarker[];
   distractions?: TimelineDistraction[];
+  goodStates?: TimelineGoodState[];
   /** 旧版单一午休节点，仅用于读取迁移。 */
   pivot?: number;
   /** 旧版单一午休完成状态，仅用于读取迁移。 */

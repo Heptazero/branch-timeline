@@ -1,6 +1,7 @@
 import { setIcon } from "obsidian";
 import { RHYTHM_BOUNDARIES, rhythmLabel, rhythmMarkerMinute, rhythmMarkerReal, rhythmRealKey } from "../rhythm";
 import type { RhythmKey, RhythmMarkerDefinition, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "../types";
+import { renderFocusMarkers } from "./focus-markers";
 import {
   TIMELINE_BOTTOM,
   branchPath,
@@ -70,20 +71,13 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   canvas.createDiv({ cls: "btl-gap-layer" });
   canvas.createDiv({ cls: "btl-now-layer" });
   updateTimelineTemporalLayers(canvas, day, scale, nowMinute, options.gapHorizon);
-  renderDistractions(canvas, day, scale);
+  renderFocusMarkers(canvas, day, scale);
   renderRhythm(canvas, day, scale, options.rhythmLabels, options.rhythmMarkers || []);
   renderBranches(canvas, svg, day, layout);
 
   const orderedItems = [...day.items].sort((a, b) => itemDuration(b, day.wake, nowMinute) - itemDuration(a, day.wake, nowMinute));
   for (const item of orderedItems) renderItem(canvas, day, layout, item, nowMinute, options.projectColors);
   return { canvas, layout };
-}
-
-function renderDistractions(canvas: HTMLElement, day: TimelineDayState, scale: number): void {
-  for (const event of day.distractions || []) {
-    const dot = canvas.createDiv({ cls: "btl-distraction-dot", attr: { title: `分神 · ${formatTime(event.minute)}` } });
-    dot.style.top = `${minuteToY(day, scale, event.minute)}px`;
-  }
 }
 
 function renderEnergyPhases(

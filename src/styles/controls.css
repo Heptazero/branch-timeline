@@ -63,6 +63,16 @@ button.btl-rhythm-resize { position: absolute; right: 1px; bottom: 1px; width: 2
 .btl-color-popover button::after { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--btl-color-choice); box-shadow: 0 0 0 1px color-mix(in srgb, var(--btl-color-choice) 60%, var(--background-modifier-border)); }
 .btl-color-popover button:hover { background: var(--background-modifier-hover); }
 .btl-color-popover button.is-selected { border-color: var(--btl-color-choice); background: color-mix(in srgb, var(--btl-color-choice) 12%, var(--background-primary)); }
+.btl-focus-popover { position: fixed; z-index: 10002; box-sizing: border-box; width: min(330px, calc(100vw - 16px)); border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 9px; background: var(--background-primary); box-shadow: 0 12px 32px rgba(0,0,0,.24); font-family: var(--font-interface); }
+.btl-focus-popover > strong { display: block; padding: 2px 3px 8px; color: var(--text-normal); font-size: 12px; }
+.btl-focus-levels { display: grid; gap: 4px; }
+.btl-focus-levels button { display: grid; min-height: 43px; grid-template-columns: 28px minmax(0,1fr); align-items: center; border: 0; border-radius: 8px; padding: 4px 7px; background: transparent; color: var(--text-normal); text-align: left; }
+.btl-focus-levels button:hover { background: var(--background-modifier-hover); }
+.btl-focus-levels button > strong { color: var(--color-red); font-size: 13px; }
+.btl-focus-levels button > small { color: var(--text-muted); font-size: 10px; }
+.btl-focus-recovery { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 5px; }
+.btl-focus-recovery button { min-height: 36px; border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 4px 6px; background: var(--background-secondary); color: var(--text-normal); font-size: 10px; }
+.btl-focus-recovery button:last-child { border-color: color-mix(in srgb, var(--interactive-accent) 38%, var(--background-modifier-border)); color: var(--interactive-accent); }
 .btl-project-type-setting .setting-item-info { display: none; }.btl-project-type-setting .setting-item-control { width: 100%; flex-wrap: nowrap; }.btl-project-type-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }
 .btl-project-type-drag { cursor: grab; touch-action: none; }
 .btl-project-type-drag:active { cursor: grabbing; }

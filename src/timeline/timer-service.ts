@@ -28,6 +28,13 @@ export function compactDuration(minutes: number): string {
   return `${hours}h${rest ? `${rest}m` : ""}`;
 }
 
+export function readableDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes}分钟`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `${hours}小时${rest ? `${rest}分钟` : ""}`;
+}
+
 export class TimerService {
   start(day: TimelineDayState, itemId: string, now: number, uid: () => string): TimelineItem | null {
     const target = day.items.find(candidate => candidate.id === itemId);

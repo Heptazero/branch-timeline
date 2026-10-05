@@ -1,11 +1,14 @@
 import { setIcon } from "obsidian";
-import type { TimelineDayState } from "../types";
+import { openFocusMarkerPopover } from "../focus-marker-popover";
+import type { DistractionLevel, TimelineDayState } from "../types";
 import { compactDuration, elapsedMinutes, runningItems } from "./timer-service";
 
 export interface RunningBarActions {
   open: (itemId: string) => void;
-  distract: (itemId: string) => void;
+  distract: (itemId: string, level: DistractionLevel) => void | Promise<void>;
+  good: (itemId: string) => void | Promise<void>;
   stop: (itemId: string) => void;
+  break: (itemId: string) => void | Promise<void>;
 }
 
 export class RunningBar {
@@ -21,13 +24,28 @@ export class RunningBar {
     this.title = open.createSpan({ cls: "btl-running-title" });
     this.duration = open.createEl("strong", { cls: "btl-running-duration" });
     open.onclick = () => { if (this.primaryId) actions.open(this.primaryId); };
+    const good = element.createEl("button", {
+      cls: "btl-running-good",
+      attr: { type: "button", "aria-label": "记录状态顺畅", title: "状态顺畅" }
+    });
+    good.onclick = event => {
+      event.stopPropagation();
+      if (this.primaryId) void actions.good(this.primaryId);
+    };
     const distract = element.createEl("button", {
       cls: "btl-running-distract",
       attr: { type: "button", "aria-label": "记录分神", title: "记录分神" }
     });
     distract.onclick = event => {
       event.stopPropagation();
-      if (this.primaryId) actions.distract(this.primaryId);
+      const itemId = this.primaryId;
+      if (!itemId) return;
+      openFocusMarkerPopover(distract, {
+        record: level => actions.distract(itemId, level),
+        continue: () => {},
+        stop: () => actions.stop(itemId),
+        break: () => actions.break(itemId)
+      });
     };
     const stop = element.createEl("button", {
       cls: "btl-running-stop",

@@ -28,7 +28,8 @@ import {
   splitAbsoluteMinute
 } from "../src/pages/project-model";
 import { projectPlanOn, projectTimeSummary } from "../src/pages/project-time";
-import { focusRhythm, intervalLabel, periodMinutes, projectFocusTotal, recordedMinutes } from "../src/pages/focus-stats";
+import { burdenLabel, focusRhythm, periodMinutes, projectFocusTotal, recordedMinutes } from "../src/pages/focus-stats";
+import { distractionWeight } from "../src/focus-events";
 import { mapPosition, sleepSpan } from "../src/pages/time-map";
 import {
   backfillItem,
@@ -246,12 +247,14 @@ test("focus stats merge overlapping records and split at period boundaries", () 
       { id: "todo", title: "未来", kind: "todo", plannedMin: 790 },
       { id: "running", title: "正在做", kind: "todo", startedMin: 780, projectPath: "project.md" }
     ],
-    distractions: [{ id: "d1", minute: 725, itemId: "a" }, { id: "d2", minute: 800, itemId: "running" }]
+    distractions: [{ id: "d1", minute: 725, itemId: "a", level: "medium" }, { id: "d2", minute: 800, itemId: "running", level: "heavy" }],
+    goodStates: [{ id: "g1", minute: 790, itemId: "running" }]
   };
   assert.equal(recordedMinutes(day, 810), 120);
   assert.deepEqual(periodMinutes(day, 810), { morning: 30, afternoon: 90, evening: 0 });
   const state = { days: { "2026-08-13": day } } as unknown as BranchTimelineState;
-  assert.deepEqual(projectFocusTotal(state, "project.md", "2026-08-13", 810), { minutes: 120, distractions: 2 });
+  assert.deepEqual(projectFocusTotal(state, "project.md", "2026-08-13", 810), { minutes: 120, distractions: 2, load: 6, good: 1 });
+  assert.equal(burdenLabel({ minutes: 120, distractions: 2, load: 6, good: 1 }), "3/h");
 });
 
 test("weekly time map keeps an overnight sleep together and places hours vertically", () => {
@@ -268,20 +271,21 @@ test("weekly time map keeps an overnight sleep together and places hours vertica
   assert.equal(Math.round((1430 + afterMidnight!.bed) / 2), 1440);
 });
 
-test("focus rhythm omits sparse hours and treats zero distractions as a lower bound", () => {
+test("focus rhythm omits sparse hours and weights distraction severity", () => {
   const days: Record<string, TimelineDayState> = {};
   for (const date of [11, 12, 13]) {
     days[`2026-08-${date}`] = {
       wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
       items: [{ id: `work-${date}`, title: "实验", kind: "fact", startMin: 600, endMin: 630 }],
-      distractions: date === 12 ? [{ id: "d", minute: 615, itemId: "work-12" }] : []
+      distractions: date === 12 ? [{ id: "d", minute: 615, itemId: "work-12", level: "heavy" }] : []
     };
   }
   const state = { days } as unknown as BranchTimelineState;
   const profile = focusRhythm(state, new Date(2026, 7, 13), 600);
   assert.ok(profile[10] != null && profile[10]! < 1);
   assert.equal(profile[11], null);
-  assert.equal(intervalLabel({ minutes: 90, distractions: 0 }), "≥1h30m");
+  assert.equal(distractionWeight(days["2026-08-12"].distractions![0]), 4);
+  assert.equal(burdenLabel({ minutes: 90, distractions: 0, load: 0, good: 0 }), "0/h");
 });
 
 test("stops a timed todo as a fact without completing the todo", () => {
@@ -388,19 +392,21 @@ test("moves custom rhythm markers without crossing their neighbours", () => {
   ]);
 });
 
-test("keeps valid distraction markers inside the logical day", () => {
+test("keeps valid focus markers inside the logical day", () => {
   const day = normalizeTimelineDay({
     wake: 420, sleep: 1560, branches: [], items: [],
     distractions: [
-      { id: "early", minute: 300, itemId: "focus" },
-      { id: "late", minute: 1700 },
+      { id: "early", minute: 300, itemId: "focus", level: "medium" },
+      { id: "late", minute: 1700, level: "unknown" as never },
       { id: "invalid", minute: Number.NaN }
-    ]
+    ],
+    goodStates: [{ id: "good", minute: 800, itemId: "focus" }]
   });
   assert.deepEqual(day.distractions, [
-    { id: "early", minute: 420, itemId: "focus" },
+    { id: "early", minute: 420, itemId: "focus", level: "medium" },
     { id: "late", minute: 1560 }
   ]);
+  assert.deepEqual(day.goodStates, [{ id: "good", minute: 800, itemId: "focus" }]);
 });
 
 test("shows elapsed time from wake before nap end and remaining time afterwards", () => {
