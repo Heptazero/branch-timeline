@@ -1,6 +1,7 @@
 import { Menu, Notice } from "obsidian";
 import { openColorPopover } from "./color-popover";
 import { ConfirmModal } from "./modals";
+import { finishProjectTimer } from "./project-timer-finish";
 import { rhythmRealKey } from "./rhythm";
 import { ENERGY_PHASE_COLORS, materializeEnergyPhases } from "./timeline/energy-phases";
 import { backfillItem as applyBackfill, clampMinute } from "./timeline/model";
@@ -44,12 +45,16 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     const item = this.day?.items.find(candidate => candidate.id === itemId);
     if (!item || item.kind === "fact") return;
     const timing = item.startedMin != null;
-    const note = timing ? await this.note(`完成 · ${item.title}`, "本次做了什么（可选）", item.note || "") : null;
-    if (timing && note == null) return;
     const end = this.day ? this.nowOnAxis(this.day) ?? item.plannedMin ?? this.day.napEnd : 0;
     const minutes = timing ? Math.max(0, end - (item.startedMin ?? end)) : 0;
-    const taskTitle = item.projectTaskTitle || (item.projectTaskId ? item.title : undefined);
-    if (item.projectPath) {
+    const finish = timing && item.projectPath
+      ? await finishProjectTimer(this.app, this.plugin, item, this.date, end, minutes, item.id, true)
+      : null;
+    if (timing && item.projectPath && !finish) return;
+    const note = timing && !item.projectPath ? await this.note(`完成 · ${item.title}`, "本次做了什么（可选）", item.note || "") : finish?.note ?? null;
+    if (timing && note == null) return;
+    const taskTitle = finish?.taskTitle || (!timing ? item.projectTaskTitle || (item.projectTaskId ? item.title : undefined) : undefined);
+    if (item.projectPath && !finish) {
       try {
         const logNote = [taskTitle ? `@${taskTitle}` : "", note || ""].filter(Boolean).join(" ");
         if (item.projectTaskId) await this.plugin.repository.completeProjectTaskWithLog(item.projectPath, item.projectTaskId, this.date, end, minutes, logNote, item.id);
@@ -62,6 +67,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       if (target && timing) {
         target.note = note?.trim() || undefined;
         target.projectTaskTitle = taskTitle;
+        target.projectTaskId = finish?.taskId;
         if (target.projectPath && minutes > 0) target.projectLogId = item.id;
       }
     });
@@ -82,17 +88,17 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
   protected async stopTiming(itemId: string): Promise<void> {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
     if (!item || !(item.factTiming || (item.kind === "todo" && item.startedMin != null))) return;
-    const note = await this.note(`结束 · ${item.title}`, "本次做了什么（可选）", item.note || "");
-    if (note == null) return;
     const end = this.day ? this.nowOnAxis(this.day) ?? item.endMin ?? item.startedMin ?? item.startMin ?? this.day.wake : 0;
     const start = item.kind === "todo" ? item.startedMin ?? end : item.startMin ?? end;
     const minutes = Math.max(0, end - start);
     const factId = item.kind === "todo" ? this.uid("fact") : item.id;
-    const taskTitle = item.projectTaskTitle || (item.projectTaskId ? item.title : undefined);
-    if (item.projectPath && minutes > 0) {
-      try { await this.plugin.repository.addProjectLog(item.projectPath, this.date, end, minutes, [taskTitle ? `@${taskTitle}` : "", note].filter(Boolean).join(" "), factId); }
-      catch (error) { new Notice(error instanceof Error ? error.message : "项目工时写入失败"); return; }
-    }
+    const finish = item.projectPath
+      ? await finishProjectTimer(this.app, this.plugin, item, this.date, end, minutes, factId, false)
+      : null;
+    if (item.projectPath && !finish) return;
+    const note = !item.projectPath ? await this.note(`结束 · ${item.title}`, "本次做了什么（可选）", item.note || "") : finish?.note ?? null;
+    if (note == null) return;
+    const taskTitle = finish?.taskTitle;
     let summary = "";
     await this.updateDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
@@ -104,6 +110,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       if (fact) {
         fact.note = note.trim() || undefined;
         fact.projectTaskTitle = taskTitle;
+        fact.projectTaskId = finish?.taskId;
         if (fact.projectPath && minutes > 0) fact.projectLogId = factId;
       }
     });

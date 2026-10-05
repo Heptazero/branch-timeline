@@ -120,7 +120,7 @@ export class VaultRepository {
 
   async recordProjectWork(
     projectPath: string, date: Date, endMinute: number, minutes: number, note: string,
-    workId: string, task: ProjectWorkTask | null, taskId: string | undefined
+    workId: string, task: ProjectWorkTask | null, taskId: string | undefined, completeTask = false
   ): Promise<void> {
     const file = this.projectFile(projectPath);
     const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
@@ -137,7 +137,8 @@ export class VaultRepository {
         if (!taskId) throw new Error("新任务缺少 ID");
         next = appendProjectTaskAtHeading(next, task.title, taskId, task.headingKey, this.settings.projectTaskHeadings);
       }
-      return appendProjectLog(next, dateKey(date), time, minutes / 60, note, workId);
+      if (completeTask && taskId) next = setProjectTaskDone(next, taskId, true);
+      return minutes > 0 ? appendProjectLog(next, dateKey(date), time, minutes / 60, note, workId) : next;
     });
   }
 

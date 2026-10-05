@@ -276,11 +276,12 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
   }
 
   protected openRhythmSettings(anchor: HTMLElement): void {
-    openRhythmSchedulePopover(anchor, this.plugin.settings.rhythm, this.plugin.settings.rhythmMarkers, async (next, markers) => {
+    openRhythmSchedulePopover(anchor, this.plugin.settings.rhythm, this.plugin.settings.rhythmMarkers, async (next, markers, labels) => {
       this.plugin.settings.rhythm = next;
       this.plugin.settings.rhythmMarkers = markers;
-      await this.plugin.saveSettings();
-    }, undefined, this.plugin.settings.rhythmLabels);
+      this.plugin.settings.rhythmLabels = labels;
+      await this.plugin.saveSettings(false);
+    }, this.plugin.settings.rhythmLabels, () => this.plugin.refreshViews());
   }
 
   protected text(title: string, placeholder: string, value = ""): Promise<string | null> {

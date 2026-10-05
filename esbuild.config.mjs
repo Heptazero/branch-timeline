@@ -43,10 +43,17 @@ const ctx = await esbuild.context({
   treeShaking: true,
   outfile: "main.js"
 });
+const css = await esbuild.context({
+  entryPoints: ["src/styles/index.css"],
+  bundle: true,
+  minify: true,
+  logLevel: "info",
+  outfile: "styles.css"
+});
 
 if (prod) {
-  await ctx.rebuild();
-  await ctx.dispose();
+  await Promise.all([ctx.rebuild(), css.rebuild()]);
+  await Promise.all([ctx.dispose(), css.dispose()]);
 } else {
-  await ctx.watch();
+  await Promise.all([ctx.watch(), css.watch()]);
 }

@@ -27,10 +27,13 @@ export class ProjectWorkModal extends Modal {
     initialLink: boolean,
     previousTaskId: string | undefined,
     private previousHeadingKey: string | undefined,
-    private resolve: (result: ProjectWorkResult | null) => void
+    private resolve: (result: ProjectWorkResult | null) => void,
+    private fixedMinutes?: number,
+    initialNote = ""
   ) {
     super(app);
     this.linkTask = initialLink;
+    this.note = initialNote;
     const previous = index.tasks.find(entry => entry.id && entry.id === previousTaskId);
     this.task = previous ? { kind: "existing", entry: previous } : null;
   }
@@ -39,10 +42,11 @@ export class ProjectWorkModal extends Modal {
     this.contentEl.empty();
     this.contentEl.addClass("btl-modal");
     const head = this.contentEl.createDiv({ cls: "btl-duration-head" });
-    head.createEl("h3", { text: `记录 · ${this.projectName}` });
-    const value = head.createEl("strong", { text: this.durationLabel(this.minutes) });
+    head.createEl("h3", { text: `${this.fixedMinutes == null ? "记录" : "结束"} · ${this.projectName}` });
+    const value = head.createEl("strong", { text: this.durationLabel(this.fixedMinutes ?? this.minutes) });
     const wheel = this.contentEl.createDiv({ cls: "btl-duration-wheel" });
-    for (const minutes of this.values) {
+    wheel.toggleClass("is-hidden", this.fixedMinutes != null);
+    for (const minutes of this.fixedMinutes == null ? this.values : []) {
       const button = wheel.createEl("button", { text: this.durationLabel(minutes), attr: { type: "button" } });
       button.dataset.minutes = String(minutes);
       button.toggleClass("is-selected", minutes === this.minutes);
@@ -80,14 +84,15 @@ export class ProjectWorkModal extends Modal {
       cls: "btl-textarea btl-duration-note",
       attr: { placeholder: "备注（可选）", rows: "3", "aria-label": "备注" }
     });
+    note.value = this.note;
     note.oninput = () => { this.note = note.value; };
     const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
     actions.createEl("button", { text: "取消" }).onclick = () => this.close();
-    this.submitButton = actions.createEl("button", { text: "记录", cls: "mod-cta" });
+    this.submitButton = actions.createEl("button", { text: this.fixedMinutes == null ? "记录" : "完成", cls: "mod-cta" });
     this.submitButton.onclick = () => this.submit();
     this.renderTaskControls();
     this.refreshSubmit();
-    window.setTimeout(() => wheel.querySelector<HTMLElement>(`[data-minutes="${this.minutes}"]`)?.scrollIntoView({ block: "center" }), 30);
+    if (this.fixedMinutes == null) window.setTimeout(() => wheel.querySelector<HTMLElement>(`[data-minutes="${this.minutes}"]`)?.scrollIntoView({ block: "center" }), 30);
   }
 
   onClose(): void {
@@ -193,7 +198,7 @@ export class ProjectWorkModal extends Modal {
   private submit(): void {
     if (this.linkTask && (!this.task || (this.task.kind === "new" && !this.task.headingKey))) return;
     this.resolved = true;
-    this.resolve({ minutes: this.minutes, note: this.note.trim(), linkTask: this.linkTask, task: this.linkTask ? this.task : null });
+    this.resolve({ minutes: this.fixedMinutes ?? this.minutes, note: this.note.trim(), linkTask: this.linkTask, task: this.linkTask ? this.task : null });
     this.close();
   }
 
