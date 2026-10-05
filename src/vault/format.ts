@@ -193,7 +193,8 @@ export function appendProjectLog(
   date: string,
   time: string,
   hours: number,
-  note: string
+  note: string,
+  workId?: string
 ): string {
   const { lines, range } = ensureNamedSection(content, "log");
   sortProjectLogDateBlocks(lines, range.headingLine + 1, range.endLine);
@@ -225,8 +226,21 @@ export function appendProjectLog(
   while (insertAt > dateLine + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
   const value = Number(hours.toFixed(2));
   const suffix = note.trim() ? ` ${note.trim()}` : "";
-  lines.splice(insertAt, 0, `\t- [${time}] ${value}h${suffix}`);
+  const marker = workId ? ` <!-- btl-work:${workId} -->` : "";
+  lines.splice(insertAt, 0, `\t- [${time}] ${value}h${suffix}${marker}`);
   sortProjectLogEntries(lines, dateLine, blockEnd + 1);
+  return lines.join("\n");
+}
+
+export function updateProjectWorkLogNote(content: string, workId: string, taskTitle: string | undefined, note: string): string {
+  const lines = content.split("\n");
+  const marker = `<!-- btl-work:${workId} -->`;
+  const index = lines.findIndex(line => line.includes(marker));
+  if (index < 0) throw new Error("找不到这次工时的项目日志，请手动检查");
+  const prefix = lines[index].match(/^(\s*-\s+\[\d{2}:\d{2}\]\s+\d+(?:\.\d+)?h)/)?.[1];
+  if (!prefix) throw new Error("项目日志格式已经改变，请手动检查");
+  const details = [taskTitle ? `@${taskTitle}` : "", note.trim()].filter(Boolean).join(" ");
+  lines[index] = `${prefix}${details ? ` ${details}` : ""} ${marker}`;
   return lines.join("\n");
 }
 
@@ -322,8 +336,8 @@ export function appendProjectTask(content: string, title: string, id: string): s
 export function setProjectTaskDone(content: string, id: string, done: boolean): string {
   const lines = content.split("\n");
   const marker = `^${id}`;
-  const index = lines.findIndex(line => line.includes(marker) && /- \[[ xX]\]/.test(line));
+  const index = lines.findIndex(line => line.trimEnd().endsWith(marker) && /^\s*[-*+]\s+\[[ xX]\]/.test(line));
   if (index < 0) return content;
-  lines[index] = lines[index].replace(/- \[[ xX]\]/, `- [${done ? "x" : " "}]`);
+  lines[index] = lines[index].replace(/^(\s*[-*+]\s+)\[[ xX]\]/, `$1[${done ? "x" : " "}]`);
   return lines.join("\n");
 }

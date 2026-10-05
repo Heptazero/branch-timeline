@@ -43,14 +43,27 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
   protected async completeItem(itemId: string): Promise<void> {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
     if (!item || item.kind === "fact") return;
-    if (item.projectPath && item.projectTaskId) {
-      try { await this.plugin.repository.setProjectTaskDone(item.projectPath, item.projectTaskId, true); }
-      catch (error) { new Notice(error instanceof Error ? error.message : "项目待办更新失败"); return; }
+    const timing = item.startedMin != null;
+    const note = timing ? await this.note(`完成 · ${item.title}`, "本次做了什么（可选）", item.note || "") : null;
+    if (timing && note == null) return;
+    const end = this.day ? this.nowOnAxis(this.day) ?? item.plannedMin ?? this.day.napEnd : 0;
+    const minutes = timing ? Math.max(0, end - (item.startedMin ?? end)) : 0;
+    const taskTitle = item.projectTaskTitle || (item.projectTaskId ? item.title : undefined);
+    if (item.projectPath) {
+      try {
+        const logNote = [taskTitle ? `@${taskTitle}` : "", note || ""].filter(Boolean).join(" ");
+        if (item.projectTaskId) await this.plugin.repository.completeProjectTaskWithLog(item.projectPath, item.projectTaskId, this.date, end, minutes, logNote, item.id);
+        else if (timing && minutes > 0) await this.plugin.repository.addProjectLog(item.projectPath, this.date, end, minutes, logNote, item.id);
+      } catch (error) { new Notice(error instanceof Error ? error.message : "项目工时写入失败"); return; }
     }
     await this.updateDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
-      const end = this.nowOnAxis(day) ?? target?.plannedMin ?? day.napEnd;
-      this.timers.complete(day, itemId, end);
+      this.timers.complete(day, itemId, end || target?.plannedMin || day.napEnd);
+      if (target && timing) {
+        target.note = note?.trim() || undefined;
+        target.projectTaskTitle = taskTitle;
+        if (target.projectPath && minutes > 0) target.projectLogId = item.id;
+      }
     });
     new Notice(`完成 · ${item.title}`);
   }
@@ -67,16 +80,32 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
   }
 
   protected async stopTiming(itemId: string): Promise<void> {
+    const item = this.day?.items.find(candidate => candidate.id === itemId);
+    if (!item || !(item.factTiming || (item.kind === "todo" && item.startedMin != null))) return;
+    const note = await this.note(`结束 · ${item.title}`, "本次做了什么（可选）", item.note || "");
+    if (note == null) return;
+    const end = this.day ? this.nowOnAxis(this.day) ?? item.endMin ?? item.startedMin ?? item.startMin ?? this.day.wake : 0;
+    const start = item.kind === "todo" ? item.startedMin ?? end : item.startMin ?? end;
+    const minutes = Math.max(0, end - start);
+    const factId = item.kind === "todo" ? this.uid("fact") : item.id;
+    const taskTitle = item.projectTaskTitle || (item.projectTaskId ? item.title : undefined);
+    if (item.projectPath && minutes > 0) {
+      try { await this.plugin.repository.addProjectLog(item.projectPath, this.date, end, minutes, [taskTitle ? `@${taskTitle}` : "", note].filter(Boolean).join(" "), factId); }
+      catch (error) { new Notice(error instanceof Error ? error.message : "项目工时写入失败"); return; }
+    }
     let summary = "";
     await this.updateDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
       if (!target) return;
       const running = target.factTiming || (target.kind === "todo" && target.startedMin != null);
       if (!running) return;
-      const now = this.nowOnAxis(day) ?? target.endMin ?? target.startedMin ?? target.startMin ?? day.wake;
-      summary = `${target.title} · ${compactDuration(elapsedMinutes(target, day, now))}`;
-      if (target.kind === "todo") this.timers.stopTodo(day, itemId, now, () => this.uid("fact"));
-      else this.timers.stop(day, itemId, now);
+      summary = `${target.title} · ${compactDuration(elapsedMinutes(target, day, end))}`;
+      const fact = target.kind === "todo" ? this.timers.stopTodo(day, itemId, end, () => factId) : this.timers.stop(day, itemId, end);
+      if (fact) {
+        fact.note = note.trim() || undefined;
+        fact.projectTaskTitle = taskTitle;
+        if (fact.projectPath && minutes > 0) fact.projectLogId = factId;
+      }
     });
     if (summary) new Notice(`计时结束 · ${summary}`);
   }
@@ -213,8 +242,12 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     if (note == null) return;
     if (item.projectPath) {
       try {
-        const minute = item.startMin ?? item.startedMin ?? item.plannedMin ?? item.endMin ?? this.day?.wake ?? 0;
-        await this.plugin.repository.syncProjectNote(item.projectPath, this.date, minute, item.note || "", note);
+        if (item.projectLogId) {
+          await this.plugin.repository.updateProjectWorkLogNote(item.projectPath, item.projectLogId, item.projectTaskTitle, note);
+        } else {
+          const minute = item.startMin ?? item.startedMin ?? item.plannedMin ?? item.endMin ?? this.day?.wake ?? 0;
+          await this.plugin.repository.syncProjectNote(item.projectPath, this.date, minute, item.note || "", note);
+        }
       } catch (error) {
         new Notice(error instanceof Error ? error.message : "项目备注同步失败");
         return;

@@ -312,8 +312,6 @@ export class ChoiceTextModal extends Modal {
   }
 }
 
-export interface DurationResult { minutes: number; note: string }
-
 export class ConfirmModal extends Modal {
   constructor(
     app: App,
@@ -337,69 +335,4 @@ export class ConfirmModal extends Modal {
   }
 
   onClose(): void { this.contentEl.empty(); }
-}
-
-export class DurationModal extends Modal {
-  private selected = 30;
-  private note = "";
-  private resolved = false;
-  private readonly values = [5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240];
-
-  constructor(app: App, private title: string, private resolve: (value: DurationResult | null) => void) { super(app); }
-
-  onOpen(): void {
-    this.contentEl.empty();
-    this.contentEl.addClass("btl-modal");
-    const head = this.contentEl.createDiv({ cls: "btl-duration-head" });
-    head.createEl("h3", { text: this.title });
-    const value = head.createEl("strong", { text: this.label(this.selected) });
-    const wheel = this.contentEl.createDiv({ cls: "btl-duration-wheel" });
-    for (const minutes of this.values) {
-      const button = wheel.createEl("button", { text: this.label(minutes), attr: { type: "button" } });
-      button.dataset.minutes = String(minutes);
-      button.toggleClass("is-selected", minutes === this.selected);
-      button.onclick = () => {
-        this.selected = minutes;
-        value.setText(this.label(minutes));
-        wheel.querySelectorAll("button").forEach(item => item.toggleClass("is-selected", item === button));
-        button.scrollIntoView({ block: "center", behavior: "smooth" });
-      };
-    }
-    wheel.addEventListener("scroll", () => {
-      window.clearTimeout(Number(wheel.dataset.timer || 0));
-      wheel.dataset.timer = String(window.setTimeout(() => {
-        const center = wheel.getBoundingClientRect().top + wheel.clientHeight / 2;
-        const closest = [...wheel.querySelectorAll("button")].sort((a, b) =>
-          Math.abs(a.getBoundingClientRect().top + a.clientHeight / 2 - center) -
-          Math.abs(b.getBoundingClientRect().top + b.clientHeight / 2 - center)
-        )[0];
-        if (closest) closest.click();
-      }, 80));
-    }, { passive: true });
-    const note = this.contentEl.createEl("textarea", {
-      cls: "btl-textarea btl-duration-note",
-      attr: { placeholder: "备注（可选）", rows: "3", "aria-label": "备注" }
-    });
-    note.oninput = () => { this.note = note.value; };
-    const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
-    actions.createEl("button", { text: "取消" }).onclick = () => this.close();
-    actions.createEl("button", { text: "记录", cls: "mod-cta" }).onclick = () => {
-      this.resolved = true;
-      this.resolve({ minutes: this.selected, note: this.note.trim() });
-      this.close();
-    };
-    window.setTimeout(() => wheel.querySelector<HTMLElement>(`[data-minutes="${this.selected}"]`)?.scrollIntoView({ block: "center" }), 30);
-  }
-
-  onClose(): void {
-    if (!this.resolved) this.resolve(null);
-    this.contentEl.empty();
-  }
-
-  private label(minutes: number): string {
-    if (minutes < 60) return `${minutes} 分钟`;
-    const hours = Math.floor(minutes / 60);
-    const rest = minutes % 60;
-    return rest ? `${hours} 小时 ${rest} 分` : `${hours} 小时`;
-  }
 }

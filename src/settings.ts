@@ -5,6 +5,7 @@ import { ConfirmModal } from "./modals";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
 import { DEFAULT_RHYTHM, DEFAULT_RHYTHM_MARKERS, RHYTHM_BOUNDARIES, rhythmLabel } from "./rhythm";
 import type { BranchTimelineSettings, ItemMetadataRequirement } from "./types";
+import { normalizeTaskHeadings } from "./vault/project-tasks";
 
 const PROJECT_TYPE_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
 
@@ -55,6 +56,10 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   diaryFolder: "20_self/22-diary",
   projectFolder: "21_project",
   projectTypes: [{ type: "project", color: PROJECT_TYPE_COLORS[0] }],
+  projectTaskHeadings: ["任务"],
+  linkProjectWorkTasks: false,
+  lastProjectTasks: {},
+  lastProjectTaskHeadings: {},
   itemMetadataRequirement: "none",
   habits: ["早睡", "阅读", "对话训练", "写日记"],
   tags: [],
@@ -139,6 +144,18 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
       axis: "vertical",
       onOrder: indexes => void this.reorderProjectTypes(indexes)
     });
+
+    new Setting(containerEl)
+      .setName("项目任务标题")
+      .setDesc("每行一个标题；搜索时包含它下面的所有次级标题。也可写“任务 / 本周”指定路径。")
+      .addTextArea(text => {
+        text.setValue(this.plugin.settings.projectTaskHeadings.join("\n")).setPlaceholder("任务");
+        text.inputEl.rows = 3;
+        text.inputEl.addEventListener("blur", () => {
+          this.plugin.settings.projectTaskHeadings = normalizeTaskHeadings(text.inputEl.value.split("\n"));
+          void this.plugin.saveSettings(false);
+        });
+      });
 
     const metadataRequirement = new Setting(containerEl).setName("双击创建强制归属");
     const requirementControl = metadataRequirement.controlEl.createDiv({ cls: "btl-setting-segments" });

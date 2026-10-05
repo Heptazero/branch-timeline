@@ -14,8 +14,11 @@ import {
   setHabitInDiary,
   setProjectTaskDone,
   upsertProjectDayTotal,
+  updateProjectWorkLogNote,
   upsertProjectNote
 } from "./format";
+import { appendProjectTaskAtHeading, ensureProjectTaskId, indexProjectTasks, upsertProjectTaskTotals } from "./project-tasks";
+import type { ProjectTaskIndex, ProjectWorkTask } from "./project-tasks";
 
 export class VaultRepository {
   private recordUndo: ((action: UndoAction) => void) | null = null;
@@ -66,10 +69,15 @@ export class VaultRepository {
     );
   }
 
-  async addProjectLog(projectPath: string, date: Date, endMinute: number, minutes: number, note: string): Promise<void> {
+  async addProjectLog(projectPath: string, date: Date, endMinute: number, minutes: number, note: string, workId?: string): Promise<void> {
     const file = this.projectFile(projectPath);
     const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
-    await this.process(file, content => appendProjectLog(content, dateKey(date), time, minutes / 60, note));
+    await this.process(file, content => appendProjectLog(content, dateKey(date), time, minutes / 60, note, workId));
+  }
+
+  async updateProjectWorkLogNote(projectPath: string, workId: string, taskTitle: string | undefined, note: string): Promise<void> {
+    const file = this.projectFile(projectPath);
+    await this.process(file, content => updateProjectWorkLogNote(content, workId, taskTitle, note));
   }
 
   async readProjectDayTotal(projectPath: string, date: string): Promise<ReturnType<typeof projectDayTotal>> {
@@ -106,9 +114,55 @@ export class VaultRepository {
     await this.process(file, content => appendProjectTask(content, title, id));
   }
 
+  async projectTasks(projectPath: string): Promise<ProjectTaskIndex> {
+    return indexProjectTasks(await this.app.vault.read(this.projectFile(projectPath)), this.settings.projectTaskHeadings);
+  }
+
+  async recordProjectWork(
+    projectPath: string, date: Date, endMinute: number, minutes: number, note: string,
+    workId: string, task: ProjectWorkTask | null, taskId: string | undefined
+  ): Promise<void> {
+    const file = this.projectFile(projectPath);
+    const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
+    await this.process(file, content => {
+      let next = content;
+      if (task?.kind === "existing") {
+        const current = indexProjectTasks(next, this.settings.projectTaskHeadings);
+        const found = task.entry.id
+          ? current.tasks.some(entry => entry.id === task.entry.id && entry.title === task.entry.title)
+          : current.tasks.some(entry => entry.line === task.entry.line && entry.title === task.entry.title && entry.headingKey === task.entry.headingKey);
+        if (!found || !taskId) throw new Error("项目任务已经改变，请重新选择");
+        next = ensureProjectTaskId(next, task.entry, taskId);
+      } else if (task?.kind === "new") {
+        if (!taskId) throw new Error("新任务缺少 ID");
+        next = appendProjectTaskAtHeading(next, task.title, taskId, task.headingKey, this.settings.projectTaskHeadings);
+      }
+      return appendProjectLog(next, dateKey(date), time, minutes / 60, note, workId);
+    });
+  }
+
+  async syncProjectTaskTotals(projectPath: string, totals: ReadonlyMap<string, number>): Promise<void> {
+    const file = this.projectFile(projectPath);
+    const before = await this.app.vault.read(file);
+    if (upsertProjectTaskTotals(before, totals) === before) return;
+    await this.app.vault.process(file, content => upsertProjectTaskTotals(content, totals));
+  }
+
   async setProjectTaskDone(projectPath: string, id: string, done: boolean): Promise<void> {
     const file = this.projectFile(projectPath);
     await this.process(file, content => setProjectTaskDone(content, id, done));
+  }
+
+  async completeProjectTaskWithLog(projectPath: string, id: string, date: Date, endMinute: number, minutes: number, note: string, workId: string): Promise<void> {
+    const file = this.projectFile(projectPath);
+    const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
+    await this.process(file, content => {
+      if (!content.split("\n").some(line => line.trimEnd().endsWith(`^${id}`) && /^\s*[-*+]\s+\[[ xX]\]/.test(line))) {
+        throw new Error("找不到关联任务，请重新选择");
+      }
+      const completed = setProjectTaskDone(content, id, true);
+      return minutes > 0 ? appendProjectLog(completed, dateKey(date), time, minutes / 60, note, workId) : completed;
+    });
   }
 
   async createProject(name: string, status: string, date: Date): Promise<ProjectRef> {

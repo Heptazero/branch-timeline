@@ -295,7 +295,7 @@ test("stops a timed todo as a fact without completing the todo", () => {
   assert.deepEqual(fact, {
     id: "fact", title: "研究", kind: "fact", plannedMin: 500,
     startMin: 560, endMin: 605, factTiming: false,
-    projectPath: "21_project/test.md", projectTaskId: undefined, milestone: false
+    projectPath: "21_project/test.md", projectTaskId: "task", milestone: false
   });
 });
 

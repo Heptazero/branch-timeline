@@ -36,6 +36,18 @@ export function changedProjectDates(before: BranchTimelineState, after: BranchTi
   });
 }
 
+export function completedProjectTaskTotals(state: BranchTimelineState, path: string): Map<string, number> {
+  const totals = new Map<string, number>();
+  for (const day of Object.values(state.days)) {
+    for (const item of day.items) {
+      if (item.projectPath !== path || !item.projectTaskId || item.kind !== "fact" || item.endMin == null || item.factTiming) continue;
+      const minutes = itemDuration(item, day.wake);
+      if (minutes > 0) totals.set(item.projectTaskId, (totals.get(item.projectTaskId) || 0) + minutes);
+    }
+  }
+  return totals;
+}
+
 export function projectPathsOn(before: BranchTimelineState, after: BranchTimelineState, date: string): string[] {
   const items = [...(before.days[date]?.items || []), ...(after.days[date]?.items || [])];
   return [...new Set(items.filter(item => item.kind === "fact" && item.projectPath)
@@ -109,7 +121,10 @@ export class ProjectTimeSync {
       const existing = await this.repository.readProjectDayTotal(project.path, date);
       if (existing.owned) paths.add(project.path);
     }
-    for (const path of paths) await this.repository.syncProjectDayTotal(path, date, totals.get(path) || 0);
+    for (const path of paths) {
+      await this.repository.syncProjectDayTotal(path, date, totals.get(path) || 0);
+      await this.repository.syncProjectTaskTotals(path, completedProjectTaskTotals(state, path));
+    }
     if (running) return "pending";
     return paths.size ? "synced" : "idle";
   }

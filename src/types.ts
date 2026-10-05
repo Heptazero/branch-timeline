@@ -3,6 +3,10 @@ export interface BranchTimelineSettings {
   diaryFolder: string;
   projectFolder: string;
   projectTypes: ProjectTypeConfig[];
+  projectTaskHeadings: string[];
+  linkProjectWorkTasks: boolean;
+  lastProjectTasks: Record<string, string>;
+  lastProjectTaskHeadings: Record<string, string>;
   itemMetadataRequirement: ItemMetadataRequirement;
   habits: string[];
   tags: TimelineTag[];
@@ -86,6 +90,8 @@ export interface TimelineItem {
   factTiming?: boolean;
   projectPath?: string;
   projectTaskId?: string;
+  projectTaskTitle?: string;
+  projectLogId?: string;
   tagId?: string;
   tag?: string;
   note?: string;

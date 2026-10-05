@@ -45,7 +45,7 @@ export class TimerService {
         startMin: now,
         endMin: now,
         factTiming: true,
-        projectTaskId: undefined
+        projectLogId: undefined
       };
       day.items.push(continuation);
       return continuation;
@@ -74,7 +74,6 @@ export class TimerService {
       startMin: target.startedMin,
       endMin: Math.max(target.startedMin, now),
       factTiming: false,
-      projectTaskId: undefined,
       milestone: false
     };
     delete fact.startedMin;

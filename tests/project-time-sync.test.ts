@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { BranchTimelineState } from "../src/types";
 import { appendProjectLog, projectDayTotal, upsertProjectDayTotal, upsertProjectNote } from "../src/vault/format";
-import { changedProjectDates, completedProjectTotals } from "../src/vault/project-time-sync";
+import { changedProjectDates, completedProjectTaskTotals, completedProjectTotals } from "../src/vault/project-time-sync";
 
 test("writes one absolute project total with hours and keeps manual entries", () => {
   const source = "## log\n- 1003\n\t- [10:00] [+0.5] 手写实验\n";
@@ -50,4 +50,14 @@ test("only completed facts enter the project total and edits mark that day chang
   assert.equal(completedProjectTotals(after, "2026-10-03").totals.get("a.md"), 60);
   assert.equal(completedProjectTotals(after, "2026-10-03").running, true);
   assert.deepEqual(changedProjectDates(before, after), ["2026-10-03"]);
+});
+
+test("recomputes one task total across days without counting running time", () => {
+  const day = (minutes: number) => ({
+    wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
+    items: [{ id: `fact-${minutes}`, title: "实验", kind: "fact" as const, startMin: 600, endMin: 600 + minutes, projectPath: "a.md", projectTaskId: "task-a" }]
+  });
+  const state = { days: { "2026-10-02": day(45), "2026-10-03": day(75) } } as unknown as BranchTimelineState;
+  state.days["2026-10-03"].items.push({ id: "running", title: "实验", kind: "fact", startMin: 800, endMin: 800, factTiming: true, projectPath: "a.md", projectTaskId: "task-a" });
+  assert.equal(completedProjectTaskTotals(state, "a.md").get("task-a"), 120);
 });

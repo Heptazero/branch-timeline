@@ -1,5 +1,7 @@
 import { Notice, Platform, Plugin, WorkspaceLeaf } from "obsidian";
-import { ChoiceSuggestModal, DurationModal, ProjectSuggestModal, TextEntryModal } from "./modals";
+import { ChoiceSuggestModal, ProjectSuggestModal, TextEntryModal } from "./modals";
+import { ProjectWorkModal } from "./project-work-modal";
+import type { ProjectWorkResult } from "./project-work-modal";
 import { normalizeRhythmMarkers, normalizeRhythmSchedule } from "./rhythm";
 import { BranchTimelineSettingTab, DEFAULT_SETTINGS } from "./settings";
 import { loadTags } from "./tags";
@@ -11,6 +13,8 @@ import { StateStore, defaultDay } from "./vault/state-store";
 import { changedProjectDates, projectPathsOn, ProjectTimeSync } from "./vault/project-time-sync";
 import { UndoManager } from "./undo-manager";
 import { compactDuration, elapsedMinutes, runningItems } from "./timeline/timer-service";
+import { normalizeTaskHeadings } from "./vault/project-tasks";
+import type { ProjectTaskIndex } from "./vault/project-tasks";
 
 export default class BranchTimelinePlugin extends Plugin {
   settings: BranchTimelineSettings = DEFAULT_SETTINGS;
@@ -74,6 +78,10 @@ export default class BranchTimelinePlugin extends Plugin {
           .filter(item => item && typeof item.type === "string" && typeof item.color === "string")
           .map(item => ({ type: item.type.trim(), color: item.color }))
         : DEFAULT_SETTINGS.projectTypes.map(item => ({ ...item })),
+      projectTaskHeadings: normalizeTaskHeadings(saved?.projectTaskHeadings),
+      linkProjectWorkTasks: saved?.linkProjectWorkTasks === true,
+      lastProjectTasks: saved?.lastProjectTasks && typeof saved.lastProjectTasks === "object" ? saved.lastProjectTasks : {},
+      lastProjectTaskHeadings: saved?.lastProjectTaskHeadings && typeof saved.lastProjectTaskHeadings === "object" ? saved.lastProjectTaskHeadings : {},
       itemMetadataRequirement: this.metadataRequirement(saved),
       habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
       tags: Array.isArray(saved?.tags) || tagMap ? loadTags(saved?.tags, tagMap) : [],
@@ -150,18 +158,43 @@ export default class BranchTimelinePlugin extends Plugin {
   async recordProjectWork(date: Date): Promise<void> {
     const project = await this.chooseProject();
     if (!project) return;
-    const result = await this.duration(`记录 · ${project.name}`);
+    let index: ProjectTaskIndex;
+    try { index = await this.repository.projectTasks(project.path); }
+    catch (error) { new Notice(error instanceof Error ? error.message : "项目任务读取失败"); return; }
+    const result = await new Promise<ProjectWorkResult | null>(resolve => new ProjectWorkModal(
+      this.app, project.name, index, this.settings.linkProjectWorkTasks,
+      this.settings.lastProjectTasks[project.path], this.settings.lastProjectTaskHeadings[project.path], resolve
+    ).open());
     if (!result) return;
     const end = this.minuteNow(date);
-    const start = Math.max(this.settings.rhythm.wake, end - result.minutes);
-    await this.repository.addProjectLog(project.path, date, end, result.minutes, result.note);
+    const start = end - result.minutes;
+    const factId = this.uid("fact");
+    let taskId: string | undefined;
+    let taskTitle: string | undefined;
+    let headingKey: string | undefined;
+    if (result.task?.kind === "existing") {
+      taskId = result.task.entry.id || this.uid("btl");
+      taskTitle = result.task.entry.title;
+      headingKey = result.task.entry.headingKey;
+    } else if (result.task?.kind === "new") {
+      taskId = this.uid("btl");
+      taskTitle = result.task.title;
+      headingKey = result.task.headingKey;
+    }
+    const logNote = [taskTitle ? `@${taskTitle}` : "", result.note].filter(Boolean).join(" ");
+    try { await this.repository.recordProjectWork(project.path, date, end, result.minutes, logNote, factId, result.task, taskId); }
+    catch (error) { new Notice(error instanceof Error ? error.message : "项目工时写入失败"); return; }
     await this.store.update(state => {
       const day = state.days[dateKey(date)] ||= defaultDay(this.settings.rhythm);
       day.items.push({
-        id: this.uid("fact"), title: result.note || project.name, kind: "fact", startMin: start, endMin: end,
-        projectPath: project.path, note: result.note || undefined
+        id: factId, title: taskTitle || result.note || project.name, kind: "fact", startMin: start, endMin: end,
+        projectPath: project.path, projectTaskId: taskId, projectTaskTitle: taskTitle, projectLogId: factId, note: result.note || undefined
       });
     });
+    this.settings.linkProjectWorkTasks = result.linkTask;
+    if (taskId) this.settings.lastProjectTasks[project.path] = taskId;
+    if (headingKey) this.settings.lastProjectTaskHeadings[project.path] = headingKey;
+    await this.saveSettings(false);
     new Notice(`${project.name} · ${result.minutes} 分钟`);
     await this.refreshViews();
   }
@@ -262,10 +295,6 @@ export default class BranchTimelinePlugin extends Plugin {
 
   private choose(title: string, items: { id: string; label: string }[]): Promise<{ id: string; label: string } | null> {
     return new Promise(resolve => new ChoiceSuggestModal(this.app, title, items, resolve).open());
-  }
-
-  private duration(title: string): Promise<{ minutes: number; note: string } | null> {
-    return new Promise(resolve => new DurationModal(this.app, title, resolve).open());
   }
 
   private text(title: string, placeholder: string): Promise<string | null> {

@@ -490,3 +490,11 @@
 @media (max-width: 520px) {
   .branch-timeline-hz { padding-inline: 7px; }
 }
+.btl-work-link-row { display: flex; align-items: center; gap: 8px; margin: 10px 0 6px; cursor: pointer; }
+.btl-work-picker { display: grid; gap: 6px; margin-bottom: 8px; }
+.btl-work-picker.is-hidden, .btl-work-choice.is-hidden { display: none; }
+.btl-work-choice { width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; }
+.btl-work-list { max-height: min(220px, 25vh); overflow-y: auto; display: grid; gap: 2px; }
+.btl-work-option { display: flex; justify-content: space-between; gap: 8px; width: 100%; text-align: left; padding: 7px 10px; border-radius: 6px; }
+.btl-work-option small { color: var(--text-muted); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btl-work-option span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
