@@ -4,7 +4,7 @@ import type { RhythmBoundaryKey, RhythmKey, RhythmMarkerDefinition, RhythmSchedu
 
 type Target = { kind: "boundary"; key: RhythmBoundaryKey } | { kind: "marker"; id: string };
 let closeCurrent: (() => void) | null = null;
-const WIDTH_KEY = "btl-rhythm-panel-width";
+const WIDTH_KEY = "btl-rhythm-panel-width-v2";
 
 export function openRhythmSchedulePopover(
   anchor: HTMLElement,
@@ -20,7 +20,7 @@ export function openRhythmSchedulePopover(
   let labels = { ...initialLabels };
   const panel = document.body.createDiv({ cls: "btl-rhythm-popover" });
   const savedWidth = Number(localStorage.getItem(WIDTH_KEY));
-  panel.style.width = `${Number.isFinite(savedWidth) && savedWidth >= 210 && savedWidth <= 440 ? savedWidth : 236}px`;
+  panel.style.width = `${Number.isFinite(savedWidth) && savedWidth >= 210 && savedWidth <= 320 ? savedWidth : 236}px`;
   const position = (): void => {
     const anchorRect = anchor.getBoundingClientRect();
     const rect = panel.getBoundingClientRect();
@@ -68,7 +68,6 @@ export function openRhythmSchedulePopover(
   };
   const resize = (): void => {
     const grip = panel.createEl("button", { cls: "btl-rhythm-resize", attr: { type: "button", "aria-label": "拖动调整节律宽度", title: "拖动调整宽度" } });
-    setIcon(grip, "grip");
     grip.onpointerdown = event => {
       event.preventDefault();
       grip.setPointerCapture(event.pointerId);
@@ -76,7 +75,7 @@ export function openRhythmSchedulePopover(
       const startWidth = panel.getBoundingClientRect().width;
       const startLeft = panel.getBoundingClientRect().left;
       grip.onpointermove = move => {
-        panel.style.width = `${Math.max(210, Math.min(440, startWidth + move.clientX - startX, window.innerWidth - startLeft - 8))}px`;
+        panel.style.width = `${Math.max(210, Math.min(320, startWidth + move.clientX - startX, window.innerWidth - startLeft - 8))}px`;
       };
       grip.onpointerup = () => {
         grip.onpointermove = null;
@@ -138,10 +137,15 @@ export function openRhythmSchedulePopover(
     ] as Array<{ target: Target; name: string; minute: number }>).sort((a, b) => a.minute - b.minute);
     for (const entry of rows) {
       const row = panel.createDiv({ cls: "btl-rhythm-row" });
-      const time = row.createEl("button", { cls: "btl-rhythm-row-time", attr: { type: "button", "aria-label": `修改${entry.name}时间` } });
+      const time = row.createDiv({ cls: "btl-rhythm-row-time", attr: { role: "button", tabindex: "0", "aria-label": `修改${entry.name}时间` } });
       time.createSpan({ text: entry.name });
-      time.createEl("strong", { text: timeLabel(entry.minute) });
+      const clock = time.createDiv({ cls: "btl-rhythm-row-clock" });
+      clock.createEl("strong", { text: clockLabel(entry.minute) });
+      if (entry.minute >= 1440) clock.createEl("small", { text: "次日" });
       time.onclick = () => renderWheel(entry.target);
+      time.onkeydown = event => {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); renderWheel(entry.target); }
+      };
       const more = row.createEl("button", { cls: "btl-rhythm-more", attr: { type: "button", "aria-label": `${entry.name}菜单`, title: "更多" } });
       setIcon(more, "more-vertical");
       more.onclick = () => {
@@ -196,7 +200,11 @@ export function openRhythmSchedulePopover(
 }
 
 function timeLabel(minute: number): string {
-  const normalized = ((minute % 1440) + 1440) % 1440;
-  const value = `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+  const value = clockLabel(minute);
   return minute >= 1440 ? `${value} · 次日` : value;
+}
+
+function clockLabel(minute: number): string {
+  const normalized = ((minute % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
 }
