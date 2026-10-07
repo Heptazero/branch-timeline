@@ -12,6 +12,7 @@ import {
   type TimelineItemDraftResult
 } from "./modals";
 import { pageDateTitle, shiftPageDate } from "./pages/navigation";
+import { lifeDateAt } from "./pages/life-model";
 import { absoluteMinute } from "./pages/project-model";
 import { projectPlanOn } from "./pages/project-time";
 import { openProjectPlanPopover } from "./project-plan-popover";
@@ -94,6 +95,7 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
 
   protected openAddMenu(event: MouseEvent): void {
     const menu = new Menu();
+    if (this.page === "life") { this.lifeActions.add(this.lifeAnchor == null ? dateKey(new Date()) : lifeDateAt(this.lifeAnchor)); return; }
     const minute = this.day ? this.nowOnAxis(this.day) ?? this.day.napEnd : 12 * 60;
     if (this.page === "projects") {
       if (this.selectedProjectPath && this.projectActions) {

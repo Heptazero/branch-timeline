@@ -1,0 +1,41 @@
+.btl-life-page { display: flex; width: min(100%, 760px); min-height: 0; flex: 1 1 auto; flex-direction: column; margin: 0 auto; }
+.btl-date-nav.is-hidden, .btl-day-countdown.is-hidden { display: none; }
+.btl-life-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 5px; padding: 0 5px 8px; }
+.btl-life-controls button, .btl-life-event > button:not(.btl-life-event-card), .btl-life-chapter-head button { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; border: 0; border-radius: 8px; padding: 0; background: transparent; box-shadow: none; color: var(--text-muted); }
+.btl-life-controls button:hover, .btl-life-event > button:hover, .btl-life-chapter-head button:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.btl-life-controls button svg, .btl-life-event > button svg, .btl-life-chapter-head button svg { width: 16px; height: 16px; }
+.btl-life-controls .btl-life-today { display: block; width: auto; min-width: 47px; padding: 0 8px; font-size: 11px; }
+.btl-life-scale-label { margin-left: auto; color: var(--text-faint); font-size: 10px; }
+.btl-life-rewind { min-width: 0; max-width: 100%; align-self: flex-start; overflow: hidden; margin: 0 5px 7px; border: 1px solid color-mix(in srgb, var(--interactive-accent) 35%, var(--background-modifier-border)); border-radius: 999px; padding: 4px 9px; background: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-primary)); color: var(--interactive-accent); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.btl-life-scroller { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior-y: contain; touch-action: pan-y; scrollbar-width: thin; }
+.btl-life-canvas { position: relative; width: 100%; min-width: 0; }
+.btl-life-line { position: absolute; left: 78px; width: 2px; border-radius: 2px; background: color-mix(in srgb, var(--interactive-accent) 38%, var(--background-modifier-border)); }
+.btl-life-tick, .btl-life-month-tick { position: absolute; left: 0; display: flex; width: 79px; align-items: center; justify-content: flex-end; gap: 6px; transform: translateY(-50%); color: var(--text-faint); font-size: 10px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.btl-life-tick::after, .btl-life-month-tick::after { content: ""; width: 8px; height: 1px; flex: none; background: var(--text-faint); }
+.btl-life-month-tick { font-size: 8px; opacity: .7; }
+.btl-life-month-tick::after { width: 4px; }
+.btl-life-chapter { position: absolute; z-index: 1; right: 7px; left: 86px; box-sizing: border-box; min-height: 18px; border-left: 2px solid color-mix(in srgb, var(--btl-life-color) 70%, transparent); border-radius: 0 8px 8px 0; background: color-mix(in srgb, var(--btl-life-color) 9%, transparent); }
+.btl-life-chapter-head { display: flex; min-width: 0; height: 32px; align-items: center; justify-content: space-between; gap: 4px; padding-left: 9px; color: var(--btl-life-color); cursor: pointer; }
+.btl-life-chapter-head span { min-width: 0; overflow: hidden; font-size: 11px; font-weight: 740; text-overflow: ellipsis; white-space: nowrap; }
+.btl-life-chapter-head button { width: 30px; height: 30px; flex-basis: 30px; }
+.btl-life-now { position: absolute; z-index: 2; right: 7px; left: 5px; height: 1px; border-top: 1px dashed var(--interactive-accent); pointer-events: none; }
+.btl-life-now span { position: absolute; top: -15px; left: 4px; color: var(--interactive-accent); font-size: 10px; font-weight: 760; }
+.btl-life-event { position: absolute; z-index: 3; right: 5px; left: 70px; display: flex; min-height: 48px; align-items: center; gap: 3px; transform: translateY(-50%); }
+.btl-life-dot { width: 14px; height: 14px; flex: 0 0 14px; border: 3px solid var(--background-primary); border-radius: 50%; background: var(--interactive-accent); box-shadow: 0 0 0 1px var(--interactive-accent); }
+.btl-life-event-card { display: flex; min-width: 0; min-height: 43px; flex: 1 1 auto; flex-direction: column; justify-content: center; gap: 1px; border: 1px solid var(--background-modifier-border); border-radius: 10px; padding: 5px 9px; background: var(--background-primary); box-shadow: none; color: var(--text-normal); text-align: left; }
+.btl-life-event-card:hover, .btl-life-event-card:focus-visible { border-color: var(--interactive-accent); background: var(--background-secondary); }
+.btl-life-event-card strong { min-width: 0; overflow: hidden; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.btl-life-event-card span { color: var(--text-faint); font-size: 9px; font-variant-numeric: tabular-nums; }
+.btl-life-event-card small { display: -webkit-box; overflow: hidden; color: var(--text-muted); font-size: 9px; line-height: 1.25; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.btl-life-event > button:not(.btl-life-event-card) { width: 29px; height: 34px; flex-basis: 29px; }
+.btl-life-date-row { display: flex; align-items: center; gap: 7px; margin-top: 10px; }
+.btl-life-date-row > span { width: 32px; flex: 0 0 32px; color: var(--text-muted); font-size: 11px; }
+.btl-life-date-row input { width: 62px; min-width: 0; height: 38px; border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 0 8px; background: var(--background-primary); color: var(--text-normal); font-variant-numeric: tabular-nums; text-align: center; }
+.btl-life-date-row input:first-of-type { width: 76px; }
+.btl-life-segments { display: inline-flex; gap: 3px; margin: 9px 8px 0 0; border-radius: 9px; padding: 3px; background: var(--background-secondary); }
+.btl-life-segments button { min-width: 41px; border: 0; border-radius: 7px; padding: 6px 10px; background: transparent; box-shadow: none; color: var(--text-muted); font-size: 11px; }
+.btl-life-segments button.is-active { background: var(--interactive-accent); color: var(--text-on-accent); }
+.btl-life-note { min-height: 72px; margin-top: 10px; }
+.btl-life-error { min-height: 14px; margin-top: 3px; color: var(--text-error); font-size: 10px; }
+.btl-life-date-row.is-hidden, .btl-life-date-row input.is-hidden { display: none; }
+@media (max-width: 390px) { .btl-life-event { right: 3px; gap: 1px; } .btl-life-event > button:not(.btl-life-event-card) { width: 26px; flex-basis: 26px; } .btl-life-event-card { padding-inline: 6px; } }

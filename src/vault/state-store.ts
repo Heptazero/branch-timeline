@@ -12,7 +12,8 @@ const EMPTY_STATE: BranchTimelineState = {
   policyCards: [],
   policyNodes: [],
   policySides: [{ id: "policy-side-routine", name: "作息", mode: "dayparts" }],
-  policyEvents: []
+  policyEvents: [],
+  lifeEvents: []
 };
 
 export class StateStore {
@@ -49,7 +50,8 @@ export class StateStore {
         policyNodes: Array.isArray(parsed.policyNodes)
           ? parsed.policyNodes.map(node => normalizePolicyNode(node))
           : [],
-        policyEvents: Array.isArray(parsed.policyEvents) ? parsed.policyEvents : []
+        policyEvents: Array.isArray(parsed.policyEvents) ? parsed.policyEvents : [],
+        lifeEvents: Array.isArray(parsed.lifeEvents) ? parsed.lifeEvents : []
       };
     } catch {
       return structuredClone(EMPTY_STATE);

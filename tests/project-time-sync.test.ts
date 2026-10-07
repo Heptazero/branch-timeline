@@ -44,7 +44,7 @@ test("only completed facts enter the project total and edits mark that day chang
   const before = { version: 1, days: { "2026-10-03": {
     wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
     items: [{ id: "a", title: "实验", kind: "fact" as const, startMin: 600, endMin: 660, projectPath: "a.md" }]
-  } }, projects: {}, achievements: [], policySides: [], policyCards: [], policyNodes: [], policyEvents: [] } as BranchTimelineState;
+  } }, projects: {}, achievements: [], policySides: [], policyCards: [], policyNodes: [], policyEvents: [], lifeEvents: [] } as BranchTimelineState;
   const after = structuredClone(before);
   after.days["2026-10-03"].items.push({ id: "b", title: "写作", kind: "todo", startedMin: 700, projectPath: "a.md" });
   assert.equal(completedProjectTotals(after, "2026-10-03").totals.get("a.md"), 60);

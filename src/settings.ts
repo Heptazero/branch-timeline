@@ -43,11 +43,12 @@ class ProjectTypeSuggest extends AbstractInputSuggest<ProjectTypeSuggestion> {
   }
 }
 
-const OPTIONAL_PAGES: ReadonlyArray<{ id: "projects" | "habits" | "achievements" | "policy"; label: string }> = [
+const OPTIONAL_PAGES: ReadonlyArray<{ id: Exclude<BranchTimelineSettings["visiblePages"][number], "day">; label: string }> = [
   { id: "projects", label: "项目" },
   { id: "habits", label: "统计" },
   { id: "achievements", label: "成就" },
-  { id: "policy", label: "锚点" }
+  { id: "policy", label: "锚点" },
+  { id: "life", label: "人生" }
 ];
 
 export const DEFAULT_SETTINGS: BranchTimelineSettings = {
@@ -68,7 +69,8 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   rhythmElapsedMark: "↑",
   rhythmRemainingMark: "↓",
   timerReminderMinutes: 45,
-  visiblePages: ["day", "projects", "habits", "achievements", "policy"],
+  visiblePages: ["day", "projects", "habits", "achievements", "policy", "life"],
+  pageVisibilityVersion: 2,
   projectOrder: [],
   pinnedProjects: [],
   collapsedProjectGroups: [],

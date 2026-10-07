@@ -20,7 +20,7 @@ const external = [
 
 if (mode === "test") {
   await esbuild.build({
-    entryPoints: ["tests/format.test.ts", "tests/project-time-sync.test.ts", "tests/project-tasks.test.ts"],
+    entryPoints: ["tests/format.test.ts", "tests/project-time-sync.test.ts", "tests/project-tasks.test.ts", "tests/life-model.test.ts"],
     bundle: true,
     platform: "node",
     format: "cjs",

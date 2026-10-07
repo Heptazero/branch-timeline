@@ -7,7 +7,8 @@ const PAGES: ReadonlyArray<{ id: TimelinePage; label: string }> = [
   { id: "projects", label: "项目" },
   { id: "habits", label: "统计" },
   { id: "achievements", label: "成就" },
-  { id: "policy", label: "锚点" }
+  { id: "policy", label: "锚点" },
+  { id: "life", label: "人生" }
 ];
 
 export function renderPageNavigation(

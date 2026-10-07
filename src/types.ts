@@ -17,6 +17,7 @@ export interface BranchTimelineSettings {
   rhythmRemainingMark: string;
   timerReminderMinutes: number;
   visiblePages: TimelinePage[];
+  pageVisibilityVersion: number;
   projectOrder: string[];
   pinnedProjects: string[];
   collapsedProjectGroups: string[];
@@ -26,7 +27,18 @@ export interface BranchTimelineSettings {
 
 export type ItemMetadataRequirement = "none" | "project" | "tag" | "both";
 
-export type TimelinePage = "day" | "projects" | "habits" | "achievements" | "policy";
+export type TimelinePage = "day" | "projects" | "habits" | "achievements" | "policy" | "life";
+
+export type LifeDatePrecision = "year" | "month" | "day";
+
+export interface LifeEvent {
+  id: string;
+  title: string;
+  date: string;
+  kind: "milestone" | "chapter";
+  endDate?: string;
+  note?: string;
+}
 
 export type RhythmKey = "wake" | "napStart" | "napEnd" | "sleepPrep" | "sleep";
 export type RhythmBoundaryKey = "wake" | "sleep";
@@ -150,6 +162,7 @@ export interface BranchTimelineState {
   policyNodes: PolicyNode[];
   policySides: PolicySide[];
   policyEvents: PolicyEvent[];
+  lifeEvents: LifeEvent[];
 }
 
 export interface Achievement {

@@ -88,7 +88,10 @@ export default class BranchTimelinePlugin extends Plugin {
       rhythm,
       rhythmMarkers: normalizeRhythmMarkers(saved?.rhythmMarkers, rhythm, rhythmLabels),
       rhythmLabels,
-      visiblePages: Array.isArray(saved?.visiblePages) ? ["day", ...saved.visiblePages.filter(page => page !== "day")] : DEFAULT_SETTINGS.visiblePages,
+      visiblePages: Array.isArray(saved?.visiblePages)
+        ? ["day", ...saved.visiblePages.filter(page => page !== "day"), ...(saved.pageVisibilityVersion === 2 ? [] : ["life" as const])]
+        : DEFAULT_SETTINGS.visiblePages,
+      pageVisibilityVersion: 2,
       projectOrder: Array.isArray(saved?.projectOrder) ? saved.projectOrder : [],
       pinnedProjects: Array.isArray(saved?.pinnedProjects) ? saved.pinnedProjects : [],
       collapsedProjectGroups: Array.isArray(saved?.collapsedProjectGroups) ? saved.collapsedProjectGroups : [],

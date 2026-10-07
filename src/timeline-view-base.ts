@@ -9,11 +9,10 @@ import {
 import { AchievementActions } from "./pages/achievement-actions";
 import { renderAchievementDetail, renderAchievementsPage } from "./pages/achievements";
 import { renderStatsPage } from "./pages/stats";
+import { LifeActions } from "./pages/life-actions";
 import { renderPageNavigation, type TimelinePage } from "./pages/navigation";
 import { ProjectTimelineActions } from "./pages/project-actions";
 import {
-  PROJECT_SCALE_MAX,
-  PROJECT_SCALE_MIN,
   renderProjectDetail,
   type ProjectScaleAnchor
 } from "./pages/project-detail";
@@ -24,11 +23,12 @@ import { PolicyActions } from "./pages/policy-actions";
 import { TimelineGestures } from "./timeline/gestures";
 import { RunningBar } from "./timeline/running-bar";
 import { effectiveEnergyPhases } from "./timeline/energy-phases";
-import { MAX_SCALE, MIN_SCALE, minuteToY } from "./timeline/model";
+import { minuteToY } from "./timeline/model";
 import { renderTimeline } from "./timeline/renderer";
 import type { DistractionLevel, ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
+import { clampProjectScale, clampScale, readProjectTimeScope } from "./view-preferences";
 
 export const BRANCH_TIMELINE_VIEW = "branch-timeline-hz-view";
 export const BRANCH_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
@@ -53,6 +53,8 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected selectedProjectPath: string | null = null;
   protected projectTimeScope: ProjectTimeScope = readProjectTimeScope();
   protected selectedAchievementId: string | null = null;
+  protected lifeAnchor: number | undefined;
+  protected lifeActions: LifeActions;
   protected projectScale = clampProjectScale(Number(localStorage.getItem("branch-timeline-hz-project-scale")) || 120);
   protected projectAnchor: ProjectScaleAnchor | undefined;
   protected getProjectAnchor: (() => ProjectScaleAnchor) | null = null;
@@ -81,6 +83,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
       onDeleteAchievement: id => { if (this.selectedAchievementId === id) this.selectedAchievementId = null; }
     });
     this.policyActions = new PolicyActions(shared);
+    this.lifeActions = new LifeActions(this.app, this.plugin, () => this.render(false));
   }
   getViewType(): string { return BRANCH_TIMELINE_VIEW; }
   getDisplayText(): string { return "Branch Timeline"; }
@@ -161,6 +164,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     this.syncButton.addClass("btl-sync-cloud");
     this.updateSyncCloud();
     const dateNav = toolbar.createDiv({ cls: "btl-date-nav" });
+    dateNav.toggleClass("is-hidden", this.page === "life");
     const previousDate = this.iconButton(dateNav, "chevron-left", "前一天", () => this.shiftDate(-1));
     const dateButton = dateNav.createEl("button", { cls: "btl-date-button", text: this.dateTitle() });
     dateButton.onclick = () => void this.openDatePicker(dateButton);
@@ -182,6 +186,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
       void this.render(false);
     }, this.plugin.settings.visiblePages);
     this.countdownButton = navigationRow.createEl("button", { cls: "btl-day-countdown", attr: { "aria-label": "设置节律" } });
+    this.countdownButton.toggleClass("is-hidden", this.page === "life");
     this.countdownButton.createSpan();
     this.countdownButton.createEl("strong");
     this.countdownButton.onclick = () => this.openRhythmSettings(this.countdownButton!);
@@ -325,6 +330,8 @@ export abstract class BranchTimelineViewBase extends ItemView {
             onMenu: (target, event) => this.achievementActions.openMenu(target, event)
           });
         }
+      } else if (this.page === "life") {
+        this.lifeActions.render(pageContent, state.lifeEvents, this.lifeAnchor, year => { this.lifeAnchor = year; });
       } else {
         const activeSide = state.policySides.find(side => side.id === this.policySideId) || state.policySides[0];
         this.policySideId = activeSide?.id || "policy-side-routine";
@@ -488,11 +495,4 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract minutes(title: string): Promise<number | null>;
   protected abstract iconButton(parent: HTMLElement, icon: string, label: string, action: (event: MouseEvent) => void): HTMLButtonElement;
   protected abstract uid(prefix: string): string;
-}
-
-function clampScale(value: number): number { return Math.max(MIN_SCALE, Math.min(MAX_SCALE, value)); }
-function clampProjectScale(value: number): number { return Math.max(PROJECT_SCALE_MIN, Math.min(PROJECT_SCALE_MAX, value)); }
-function readProjectTimeScope(): ProjectTimeScope {
-  const value = localStorage.getItem("branch-timeline-hz-project-time-scope");
-  return value === "week" || value === "total" ? value : "day";
 }
