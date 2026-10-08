@@ -15,6 +15,7 @@ import { UndoManager } from "./undo-manager";
 import { compactDuration, elapsedMinutes, runningItems } from "./timeline/timer-service";
 import { normalizeTaskHeadings } from "./vault/project-tasks";
 import type { ProjectTaskIndex } from "./vault/project-tasks";
+import { DiaryBracketSuggest } from "./diary-bracket-suggest";
 
 export default class BranchTimelinePlugin extends Plugin {
   settings: BranchTimelineSettings = DEFAULT_SETTINGS;
@@ -38,6 +39,7 @@ export default class BranchTimelinePlugin extends Plugin {
     });
     this.repository.setUndoRecorder(action => this.undoManager.record(action));
     await this.store.ensure();
+    new DiaryBracketSuggest(this.app, () => this.settings.diaryFolder).start(this);
     this.registerEvent(this.app.vault.on("modify", file => {
       const folder = this.settings.diaryFolder.replace(/\/$/, "");
       if (file.path.startsWith(`${folder}/`)) this.scheduleLifeDiaryRefresh();
