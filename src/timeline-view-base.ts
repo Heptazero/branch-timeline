@@ -119,19 +119,6 @@ export abstract class BranchTimelineViewBase extends ItemView {
   }
   async refresh(): Promise<void> { await this.render(true); }
 
-  async focusRunningItem(itemId: string): Promise<void> {
-    this.date = logicalToday();
-    this.followsToday = true;
-    this.page = "day";
-    this.selectedProjectPath = null;
-    this.selectedAchievementId = null;
-    await this.render(false);
-    window.requestAnimationFrame(() => {
-      this.scroller?.querySelector<HTMLElement>(`.btl-canvas-item[data-item-id="${CSS.escape(itemId)}"]`)
-        ?.scrollIntoView({ block: "center", behavior: "smooth" });
-    });
-  }
-
   protected async render(preserveScroll: boolean, anchor?: ScrollAnchor): Promise<void> {
     const requestId = ++this.renderId;
     const previousScroll = preserveScroll ? this.scroller?.scrollTop || 0 : 0;
@@ -180,6 +167,11 @@ export abstract class BranchTimelineViewBase extends ItemView {
 
     const navigationRow = root.createDiv({ cls: "btl-page-nav-row" });
     renderPageNavigation(navigationRow, this.page, page => {
+      this.date = logicalToday();
+      this.followsToday = true;
+      if (page === "life") this.lifeAnchor = undefined;
+      if (page === "projects") this.projectAnchor = undefined;
+      if (page === "policy") this.policyPeriod = policyPeriodAt(new Date());
       this.page = page;
       if (page !== "projects") this.selectedProjectPath = null;
       if (page !== "achievements") this.selectedAchievementId = null;
@@ -331,7 +323,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
           });
         }
       } else if (this.page === "life") {
-        this.lifeActions.render(pageContent, state.lifeEvents, this.lifeAnchor, year => { this.lifeAnchor = year; });
+        await this.lifeActions.render(pageContent, state.lifeEvents, this.lifeAnchor, year => { this.lifeAnchor = year; });
       } else {
         const activeSide = state.policySides.find(side => side.id === this.policySideId) || state.policySides[0];
         this.policySideId = activeSide?.id || "policy-side-routine";
@@ -424,6 +416,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   }
 
   protected abstract moveItem(itemId: string, startMin: number, branchId: string | null): Promise<void>;
+  abstract focusRunningItem(itemId: string): Promise<void>;
   updateSyncCloud(): void {
     if (!this.syncButton) return;
     const key = dateKey(this.date);

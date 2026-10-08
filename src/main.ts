@@ -25,6 +25,7 @@ export default class BranchTimelinePlugin extends Plugin {
   private timerStatusItem: HTMLElement | null = null;
   private timerStatusItemId: string | null = null;
   private readonly deliveredTimerReminders = new Set<string>();
+  private lifeDiaryRefreshTimer: number | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -37,6 +38,10 @@ export default class BranchTimelinePlugin extends Plugin {
     });
     this.repository.setUndoRecorder(action => this.undoManager.record(action));
     await this.store.ensure();
+    this.registerEvent(this.app.vault.on("modify", file => {
+      const folder = this.settings.diaryFolder.replace(/\/$/, "");
+      if (file.path.startsWith(`${folder}/`)) this.scheduleLifeDiaryRefresh();
+    }));
     if (Platform.isDesktopApp) {
       this.timerStatusItem = this.addStatusBarItem();
       this.timerStatusItem.addClass("btl-global-timer");
@@ -57,7 +62,10 @@ export default class BranchTimelinePlugin extends Plugin {
     });
   }
 
-  onunload(): void { this.app.workspace.detachLeavesOfType(BRANCH_TIMELINE_VIEW); }
+  onunload(): void {
+    if (this.lifeDiaryRefreshTimer != null) window.clearTimeout(this.lifeDiaryRefreshTimer);
+    this.app.workspace.detachLeavesOfType(BRANCH_TIMELINE_VIEW);
+  }
 
   async loadSettings(): Promise<void> {
     const saved = await this.loadData() as (Partial<BranchTimelineSettings> & {
@@ -79,6 +87,7 @@ export default class BranchTimelinePlugin extends Plugin {
           .map(item => ({ type: item.type.trim(), color: item.color }))
         : DEFAULT_SETTINGS.projectTypes.map(item => ({ ...item })),
       projectTaskHeadings: normalizeTaskHeadings(saved?.projectTaskHeadings),
+      lifeDiaryFormats: Array.isArray(saved?.lifeDiaryFormats) ? saved.lifeDiaryFormats.filter(value => typeof value === "string") : DEFAULT_SETTINGS.lifeDiaryFormats,
       linkProjectWorkTasks: saved?.linkProjectWorkTasks === true,
       lastProjectTasks: saved?.lastProjectTasks && typeof saved.lastProjectTasks === "object" ? saved.lastProjectTasks : {},
       lastProjectTaskHeadings: saved?.lastProjectTaskHeadings && typeof saved.lastProjectTaskHeadings === "object" ? saved.lastProjectTaskHeadings : {},
@@ -222,6 +231,16 @@ export default class BranchTimelinePlugin extends Plugin {
       if (leaf.view instanceof BranchTimelineView) await leaf.view.refresh();
     }
     await this.refreshTimerStatus();
+  }
+
+  private scheduleLifeDiaryRefresh(): void {
+    if (this.lifeDiaryRefreshTimer != null) window.clearTimeout(this.lifeDiaryRefreshTimer);
+    this.lifeDiaryRefreshTimer = window.setTimeout(() => {
+      this.lifeDiaryRefreshTimer = null;
+      for (const leaf of this.app.workspace.getLeavesOfType(BRANCH_TIMELINE_VIEW)) {
+        if (leaf.view instanceof BranchTimelineView && leaf.view.contentEl.querySelector(".btl-life-page")) void leaf.view.refresh();
+      }
+    }, 600);
   }
 
   private refreshSyncClouds(): void {

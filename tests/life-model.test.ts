@@ -39,5 +39,5 @@ test("clusters overlapping labels as the line shrinks", () => {
   ];
   assert.deepEqual(clusterLifeEvents(events, 48).map(group => group.map(item => item.id)), [["a", "b"], ["c"]]);
   assert.deepEqual(clusterLifeEvents(events, 340).map(group => group.map(item => item.id)), [["a"], ["b"], ["c"]]);
-  assert.deepEqual(lifeRange(events, new Date(2026, 9, 7)), { first: 2000, last: 2033 });
+  assert.deepEqual(lifeRange(events, new Date(2026, 9, 7)), { first: 2017, last: 2033 });
 });

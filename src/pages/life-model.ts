@@ -54,7 +54,7 @@ export function lifeRange(events: readonly LifeEvent[], now = new Date()): { fir
   const positions = events.flatMap(event => [lifeDatePosition(event.date), event.endDate ? lifeDatePosition(event.endDate) : Infinity])
     .filter(Number.isFinite);
   return {
-    first: Math.floor(Math.min(now.getFullYear() - 24, ...positions)) - 2,
+    first: Math.floor(Math.min(now.getFullYear() - 5, ...positions)) - 2,
     last: Math.ceil(Math.max(now.getFullYear() + 5, ...positions)) + 2
   };
 }

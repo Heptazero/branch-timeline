@@ -27,6 +27,19 @@ import { dateKey, logicalToday } from "./vault/format";
 export { BRANCH_TIMELINE_VIEW } from "./timeline-view-base";
 
 export class BranchTimelineView extends BranchTimelineViewDayActions {
+  async focusRunningItem(itemId: string): Promise<void> {
+    this.date = logicalToday();
+    this.followsToday = true;
+    this.page = "day";
+    this.selectedProjectPath = null;
+    this.selectedAchievementId = null;
+    await this.render(false);
+    window.requestAnimationFrame(() => {
+      this.scroller?.querySelector<HTMLElement>(`.btl-canvas-item[data-item-id="${CSS.escape(itemId)}"]`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+  }
+
   protected async addProject(): Promise<void> {
     const result = await this.choiceText(
       "添加项目",

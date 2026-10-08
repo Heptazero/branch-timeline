@@ -1,10 +1,11 @@
-import { AbstractInputSuggest, App, PluginSettingTab, Setting } from "obsidian";
+import { AbstractInputSuggest, App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type BranchTimelinePlugin from "./main";
 import { installLongPressSort } from "./interactions/long-press-sort";
 import { ConfirmModal } from "./modals";
 import { DEFAULT_RHYTHM, DEFAULT_RHYTHM_MARKERS } from "./rhythm";
 import type { BranchTimelineSettings, ItemMetadataRequirement } from "./types";
 import { normalizeTaskHeadings } from "./vault/project-tasks";
+import { compileFormat } from "./pages/life-diary";
 
 const PROJECT_TYPE_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
 
@@ -54,6 +55,7 @@ const OPTIONAL_PAGES: ReadonlyArray<{ id: Exclude<BranchTimelineSettings["visibl
 export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   statePath: "99_assets/branch-timeline/state.json",
   diaryFolder: "20_self/22-diary",
+  lifeDiaryFormats: ["[event] {内容}"],
   projectFolder: "21_project",
   projectTypes: [{ type: "project", color: PROJECT_TYPE_COLORS[0] }],
   projectTaskHeadings: ["任务"],
@@ -88,6 +90,18 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
 
     this.textSetting("数据文件", "分支、节律与决策树的 Vault 内路径。", "statePath");
     this.textSetting("周记目录", "习惯数据写入的位置。", "diaryFolder");
+    new Setting(containerEl).setName("人生页日记格式")
+      .setDesc("每行一种格式；{内容} 是时间线上显示的文字，如 [event] {内容}。只读取现有周记。")
+      .addTextArea(text => {
+        text.setValue(this.plugin.settings.lifeDiaryFormats.join("\n"));
+        text.inputEl.rows = 3;
+        text.inputEl.addEventListener("blur", () => {
+          const formats = text.inputEl.value.split("\n").map(value => value.trim()).filter(Boolean);
+          if (formats.some(format => !compileFormat(format))) { new Notice("每种格式都要有且仅有一个 {内容}"); return; }
+          this.plugin.settings.lifeDiaryFormats = formats;
+          void this.plugin.saveSettings();
+        });
+      });
 
     new Setting(containerEl)
       .setName("项目页 type（全库）")

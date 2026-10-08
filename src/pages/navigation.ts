@@ -25,9 +25,7 @@ export function renderPageNavigation(
       text: page.label,
       cls: activePage === page.id ? "is-active" : ""
     });
-    button.onclick = () => {
-      if (activePage !== page.id) onSelect(page.id);
-    };
+    button.onclick = () => onSelect(page.id);
   }
 }
 

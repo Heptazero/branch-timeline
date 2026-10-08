@@ -1,6 +1,7 @@
 export interface BranchTimelineSettings {
   statePath: string;
   diaryFolder: string;
+  lifeDiaryFormats: string[];
   projectFolder: string;
   projectTypes: ProjectTypeConfig[];
   projectTaskHeadings: string[];
