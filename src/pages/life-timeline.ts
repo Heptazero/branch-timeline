@@ -187,7 +187,7 @@ export function renderLifeTimeline(options: LifePageOptions): void {
       row.toggleClass("is-diary", "diaryPath" in first);
       row.style.top = `${yearY(position)}px`;
       row.createDiv({ cls: "btl-life-dot" });
-      const card = row.createEl("button", { cls: "btl-life-event-card", attr: { type: "button" } });
+      const card = row.createEl("button", { cls: "btl-life-event-card", attr: { type: "button", title: first.title } });
       card.createEl("strong", { text: first.title });
       card.createSpan({ text: cluster.length > 1 ? `${lifeDateLabel(first.date)} · +${cluster.length - 1}` : (first as LifeDiaryEntry).diaryLabel || lifeDateLabel(first.date) });
       if (scale >= 100 && first.note && cluster.length === 1) card.createEl("small", { text: first.note });
