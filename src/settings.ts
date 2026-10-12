@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { AbstractInputSuggest, App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import type BranchTimelinePlugin from "./main";
 import { installLongPressSort } from "./interactions/long-press-sort";
 import { ConfirmModal } from "./modals";
@@ -52,6 +52,16 @@ const OPTIONAL_PAGES: ReadonlyArray<{ id: Exclude<BranchTimelineSettings["visibl
   { id: "life", label: "人生" }
 ];
 
+const SETTINGS_GROUPS = [
+  { id: "data", label: "数据", sections: ["storage", "life"] },
+  { id: "projects", label: "项目", sections: ["types", "tasks", "creation"] },
+  { id: "timer", label: "计时", sections: ["marks", "reminder"] },
+  { id: "pages", label: "页面", sections: ["visibility"] }
+] as const;
+
+type SettingsGroupId = typeof SETTINGS_GROUPS[number]["id"];
+type SettingsSectionId = typeof SETTINGS_GROUPS[number]["sections"][number];
+
 export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   statePath: "99_assets/branch-timeline/state.json",
   diaryFolder: "20_self/22-diary",
@@ -81,16 +91,66 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
 };
 
 export class BranchTimelineSettingTab extends PluginSettingTab {
+  private activeGroup: SettingsGroupId = "data";
+  private openSections: Partial<Record<SettingsSectionId, boolean>> = {};
+  private searchQuery = "";
+
   constructor(app: App, private plugin: BranchTimelinePlugin) { super(app, plugin); }
 
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "Branch Timeline" });
+    const root = containerEl.createDiv({ cls: "btl-settings-root" });
+    new Setting(root).setName("Branch Timeline").setHeading().setClass("btl-settings-heading");
 
-    this.textSetting("数据文件", "分支、节律与决策树的 Vault 内路径。", "statePath");
-    this.textSetting("周记目录", "习惯数据写入的位置。", "diaryFolder");
-    new Setting(containerEl).setName("人生页日记格式")
+    const search = root.createDiv({ cls: "btl-settings-search" });
+    setIcon(search.createSpan(), "search");
+    const searchInput = search.createEl("input", {
+      type: "search",
+      attr: { placeholder: "搜索设置", "aria-label": "搜索设置" }
+    });
+    searchInput.value = this.searchQuery;
+    const clearSearch = search.createEl("button", {
+      attr: { type: "button", "aria-label": "清除搜索", title: "清除搜索" }
+    });
+    setIcon(clearSearch, "x");
+
+    const tabs = root.createDiv({ cls: "btl-settings-tabs", attr: { role: "tablist", "aria-label": "设置分类" } });
+    const panels = new Map<SettingsGroupId, HTMLElement>();
+    const tabButtons = new Map<SettingsGroupId, HTMLButtonElement>();
+    const sections = new Map<SettingsSectionId, HTMLDetailsElement>();
+    for (const group of SETTINGS_GROUPS) {
+      const button = tabs.createEl("button", { text: group.label, attr: { type: "button", role: "tab" } });
+      button.id = `btl-settings-tab-${group.id}`;
+      button.setAttr("aria-controls", `btl-settings-panel-${group.id}`);
+      tabButtons.set(group.id, button);
+      const panel = root.createDiv({ cls: "btl-settings-panel", attr: { role: "tabpanel", id: `btl-settings-panel-${group.id}` } });
+      panel.setAttr("aria-labelledby", button.id);
+      panel.createDiv({ cls: "btl-settings-search-group", text: group.label });
+      panels.set(group.id, panel);
+    }
+    const noResults = root.createDiv({ cls: "btl-settings-empty", text: "没有匹配的设置" });
+
+    const section = (group: SettingsGroupId, id: SettingsSectionId, title: string, keywords: string) => {
+      const details = panels.get(group)!.createEl("details", { cls: "btl-settings-section" });
+      details.dataset.sectionId = id;
+      details.dataset.search = `${title} ${keywords}`;
+      details.open = this.openSections[id] ?? ["storage", "types", "marks", "visibility"].includes(id);
+      const summary = details.createEl("summary", { cls: "btl-settings-section-summary" });
+      summary.createSpan({ text: title });
+      summary.addEventListener("click", () => {
+        if (!searchInput.value.trim()) this.openSections[id] = !details.open;
+      });
+      sections.set(id, details);
+      return { body: details.createDiv({ cls: "btl-settings-section-body" }), summary };
+    };
+
+    const storage = section("data", "storage", "文件位置", "数据文件 周记目录 Vault 路径");
+    this.textSetting(storage.body, "数据文件", "分支、节律与决策树的 Vault 内路径。", "statePath");
+    this.textSetting(storage.body, "周记目录", "习惯数据写入的位置。", "diaryFolder");
+    const life = section("data", "life", "人生时间线", "人生页日记格式 周记 内容 event");
+
+    new Setting(life.body).setName("日记格式")
       .setDesc("每行一种格式；{内容} 是时间线上显示的文字，如 [event] {内容}。只读取现有周记。")
       .addTextArea(text => {
         text.setValue(this.plugin.settings.lifeDiaryFormats.join("\n"));
@@ -103,19 +163,25 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
         });
       });
 
-    new Setting(containerEl)
-      .setName("项目页 type（全库）")
-      .setHeading()
-      .addButton(button => button.setButtonText("添加").setIcon("plus").onClick(async () => {
-        this.plugin.settings.projectTypes.push({
-          type: "",
-          color: PROJECT_TYPE_COLORS[this.plugin.settings.projectTypes.length % PROJECT_TYPE_COLORS.length]
-        });
-        await this.plugin.saveSettings();
-        this.redisplay(() => this.containerEl.querySelector<HTMLInputElement>(".btl-project-type-setting:last-child input")?.focus());
-      }));
+    const types = section("projects", "types", "项目类型", "type 颜色 全库 添加 拖动排序");
+    const addType = types.summary.createEl("button", {
+      cls: "btl-settings-section-action",
+      attr: { type: "button", "aria-label": "添加项目类型", title: "添加项目类型" }
+    });
+    setIcon(addType, "plus");
+    addType.addEventListener("click", async event => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.plugin.settings.projectTypes.push({
+        type: "",
+        color: PROJECT_TYPE_COLORS[this.plugin.settings.projectTypes.length % PROJECT_TYPE_COLORS.length]
+      });
+      this.openSections.types = true;
+      await this.plugin.saveSettings();
+      this.redisplay(() => this.containerEl.querySelector<HTMLInputElement>(".btl-project-type-setting:last-child input")?.focus());
+    });
 
-    const projectTypeList = containerEl.createDiv({ cls: "btl-project-type-list" });
+    const projectTypeList = types.body.createDiv({ cls: "btl-project-type-list" });
     const typeCandidates = this.vaultTypes();
     for (const [index, projectType] of this.plugin.settings.projectTypes.entries()) {
       const row = new Setting(projectTypeList).setClass("btl-project-type-setting");
@@ -160,7 +226,8 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
       onOrder: indexes => void this.reorderProjectTypes(indexes)
     });
 
-    new Setting(containerEl)
+    const tasks = section("projects", "tasks", "项目任务", "任务标题 搜索 关联 次级标题");
+    new Setting(tasks.body)
       .setName("项目任务标题")
       .setDesc("每行一个标题；搜索时包含它下面的所有次级标题。也可写“任务 / 本周”指定路径。")
       .addTextArea(text => {
@@ -172,7 +239,8 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
         });
       });
 
-    const metadataRequirement = new Setting(containerEl).setName("双击创建强制归属");
+    const creation = section("projects", "creation", "创建规则", "双击创建 强制归属 项目");
+    const metadataRequirement = new Setting(creation.body).setName("双击创建强制归属");
     const requirementControl = metadataRequirement.controlEl.createDiv({ cls: "btl-setting-segments" });
     for (const option of METADATA_REQUIREMENTS) {
       const button = requirementControl.createEl("button", {
@@ -191,9 +259,11 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
       };
     }
 
-    this.textSetting("经过标记", "一天前半段显示在计时左侧。", "rhythmElapsedMark");
-    this.textSetting("剩余标记", "一天后半段显示在计时左侧。", "rhythmRemainingMark");
-    new Setting(containerEl)
+    const marks = section("timer", "marks", "时间标记", "经过标记 剩余标记 节律");
+    this.textSetting(marks.body, "经过标记", "一天前半段显示在计时左侧。", "rhythmElapsedMark");
+    this.textSetting(marks.body, "剩余标记", "一天后半段显示在计时左侧。", "rhythmRemainingMark");
+    const reminder = section("timer", "reminder", "提醒", "计时提醒 分钟");
+    new Setting(reminder.body)
       .setName("计时提醒")
       .setDesc("持续计时达到该分钟数时提醒；0 表示关闭。")
       .addText(text => text
@@ -205,10 +275,11 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings(false);
         }));
 
-    new Setting(containerEl).setName("页面").setHeading();
+    const visibility = section("pages", "visibility", "可见页面", "项目 统计 成就 锚点 人生");
     for (const page of OPTIONAL_PAGES) {
-      new Setting(containerEl)
+      new Setting(visibility.body)
         .setName(page.label)
+        .setClass("btl-settings-toggle")
         .addToggle(toggle => toggle
           .setValue(this.plugin.settings.visiblePages.includes(page.id))
           .onChange(async visible => {
@@ -220,14 +291,63 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
           }));
     }
 
+    const update = () => {
+      const query = searchInput.value.trim();
+      this.searchQuery = query;
+      tabs.hidden = !!query;
+      clearSearch.hidden = !query;
+      let hasResults = false;
+      for (const group of SETTINGS_GROUPS) {
+        const panel = panels.get(group.id)!;
+        let matched = false;
+        const groupMatch = fuzzyScore(group.label, query) != null;
+        for (const id of group.sections) {
+          const details = sections.get(id)!;
+          const visible = !query || groupMatch || fuzzyScore(details.dataset.search || "", query) != null;
+          details.hidden = !visible;
+          if (query && visible) details.open = true;
+          else if (!query) details.open = this.openSections[id] ?? ["storage", "types", "marks", "visibility"].includes(id);
+          matched ||= visible;
+        }
+        panel.hidden = query ? !matched : group.id !== this.activeGroup;
+        hasResults ||= matched;
+        panel.querySelector<HTMLElement>(".btl-settings-search-group")!.hidden = !query;
+        const button = tabButtons.get(group.id)!;
+        button.setAttr("aria-selected", String(group.id === this.activeGroup));
+        button.tabIndex = group.id === this.activeGroup ? 0 : -1;
+      }
+      noResults.hidden = !query || hasResults;
+    };
+    for (const group of SETTINGS_GROUPS) {
+      const button = tabButtons.get(group.id)!;
+      button.addEventListener("click", () => { this.activeGroup = group.id; update(); });
+      button.addEventListener("keydown", event => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        const index = SETTINGS_GROUPS.findIndex(item => item.id === group.id);
+        const next = SETTINGS_GROUPS[(index + (event.key === "ArrowRight" ? 1 : -1) + SETTINGS_GROUPS.length) % SETTINGS_GROUPS.length];
+        this.activeGroup = next.id;
+        tabButtons.get(next.id)?.focus();
+        update();
+      });
+    }
+    searchInput.addEventListener("input", update);
+    searchInput.addEventListener("keydown", event => {
+      if (event.key !== "Escape" || !searchInput.value) return;
+      searchInput.value = "";
+      update();
+    });
+    clearSearch.addEventListener("click", () => { searchInput.value = ""; update(); searchInput.focus(); });
+    update();
   }
 
   private textSetting(
+    parent: HTMLElement,
     name: string,
     description: string,
     key: "statePath" | "diaryFolder" | "rhythmElapsedMark" | "rhythmRemainingMark"
   ): void {
-    new Setting(this.containerEl)
+    new Setting(parent)
       .setName(name)
       .setDesc(description)
       .addText(text => text.setValue(this.plugin.settings[key]).onChange(async value => {
