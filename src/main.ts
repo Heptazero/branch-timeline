@@ -16,6 +16,7 @@ import { compactDuration, elapsedMinutes, runningItems } from "./timeline/timer-
 import { normalizeTaskHeadings } from "./vault/project-tasks";
 import type { ProjectTaskIndex } from "./vault/project-tasks";
 import { DiaryBracketSuggest } from "./diary-bracket-suggest";
+import { reminderOn } from "./fixed-reminders/model";
 
 export default class BranchTimelinePlugin extends Plugin {
   settings: BranchTimelineSettings = DEFAULT_SETTINGS;
@@ -26,6 +27,7 @@ export default class BranchTimelinePlugin extends Plugin {
   private timerStatusItem: HTMLElement | null = null;
   private timerStatusItemId: string | null = null;
   private readonly deliveredTimerReminders = new Set<string>();
+  private readonly deliveredFixedReminders = new Set<string>();
   private lifeDiaryRefreshTimer: number | null = null;
 
   async onload(): Promise<void> {
@@ -277,6 +279,19 @@ export default class BranchTimelinePlugin extends Plugin {
       }
     }
     if (day) this.maybeRemindTimers(day, active, now);
+    this.maybeRemindFixed(state, dateKey(logicalToday()), now);
+  }
+
+  private maybeRemindFixed(state: import("./types").BranchTimelineState, date: string, now: number): void {
+    for (const reminder of state.fixedReminders) {
+      const rule = reminderOn(reminder, date);
+      if (!rule || now < rule.minute || now > rule.minute + 3) continue;
+      if (state.fixedReminderResults.some(item => item.reminderId === reminder.id && item.date === date)) continue;
+      const key = `${date}:${reminder.id}`;
+      if (this.deliveredFixedReminders.has(key)) continue;
+      this.deliveredFixedReminders.add(key);
+      new Notice(`${reminder.title} · 定点提醒`, 8000);
+    }
   }
 
   private async openRunningTimer(): Promise<void> {

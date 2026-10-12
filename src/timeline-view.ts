@@ -133,12 +133,14 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     if (this.page === "policy") {
       menu.addItem(item => item.setTitle("添加根锚点").setIcon("circle-plus").onClick(() => void this.policyActions.add(true, null, this.policyPeriod, this.policySideId)));
       menu.addItem(item => item.setTitle("加入手牌").setIcon("layers").onClick(() => void this.policyActions.add(false, null, this.policyPeriod, this.policySideId)));
+      menu.addItem(item => item.setTitle("定点提醒").setIcon("bell").onClick(() => void this.fixedReminderActions.openManager()));
       menu.showAtMouseEvent(event);
       return;
     }
     menu.addItem(item => item.setTitle("添加代办").setIcon("circle-plus").onClick(() => void this.addTimelineTodo(minute, null)));
     menu.addItem(item => item.setTitle("添加分支").setIcon("git-branch-plus").onClick(() => void this.addTimelineBranch(minute)));
     menu.addItem(item => item.setTitle("添加精力区间").setIcon("layers-2").onClick(() => void this.addEnergyPhase(minute, 1)));
+    menu.addItem(item => item.setTitle("定点提醒").setIcon("bell").onClick(() => void this.fixedReminderActions.openManager(undefined, undefined, minute)));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("记录项目工时").setIcon("timer").onClick(() => void this.plugin.recordProjectWork(this.date)));
     menu.addSeparator();

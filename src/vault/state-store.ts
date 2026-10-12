@@ -1,6 +1,7 @@
 import { App, normalizePath } from "obsidian";
 import { normalizeAchievement } from "../pages/achievement-model";
 import { normalizeTimelineDay } from "../rhythm";
+import { normalizeFixedReminder, normalizeFixedReminderResult } from "../fixed-reminders/model";
 import type { BranchTimelineState, PolicyNode, PolicyPeriod, ProjectTimelineState, RhythmSchedule, TimelineDayState } from "../types";
 import type { UndoAction } from "../undo-manager";
 
@@ -13,6 +14,8 @@ const EMPTY_STATE: BranchTimelineState = {
   policyNodes: [],
   policySides: [{ id: "policy-side-routine", name: "作息", mode: "dayparts" }],
   policyEvents: [],
+  fixedReminders: [],
+  fixedReminderResults: [],
   lifeEvents: []
 };
 
@@ -51,6 +54,8 @@ export class StateStore {
           ? parsed.policyNodes.map(node => normalizePolicyNode(node))
           : [],
         policyEvents: Array.isArray(parsed.policyEvents) ? parsed.policyEvents : [],
+        fixedReminders: Array.isArray(parsed.fixedReminders) ? parsed.fixedReminders.flatMap(normalizeFixedReminder) : [],
+        fixedReminderResults: Array.isArray(parsed.fixedReminderResults) ? parsed.fixedReminderResults.flatMap(normalizeFixedReminderResult) : [],
         lifeEvents: Array.isArray(parsed.lifeEvents) ? parsed.lifeEvents : []
       };
     } catch {

@@ -17,6 +17,7 @@ export interface PolicyActionsOptions {
   getDate: () => Date;
   refresh: () => Promise<void>;
   text: (title: string, placeholder: string, value?: string) => Promise<string | null>;
+  onAddFixedReminder?: (cardId: string) => void;
 }
 
 export class PolicyActions {
@@ -93,6 +94,7 @@ export class PolicyActions {
         next.policyEvents = next.policyEvents.filter(event => !cardIds.has(event.cardId));
         next.policyNodes = next.policyNodes.filter(node => !nodeIds.has(node.id));
         next.policyCards = next.policyCards.filter(card => !cardIds.has(card.id));
+        next.fixedReminders.forEach(reminder => reminder.rules.forEach(rule => { if (rule.anchorCardId && cardIds.has(rule.anchorCardId)) rule.anchorCardId = undefined; }));
         next.policySides = next.policySides.filter(candidate => candidate.id !== side.id);
       });
       await this.options.refresh();
@@ -185,6 +187,7 @@ export class PolicyActions {
 
   openNodeMenu(node: PolicyNode, card: PolicyCard, event: PointerEvent): void {
     const menu = new Menu();
+    menu.addItem(item => item.setTitle("定点提醒").setIcon("bell").onClick(() => this.options.onAddFixedReminder?.(card.id)));
     menu.addItem(item => item.setTitle("重命名").setIcon("pencil").onClick(() => void this.rename(card)));
     menu.addItem(item => item.setTitle("退回手牌").setIcon("undo-2").onClick(() => this.confirmReturn(node, card)));
     menu.showAtPosition({ x: event.clientX, y: event.clientY });
@@ -192,12 +195,14 @@ export class PolicyActions {
 
   openCardMenu(card: PolicyCard, event: PointerEvent): void {
     const menu = new Menu();
+    menu.addItem(item => item.setTitle("定点提醒").setIcon("bell").onClick(() => this.options.onAddFixedReminder?.(card.id)));
     menu.addItem(item => item.setTitle("重命名").setIcon("pencil").onClick(() => void this.rename(card)));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("删除手牌").setIcon("trash-2").setWarning(true).onClick(() => {
       new ConfirmModal(this.options.app, `删除“${card.name}”？`, "这张手牌会被删除。", async () => {
         await this.options.plugin.store.update(state => {
           state.policyCards = state.policyCards.filter(candidate => candidate.id !== card.id);
+          state.fixedReminders.forEach(reminder => reminder.rules.forEach(rule => { if (rule.anchorCardId === card.id) rule.anchorCardId = undefined; }));
         });
         await this.options.refresh();
       }).open();
@@ -213,6 +218,15 @@ export class PolicyActions {
       if (target) target.name = name;
     });
     await this.options.refresh();
+  }
+
+  confirmViolation(cardId: string): void {
+    void this.options.plugin.store.load().then(state => {
+      const card = state.policyCards.find(candidate => candidate.id === cardId);
+      const node = state.policyNodes.find(candidate => candidate.cardId === cardId);
+      if (!card || !node) return;
+      new ConfirmModal(this.options.app, `让“${card.name}”破戒？`, "它及所有子节点会回到手牌；定点提醒的这次叉号仍保留。", () => this.settle(node, card, "violation"), "记为破戒").open();
+    });
   }
 
   private confirmReturn(node: PolicyNode, card: PolicyCard): void {

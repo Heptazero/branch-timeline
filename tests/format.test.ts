@@ -425,6 +425,8 @@ test("builds a multi-day project timeline without changing item dates", () => {
     policyNodes: [],
     policySides: [{ id: "policy-side-routine", name: "作息", mode: "dayparts" }],
     policyEvents: [],
+    fixedReminders: [],
+    fixedReminderResults: [],
     lifeEvents: [],
     projects: {
       "21_project/test.md": {
@@ -449,7 +451,7 @@ test("summarizes project time by day week and total with daily plans", () => {
   const path = "21_project/test.md";
   const state: BranchTimelineState = {
     version: 1,
-    achievements: [], policyCards: [], policyNodes: [], policyEvents: [], lifeEvents: [],
+    achievements: [], policyCards: [], policyNodes: [], policyEvents: [], fixedReminders: [], fixedReminderResults: [], lifeEvents: [],
     policySides: [{ id: "policy-side-routine", name: "作息", mode: "dayparts" }],
     projects: { [path]: { branches: [], dailyPlans: { "2026-08-12": 60, "2026-08-13": 90 } } },
     days: {

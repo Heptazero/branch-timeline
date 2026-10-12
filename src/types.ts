@@ -163,7 +163,32 @@ export interface BranchTimelineState {
   policyNodes: PolicyNode[];
   policySides: PolicySide[];
   policyEvents: PolicyEvent[];
+  fixedReminders: FixedReminder[];
+  fixedReminderResults: FixedReminderResult[];
   lifeEvents: LifeEvent[];
+}
+
+export interface FixedReminderRule {
+  fromDate: string;
+  minute: number;
+  /** ISO weekday: Monday=1, Sunday=7. */
+  weekdays: number[];
+  anchorCardId?: string;
+}
+
+export interface FixedReminder {
+  id: string;
+  title: string;
+  createdDate: string;
+  archivedDate?: string;
+  rules: FixedReminderRule[];
+}
+
+export interface FixedReminderResult {
+  reminderId: string;
+  date: string;
+  result: "done" | "missed";
+  recordedMinute: number;
 }
 
 export interface Achievement {

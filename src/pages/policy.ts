@@ -1,4 +1,5 @@
-import type { PolicyCard, PolicyEvent, PolicyNode, PolicyPeriod, PolicySide } from "../types";
+import type { FixedReminder, PolicyCard, PolicyEvent, PolicyNode, PolicyPeriod, PolicySide } from "../types";
+import { ruleOn } from "../fixed-reminders/model";
 import { dateKey, logicalToday } from "../vault/format";
 import { policyProgress, type PolicyProgress } from "./policy-progress";
 
@@ -14,6 +15,7 @@ export interface PolicyPageOptions {
   nodes: readonly PolicyNode[];
   sides: readonly PolicySide[];
   events: readonly PolicyEvent[];
+  fixedReminders: readonly FixedReminder[];
   date: string;
   activeSideId: string;
   activePeriod: PolicyPeriod;
@@ -137,6 +139,8 @@ function renderHand(page: HTMLElement, side: PolicySide, options: PolicyPageOpti
     const element = list.createDiv({ cls: policyClass("btl-policy-hand-card", card, value), attr: { "data-policy-card": card.id } });
     element.style.setProperty("--btl-policy-level", String(Math.sqrt(value.count / maxCount)));
     element.createSpan({ text: card.name });
+    const reminders = linkedReminderCount(options, card.id);
+    if (reminders) element.createEl("small", { cls: "btl-policy-reminder-count", text: `定点${reminders}` });
     element.createEl("small", { cls: "btl-policy-count", text: String(value.count) });
     const menu = element.createEl("button", { text: "⋮", attr: { "aria-label": "手牌菜单" } });
     menu.onclick = event => {
@@ -179,6 +183,8 @@ function renderNode(
   };
   element.createSpan({ cls: "btl-policy-mode", text: modeLabel(card.mode) });
   element.createEl("strong", { text: card.name });
+  const reminders = linkedReminderCount(options, card.id);
+  if (reminders) element.createEl("small", { cls: "btl-policy-reminder-count", text: `定点${reminders}` });
   element.createEl("small", { cls: "btl-policy-count", text: String(value.count) });
   const add = wrap.createEl("button", { cls: "btl-policy-child-add", text: "+", attr: { "aria-label": "添加子锚点" } });
   add.onclick = event => {
@@ -190,6 +196,10 @@ function renderNode(
   wrap.addClass("has-children");
   const row = wrap.createDiv({ cls: `btl-policy-children${children.length === 1 ? " is-single" : ""}` });
   for (const child of children) renderNode(row, child, nodes, cards, options, progress, maxCount);
+}
+
+function linkedReminderCount(options: PolicyPageOptions, cardId: string): number {
+  return options.fixedReminders.filter(item => ruleOn(item, options.date)?.anchorCardId === cardId).length;
 }
 
 function installPolicyDrag(page: HTMLElement, options: PolicyPageOptions): void {

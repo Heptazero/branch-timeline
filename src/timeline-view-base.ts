@@ -1,5 +1,7 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import type BranchTimelinePlugin from "./main";
+import { FixedReminderActions } from "./fixed-reminders/actions";
+import { renderFixedReminderMarkers } from "./fixed-reminders/markers";
 import {
   type ChoiceItem,
   type ChoiceTextResult,
@@ -65,6 +67,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected runningBar: RunningBar | null = null;
   protected achievementActions: AchievementActions;
   protected policyActions: PolicyActions;
+  protected fixedReminderActions: FixedReminderActions;
   protected policySideId = localStorage.getItem("branch-timeline-hz-policy-side") || "policy-side-routine";
   protected policyPeriod = policyPeriodAt(new Date());
 
@@ -82,7 +85,8 @@ export abstract class BranchTimelineViewBase extends ItemView {
       colors: BRANCH_COLORS,
       onDeleteAchievement: id => { if (this.selectedAchievementId === id) this.selectedAchievementId = null; }
     });
-    this.policyActions = new PolicyActions(shared);
+    this.policyActions = new PolicyActions({ ...shared, onAddFixedReminder: id => void this.fixedReminderActions.openManager(id, undefined, undefined, true) });
+    this.fixedReminderActions = new FixedReminderActions({ ...shared, breakAnchor: id => this.policyActions.confirmViolation(id) });
     this.lifeActions = new LifeActions(this.app, this.plugin, () => this.render(false));
   }
   getViewType(): string { return BRANCH_TIMELINE_VIEW; }
@@ -333,6 +337,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
           nodes: state.policyNodes,
           sides: state.policySides,
           events: state.policyEvents,
+          fixedReminders: state.fixedReminders,
           date: key,
           activeSideId: this.policySideId,
           activePeriod: this.policyPeriod,
@@ -375,6 +380,8 @@ export abstract class BranchTimelineViewBase extends ItemView {
       energyPhases: this.energyPhases,
       projectColors: new Map(this.plugin.repository.listProjects().map(project => [project.path, project.color || "var(--text-faint)"]))
     });
+    renderFixedReminderMarkers(rendered.canvas, day, this.scale, key, state.fixedReminders, state.fixedReminderResults,
+      (id, event) => void this.fixedReminderActions.openOccurrenceMenu(id, event));
     this.gestures = new TimelineGestures(scroller, rendered.canvas, day, rendered.layout, this.energyPhases, this.plugin.settings.rhythmMarkers, {
       onItemMove: (itemId, startMin, branchId) => void this.moveItem(itemId, startMin, branchId),
       onItemResize: (itemId, edge, minute) => void this.resizeItem(itemId, edge, minute),

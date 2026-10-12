@@ -1,0 +1,62 @@
+.btl-fixed-marker {
+  position: absolute;
+  z-index: 46;
+  right: 7px;
+  display: flex;
+  width: min(150px, calc(50% - 17px));
+  min-height: 30px;
+  align-items: center;
+  gap: 4px;
+  transform: translateY(-50%) scaleY(var(--btl-preview-inverse));
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 9px;
+  padding: 3px 5px;
+  background: var(--background-primary) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .12) !important;
+  color: var(--text-normal);
+  text-align: left;
+  touch-action: manipulation;
+}
+.btl-fixed-marker:hover { border-color: var(--interactive-accent) !important; }
+.btl-fixed-marker.is-done { border-color: var(--color-green) !important; }
+.btl-fixed-marker.is-missed { border-color: var(--color-red) !important; }
+.btl-fixed-marker.is-outside { opacity: .8; }
+.btl-fixed-marker-icon { display: grid; width: 17px; height: 17px; flex: 0 0 17px; place-items: center; border-radius: 50%; background: var(--interactive-accent); color: var(--text-on-accent); }
+.btl-fixed-marker.is-done .btl-fixed-marker-icon { background: var(--color-green); }
+.btl-fixed-marker.is-missed .btl-fixed-marker-icon { background: var(--color-red); }
+.btl-fixed-marker-icon svg { width: 11px; height: 11px; }
+.btl-fixed-marker-title { min-width: 0; flex: 1; overflow: hidden; font-size: 10px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.btl-fixed-marker-time { flex: none; color: var(--text-faint); font-size: 8px; font-variant-numeric: tabular-nums; }
+
+.btl-fixed-modal .modal-content { min-width: 0; }
+.btl-fixed-modal { width: min(420px, calc(100vw - 20px)); }
+.btl-fixed-head { display: flex; min-height: 38px; align-items: center; gap: 6px; margin-bottom: 10px; }
+.btl-fixed-head strong { flex: 1; min-width: 0; font-size: 17px; }
+.btl-fixed-head button { display: grid; width: 30px; height: 30px; flex: none; place-items: center; border: 0 !important; padding: 0; background: transparent !important; box-shadow: none !important; }
+.btl-fixed-head svg { width: 17px; height: 17px; }
+.btl-fixed-list-row { display: flex; width: 100%; min-height: 42px; align-items: center; gap: 8px; border: 0 !important; border-bottom: 1px solid var(--background-modifier-border) !important; border-radius: 0; padding: 5px 2px; background: transparent !important; box-shadow: none !important; text-align: left; }
+.btl-fixed-list-row:hover { background: var(--background-modifier-hover) !important; }
+.btl-fixed-list-title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btl-fixed-list-meta { flex: none; color: var(--text-muted); font-size: 11px; }
+.btl-fixed-title { width: 100%; margin-bottom: 9px; }
+.btl-fixed-form-row { display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--background-modifier-border); color: var(--text-muted); font-size: 12px; }
+.btl-fixed-time { border: 0 !important; padding: 4px 2px; background: transparent !important; box-shadow: none !important; color: var(--text-normal); font-variant-numeric: tabular-nums; }
+.btl-fixed-wheel-host:not(:empty) { padding: 5px 0; text-align: right; }
+.btl-fixed-wheel-host .btl-time-wheel { height: 154px; margin-bottom: 4px; }
+.btl-fixed-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 10px 0; }
+.btl-fixed-week button { min-width: 0; height: 30px; border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 0; background: transparent; color: var(--text-muted); }
+.btl-fixed-week button.is-selected { border-color: var(--interactive-accent); background: color-mix(in srgb, var(--interactive-accent) 13%, transparent); color: var(--interactive-accent); font-weight: 750; }
+.btl-fixed-anchor { position: relative; }
+.btl-fixed-anchor input { width: 100%; }
+.btl-fixed-suggestions:not(:empty) { position: absolute; z-index: 5; top: calc(100% + 3px); right: 0; left: 0; max-height: 190px; overflow-y: auto; border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 3px; background: var(--background-primary); box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+.btl-fixed-suggestions button { display: block; width: 100%; min-height: 30px; border: 0 !important; padding: 4px 8px; background: transparent !important; box-shadow: none !important; text-align: left; }
+.btl-fixed-suggestions button:hover { background: var(--background-modifier-hover) !important; }
+.btl-fixed-suggestions > div { padding: 6px; color: var(--text-muted); font-size: 11px; }
+.btl-fixed-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 13px; }
+.btl-fixed-confirm { padding: 5px 0; color: var(--text-muted); font-size: 13px; }
+.btl-policy-reminder-count { position: absolute; bottom: 3px; left: 6px; color: var(--interactive-accent); font-size: 8px; font-weight: 700; }
+
+@media (max-width: 500px) {
+  .btl-fixed-marker { width: min(125px, calc(50% - 11px)); min-height: 27px; }
+  .btl-fixed-marker-time { font-size: 7px; }
+}
