@@ -28,9 +28,10 @@ import {
   splitAbsoluteMinute
 } from "../src/pages/project-model";
 import { projectPlanOn, projectTimeSummary } from "../src/pages/project-time";
-import { burdenLabel, focusRhythm, periodMinutes, projectFocusTotal, recordedMinutes } from "../src/pages/focus-stats";
+import { burdenLabel, periodMinutes, projectFocusTotal, recordedMinutes } from "../src/pages/focus-stats";
 import { distractionWeight } from "../src/focus-events";
 import { focusRhythmColor } from "../src/focus-rhythm-color";
+import { focusRailMarks } from "../src/focus-state-model";
 import { mapPosition, sleepSpan } from "../src/pages/time-map";
 import {
   backfillItem,
@@ -272,7 +273,7 @@ test("weekly time map keeps an overnight sleep together and places hours vertica
   assert.equal(Math.round((1430 + afterMidnight!.bed) / 2), 1440);
 });
 
-test("focus rhythm uses state marks without timers and keeps discomfort separate", () => {
+test("focus rail uses explicit marks and keeps discomfort separate", () => {
   const days: Record<string, TimelineDayState> = {};
   for (const date of [11, 12, 13]) {
     days[`2026-08-${date}`] = {
@@ -283,10 +284,8 @@ test("focus rhythm uses state marks without timers and keeps discomfort separate
       discomforts: [{ id: `pain-${date}`, minute: 640 }]
     };
   }
-  const state = { days } as unknown as BranchTimelineState;
-  const profile = focusRhythm(state, new Date(2026, 7, 13));
-  assert.equal(profile[10], 2 / 6);
-  assert.equal(profile[11], null);
+  assert.deepEqual(focusRailMarks(days["2026-08-12"]), [{ minute: 615, score: 0, label: "走神" }]);
+  assert.deepEqual(focusRailMarks(days["2026-08-11"]), [{ minute: 600, score: 100, label: "高度专注" }]);
   assert.equal(distractionWeight(days["2026-08-12"].distractions![0]), 4);
   assert.equal(focusRhythmColor(0), "color-mix(in srgb, #8b929d 0%, #d84b4b)");
   assert.equal(focusRhythmColor(.5), "color-mix(in srgb, #8b929d 100%, #d84b4b)");

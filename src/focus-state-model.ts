@@ -1,8 +1,7 @@
-import { itemEnd, itemStart } from "./timeline/model";
-import { isRunningItem } from "./timeline/timer-service";
 import type { MentalStateLabel, TimelineDayState, TimelineMentalState } from "./types";
 
 export interface FocusSpan { start: number; end: number }
+export interface FocusMark { minute: number; score: number; label: string }
 
 export function clampFocusScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
@@ -31,15 +30,13 @@ export function normalizeMentalStates(value: unknown, wake: number, sleep: numbe
       : []);
 }
 
-/** Only actual project work supplies duration evidence; plans and point marks never do. */
-export function projectFocusSpans(day: TimelineDayState, nowMinute?: number): FocusSpan[] {
-  const spans = day.items.flatMap(item => {
-    if (!item.projectPath || (item.kind !== "fact" && !isRunningItem(item))) return [];
-    const start = Math.max(day.wake, itemStart(item, day.wake));
-    const end = Math.min(day.sleep, itemEnd(item, day.wake, nowMinute));
-    return end > start ? [{ start, end }] : [];
-  });
-  return mergeFocusSpans(spans);
+/** A work record is not evidence of mental state; only explicit observations appear. */
+export function focusRailMarks(day: TimelineDayState): FocusMark[] {
+  return [
+    ...(day.distractions || []).map(event => ({ minute: event.minute, score: 0, label: "走神" })),
+    ...(day.goodStates || []).map(event => ({ minute: event.minute, score: 100, label: "高度专注" })),
+    ...(day.mentalStates || []).map(event => ({ minute: event.minute, score: event.score, label: event.label || "可用脑力" }))
+  ];
 }
 
 export function mergeFocusSpans(spans: FocusSpan[]): FocusSpan[] {

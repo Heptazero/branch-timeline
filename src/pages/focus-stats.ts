@@ -1,9 +1,8 @@
 import { distractionWeight } from "../focus-events";
-import { mergeFocusSpans, projectFocusSpans } from "../focus-state-model";
+import { mergeFocusSpans } from "../focus-state-model";
 import { itemEnd, itemStart } from "../timeline/model";
 import { isRunningItem } from "../timeline/timer-service";
 import type { BranchTimelineState, TimelineDayState } from "../types";
-import { dateKey, logicalToday } from "../vault/format";
 
 export type Span = { start: number; end: number };
 export type DayPeriod = "morning" | "afternoon" | "evening";
@@ -34,34 +33,6 @@ export function burdenLabel(total: FocusTotal): string {
   if (!total.minutes) return `负担 ${total.load}`;
   const rate = burdenRate(total);
   return `${Number.isInteger(rate) ? rate.toFixed(0) : rate.toFixed(1)}/h`;
-}
-
-/** A 28-day hour-of-day summary. Project minutes are evidence; marks are point samples. */
-export function focusRhythm(state: BranchTimelineState, endDate: Date): (number | null)[] {
-  const end = endDate < logicalToday() ? endDate : logicalToday();
-  const weighted = Array<number>(24).fill(0);
-  const evidence = Array<number>(24).fill(0);
-  const add = (minute: number, score: number, weight: number) => {
-    const hour = Math.floor(minute / 60) % 24;
-    weighted[hour] += score * weight;
-    evidence[hour] += weight;
-  };
-  for (let offset = 0; offset < 28; offset++) {
-    const date = new Date(end.getFullYear(), end.getMonth(), end.getDate() - offset);
-    const day = state.days[dateKey(date)];
-    if (!day) continue;
-    for (const span of projectFocusSpans(day, dateKey(date) === dateKey(logicalToday()) ? nowOnAxis() : undefined)) {
-      for (let minute = span.start; minute < span.end;) {
-        const stop = Math.min(span.end, (Math.floor(minute / 60) + 1) * 60);
-        add(minute, .72, stop - minute);
-        minute = stop;
-      }
-    }
-    for (const event of day.goodStates || []) add(event.minute, 1, 5);
-    for (const event of day.distractions || []) add(event.minute, 0, 5 * distractionWeight(event));
-    for (const event of day.mentalStates || []) add(event.minute, event.score / 100, 5);
-  }
-  return weighted.map((value, hour) => evidence[hour] > 0 ? value / evidence[hour] : null);
 }
 
 export function recordedMinutes(day: TimelineDayState, nowMinute?: number, projectPath?: string): number {

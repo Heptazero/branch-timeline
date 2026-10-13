@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeMentalStateLabels, projectFocusSpans } from "../src/focus-state-model";
-import { focusRhythm } from "../src/pages/focus-stats";
+import { focusRailMarks, normalizeMentalStateLabels } from "../src/focus-state-model";
 import { normalizeTimelineDay } from "../src/rhythm";
-import type { BranchTimelineState, TimelineDayState } from "../src/types";
+import type { TimelineDayState } from "../src/types";
 
-test("project facts provide a medium-blue baseline while marks stay point observations", () => {
+test("project facts never imply mental state; only explicit marks appear", () => {
   const day: TimelineDayState = {
     wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
     items: [
@@ -16,9 +15,11 @@ test("project facts provide a medium-blue baseline while marks stay point observ
     mentalStates: [{ id: "alert", minute: 640, score: 95, label: "清醒" }],
     discomforts: [{ id: "pain", minute: 650 }]
   };
-  assert.deepEqual(projectFocusSpans(day), [{ start: 600, end: 660 }]);
-  const score = focusRhythm({ days: { "2026-08-13": day } } as unknown as BranchTimelineState, new Date(2026, 7, 13))[10];
-  assert.ok(score != null && score > .5 && score < .72);
+  assert.deepEqual(focusRailMarks({ ...day, distractions: [], mentalStates: [] }), []);
+  assert.deepEqual(focusRailMarks(day), [
+    { minute: 630, score: 0, label: "走神" },
+    { minute: 640, score: 95, label: "清醒" }
+  ]);
   const normalized = normalizeTimelineDay(day);
   assert.deepEqual(normalized.mentalStates, [{ id: "alert", minute: 640, score: 95, label: "清醒" }]);
   assert.deepEqual(normalizeMentalStateLabels([{ id: "a", name: "焦虑", score: -10 }, { id: "a", name: "重复", score: 20 }]), [{ id: "a", name: "焦虑", score: 0 }]);

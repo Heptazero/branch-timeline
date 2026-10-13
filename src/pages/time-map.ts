@@ -4,7 +4,7 @@ import type { BranchTimelineState, ProjectRef, TimelineItem } from "../types";
 import { distractionLabel, distractionLevel } from "../focus-events";
 import { focusRhythmColor } from "../focus-rhythm-color";
 import { dateKey, logicalToday } from "../vault/format";
-import { focusRhythm, nowOnAxis } from "./focus-stats";
+import { nowOnAxis } from "./focus-stats";
 
 export interface SleepSpan { bed: number; wake: number; duration: number }
 const START = 18 * 60;
@@ -37,11 +37,9 @@ export interface TimeMapOptions {
 export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): void {
   const map = parent.createDiv({ cls: "btl-time-map" });
   const legend = map.createDiv({ cls: "btl-time-map-legend" });
-  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "高度专注"], ["discomfort", "脑不适"]] as const) {
+  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "高度专注"], ["mental", "状态"], ["discomfort", "脑不适"]] as const) {
     legend.createSpan({ cls: `btl-time-map-key is-${kind}`, text: label });
   }
-  const rhythm = focusRhythm(options.state, options.dates[options.dates.length - 1]);
-  if (rhythm.some(score => score != null)) legend.createSpan({ cls: "btl-time-map-key is-rhythm", text: "状态倾向" });
   const header = map.createDiv({ cls: "btl-time-map-header" });
   header.createSpan();
   for (const date of options.dates) {
@@ -114,7 +112,6 @@ export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): voi
       dot.onclick = () => show(dot, label);
     }
   }
-  drawRhythm(plot, rhythm);
   map.onclick = event => { if (!(event.target as HTMLElement).closest(".btl-time-map-band, .btl-time-map-dot")) tooltip.addClass("is-hidden"); };
 }
 
@@ -146,20 +143,6 @@ function drawBand(column: HTMLElement, kind: "sleep" | "activity", start: number
 function drawAverage(plot: HTMLElement, kind: "bed" | "wake", minute: number): void {
   const line = plot.createDiv({ cls: `btl-time-map-average is-${kind}`, attr: { title: `平均${kind === "bed" ? "入睡" : "起床"} ${formatTime(Math.round(minute))}` } });
   line.style.top = `${mapPosition(minute)}%`;
-}
-
-function drawRhythm(plot: HTMLElement, values: readonly (number | null)[]): void {
-  if (!values.some(value => value != null)) return;
-  const rail = plot.createDiv({ cls: "btl-time-map-rhythm" });
-  for (let minute = START; minute < END; minute += 60) {
-    const score = values[Math.floor(minute / 60) % 24];
-    if (score == null) continue;
-    const next = values[(Math.floor(minute / 60) + 1) % 24];
-    const segment = rail.createSpan({ attr: { title: `近 28 天状态倾向 · ${formatTime(minute)}` } });
-    segment.style.top = `${mapPosition(minute)}%`;
-    segment.style.height = `${mapPosition(minute + 60) - mapPosition(minute)}%`;
-    segment.style.background = `linear-gradient(${focusRhythmColor(score)}, ${focusRhythmColor(next ?? score)})`;
-  }
 }
 
 function weekday(date: Date): string { return ["日", "一", "二", "三", "四", "五", "六"][date.getDay()]; }

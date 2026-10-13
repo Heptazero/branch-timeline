@@ -60,7 +60,7 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   canvas.style.height = `${layout.height}px`;
   applyTimelineLod(canvas, scale);
   renderEnergyPhases(canvas, day, scale, options.energyPhases || []);
-  renderFocusRhythmRail(canvas, day, scale, nowMinute);
+  renderFocusRhythmRail(canvas, day, scale);
 
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.addClass("btl-paths");
