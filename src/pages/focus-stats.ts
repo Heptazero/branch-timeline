@@ -42,31 +42,19 @@ export function burdenLabel(total: FocusTotal): string {
   return `${Number.isInteger(rate) ? rate.toFixed(0) : rate.toFixed(1)}/h`;
 }
 
-/** 近 28 天每小时记录中的顺畅度；缺少至少三天和 90 分钟观察时留空。 */
-export function focusRhythm(state: BranchTimelineState, endDate: Date, nowMinute: number): (number | null)[] {
+/** 近 28 天同一小时的主动状态记录；未记录的时段保持空白。 */
+export function focusRhythm(state: BranchTimelineState, endDate: Date): (number | null)[] {
   const end = endDate < logicalToday() ? endDate : logicalToday();
-  const today = dateKey(logicalToday());
-  const minutes = Array<number>(24).fill(0);
+  const good = Array<number>(24).fill(0);
   const load = Array<number>(24).fill(0);
-  const observedDays = Array.from({ length: 24 }, () => new Set<string>());
   for (let offset = 0; offset < 28; offset++) {
     const date = new Date(end.getFullYear(), end.getMonth(), end.getDate() - offset);
-    const key = dateKey(date);
-    const day = state.days[key];
+    const day = state.days[dateKey(date)];
     if (!day) continue;
-    for (const span of recordedSpans(day, key === today ? nowMinute : undefined)) {
-      for (let at = span.start; at < span.end;) {
-        const hour = Math.floor(at / 60) % 24;
-        const stop = Math.min(span.end, Math.floor(at / 60) * 60 + 60);
-        minutes[hour] += stop - at;
-        observedDays[hour].add(key);
-        at = stop;
-      }
-    }
+    for (const event of day.goodStates || []) good[Math.floor(event.minute / 60) % 24]++;
     for (const event of day.distractions || []) load[Math.floor(event.minute / 60) % 24] += distractionWeight(event);
   }
-  return minutes.map((value, hour) => value >= 90 && observedDays[hour].size >= 3
-    ? Math.exp(-load[hour] * 60 / value) : null);
+  return good.map((value, hour) => value + load[hour] > 0 ? value / (value + load[hour]) : null);
 }
 
 export function recordedMinutes(day: TimelineDayState, nowMinute?: number, projectPath?: string): number {

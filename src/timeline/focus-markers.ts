@@ -16,4 +16,9 @@ export function renderFocusMarkers(canvas: HTMLElement, day: TimelineDayState, s
     const dot = canvas.createDiv({ cls: "btl-focus-dot is-good", attr: { title: label, "aria-label": label } });
     dot.style.top = `${minuteToY(day, scale, event.minute)}px`;
   }
+  for (const event of day.discomforts || []) {
+    const label = `脑不适 · ${formatTime(event.minute)}`;
+    const dot = canvas.createDiv({ cls: "btl-focus-dot is-discomfort", attr: { title: label, "aria-label": label } });
+    dot.style.top = `${minuteToY(day, scale, event.minute)}px`;
+  }
 }

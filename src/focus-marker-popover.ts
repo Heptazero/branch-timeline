@@ -3,9 +3,15 @@ import type { DistractionLevel } from "./types";
 
 export interface FocusMarkerActions {
   record: (level: DistractionLevel) => void | Promise<void>;
-  continue: () => void;
-  stop: () => void | Promise<void>;
-  break: () => void | Promise<void>;
+  continue?: () => void;
+  stop?: () => void | Promise<void>;
+  break?: () => void | Promise<void>;
+}
+
+export interface FocusStatusActions {
+  good: () => void | Promise<void>;
+  distract: (level: DistractionLevel) => void | Promise<void>;
+  discomfort: () => void | Promise<void>;
 }
 
 let closeCurrent: (() => void) | null = null;
@@ -27,16 +33,47 @@ export function openFocusMarkerPopover(anchor: HTMLElement, actions: FocusMarker
   document.addEventListener("pointerdown", outside, true);
   window.addEventListener("resize", cleanup);
 
-  panel.createEl("strong", { text: "刚才走神到什么程度？" });
+  const standalone = !actions.stop && !actions.break;
+  panel.createEl("strong", { text: standalone ? "发散程度" : "刚才走神到什么程度？" });
   const levels = panel.createDiv({ cls: "btl-focus-levels" });
   for (const level of DISTRACTION_LEVELS) {
-    const button = levels.createEl("button", { attr: { type: "button", title: level.detail } });
+    const detail = standalone ? { light: "短暂飘走", medium: "持续发散", heavy: "长时间发散" }[level.id] : level.detail;
+    const button = levels.createEl("button", { attr: { type: "button", title: detail } });
     button.createEl("strong", { text: level.label });
-    button.createEl("small", { text: level.detail });
+    button.createEl("small", { text: detail });
     button.onclick = async () => {
       await actions.record(level.id);
-      if (level.id !== "heavy") { cleanup(); return; }
+      if (level.id !== "heavy" || !actions.stop || !actions.break) { cleanup(); return; }
       renderRecovery(panel, actions, cleanup);
+    };
+  }
+  place(panel, anchor);
+}
+
+export function openFocusStatusPopover(anchor: HTMLElement, actions: FocusStatusActions): void {
+  closeCurrent?.();
+  const panel = document.body.createDiv({ cls: "btl-focus-popover btl-status-popover" });
+  const cleanup = (): void => {
+    document.removeEventListener("pointerdown", outside, true);
+    window.removeEventListener("resize", cleanup);
+    panel.remove();
+    if (closeCurrent === cleanup) closeCurrent = null;
+  };
+  const outside = (event: PointerEvent): void => {
+    if (!panel.contains(event.target as Node) && !anchor.contains(event.target as Node)) cleanup();
+  };
+  closeCurrent = cleanup;
+  document.addEventListener("pointerdown", outside, true);
+  window.addEventListener("resize", cleanup);
+  panel.createEl("strong", { text: "记录当前状态" });
+  const choices = panel.createDiv({ cls: "btl-status-options" });
+  for (const [kind, label] of [["good", "顺畅"], ["distract", "走神"], ["discomfort", "脑不适"]] as const) {
+    const button = choices.createEl("button", { text: label, cls: `is-${kind}`, attr: { type: "button" } });
+    button.onclick = () => {
+      cleanup();
+      if (kind === "good") void actions.good();
+      else if (kind === "discomfort") void actions.discomfort();
+      else openFocusMarkerPopover(anchor, { record: actions.distract });
     };
   }
   place(panel, anchor);
@@ -46,9 +83,9 @@ function renderRecovery(panel: HTMLElement, actions: FocusMarkerActions, close: 
   panel.empty();
   panel.createEl("strong", { text: "先决定下一步" });
   const row = panel.createDiv({ cls: "btl-focus-recovery" });
-  action(row, "继续", () => { actions.continue(); close(); });
-  action(row, "结束计时", async () => { close(); await actions.stop(); });
-  action(row, "休息 5 分钟", async () => { close(); await actions.break(); });
+  action(row, "继续", () => { actions.continue?.(); close(); });
+  action(row, "结束计时", async () => { close(); await actions.stop?.(); });
+  action(row, "休息 5 分钟", async () => { close(); await actions.break?.(); });
 }
 
 function action(parent: HTMLElement, label: string, run: () => void | Promise<void>): void {

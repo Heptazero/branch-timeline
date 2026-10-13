@@ -2,6 +2,7 @@ import { setIcon } from "obsidian";
 import { RHYTHM_BOUNDARIES, rhythmLabel, rhythmMarkerMinute, rhythmMarkerReal, rhythmRealKey } from "../rhythm";
 import type { RhythmKey, RhythmMarkerDefinition, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "../types";
 import { renderFocusMarkers } from "./focus-markers";
+import { renderFocusRhythmRail } from "./focus-rhythm-rail";
 import {
   TIMELINE_BOTTOM,
   branchPath,
@@ -28,6 +29,7 @@ export interface TimelineRenderOptions {
   rhythmMarkers?: readonly RhythmMarkerDefinition[];
   energyPhases?: readonly TimelineEnergyPhase[];
   projectColors?: ReadonlyMap<string, string>;
+  focusRhythm?: readonly (number | null)[];
 }
 
 export interface TimelineRenderResult {
@@ -59,6 +61,7 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   canvas.style.height = `${layout.height}px`;
   applyTimelineLod(canvas, scale);
   renderEnergyPhases(canvas, day, scale, options.energyPhases || []);
+  if (options.focusRhythm) renderFocusRhythmRail(canvas, day, scale, options.focusRhythm, nowMinute);
 
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.addClass("btl-paths");

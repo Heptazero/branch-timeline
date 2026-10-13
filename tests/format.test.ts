@@ -30,6 +30,7 @@ import {
 import { projectPlanOn, projectTimeSummary } from "../src/pages/project-time";
 import { burdenLabel, focusRhythm, periodMinutes, projectFocusTotal, recordedMinutes } from "../src/pages/focus-stats";
 import { distractionWeight } from "../src/focus-events";
+import { focusRhythmColor } from "../src/focus-rhythm-color";
 import { mapPosition, sleepSpan } from "../src/pages/time-map";
 import {
   backfillItem,
@@ -271,20 +272,25 @@ test("weekly time map keeps an overnight sleep together and places hours vertica
   assert.equal(Math.round((1430 + afterMidnight!.bed) / 2), 1440);
 });
 
-test("focus rhythm omits sparse hours and weights distraction severity", () => {
+test("focus rhythm uses state marks without timers and keeps discomfort separate", () => {
   const days: Record<string, TimelineDayState> = {};
   for (const date of [11, 12, 13]) {
     days[`2026-08-${date}`] = {
       wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
-      items: [{ id: `work-${date}`, title: "实验", kind: "fact", startMin: 600, endMin: 630 }],
-      distractions: date === 12 ? [{ id: "d", minute: 615, itemId: "work-12", level: "heavy" }] : []
+      items: [],
+      goodStates: date === 12 ? [] : [{ id: `good-${date}`, minute: 600 }],
+      distractions: date === 12 ? [{ id: "d", minute: 615, level: "heavy" }] : [],
+      discomforts: [{ id: `pain-${date}`, minute: 640 }]
     };
   }
   const state = { days } as unknown as BranchTimelineState;
-  const profile = focusRhythm(state, new Date(2026, 7, 13), 600);
-  assert.ok(profile[10] != null && profile[10]! < 1);
+  const profile = focusRhythm(state, new Date(2026, 7, 13));
+  assert.equal(profile[10], 2 / 6);
   assert.equal(profile[11], null);
   assert.equal(distractionWeight(days["2026-08-12"].distractions![0]), 4);
+  assert.equal(focusRhythmColor(0), "color-mix(in srgb, #244fa6 0%, #d84b4b)");
+  assert.equal(focusRhythmColor(1), "color-mix(in srgb, #244fa6 100%, #d84b4b)");
+  assert.equal(normalizeTimelineDay(days["2026-08-11"]).discomforts?.[0].minute, 640);
   assert.equal(burdenLabel({ minutes: 90, distractions: 0, load: 0, good: 0 }), "0/h");
 });
 

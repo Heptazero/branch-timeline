@@ -92,6 +92,10 @@ export function normalizeTimelineDay(value: Partial<TimelineDayState>): Timeline
         ? [{ id: event.id, minute: clamp(Math.round(event.minute), schedule.wake, schedule.sleep),
           ...(typeof event.itemId === "string" ? { itemId: event.itemId } : {}) }]
         : []) : [],
+    discomforts: Array.isArray(value.discomforts) ? value.discomforts.flatMap(event =>
+      typeof event?.id === "string" && Number.isFinite(event.minute)
+        ? [{ id: event.id, minute: clamp(Math.round(event.minute), schedule.wake, schedule.sleep) }]
+        : []) : [],
     branches: Array.isArray(value.branches) ? value.branches : [],
     items: Array.isArray(value.items) ? value.items : [],
     energyPhases: Array.isArray(value.energyPhases) ? normalizeEnergyPhases(value.energyPhases) : undefined

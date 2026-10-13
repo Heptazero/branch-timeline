@@ -73,6 +73,10 @@ button.btl-rhythm-resize { position: absolute; right: 1px; bottom: 1px; width: 2
 .btl-focus-recovery { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 5px; }
 .btl-focus-recovery button { min-height: 36px; border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 4px 6px; background: var(--background-secondary); color: var(--text-normal); font-size: 10px; }
 .btl-focus-recovery button:last-child { border-color: color-mix(in srgb, var(--interactive-accent) 38%, var(--background-modifier-border)); color: var(--interactive-accent); }
+.btl-status-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.btl-status-options button { min-height: 38px; border: 1px solid var(--background-modifier-border); border-radius: 8px; background: var(--background-secondary); color: var(--text-normal); font-size: 11px; font-weight: 650; }
+.btl-status-options button.is-good { color: #244fa6; }.btl-status-options button.is-distract { color: #d84b4b; }.btl-status-options button.is-discomfort { color: #a56bca; }
+.btl-status-options button:hover { background: var(--background-modifier-hover); }
 .btl-project-type-setting .setting-item-info { display: none; }.btl-project-type-setting .setting-item-control { width: 100%; flex-wrap: nowrap; }.btl-project-type-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }
 .btl-project-type-drag { cursor: grab; touch-action: none; }
 .btl-project-type-drag:active { cursor: grabbing; }

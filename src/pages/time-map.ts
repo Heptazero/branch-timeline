@@ -2,6 +2,7 @@ import { itemEnd, itemStart, formatTime } from "../timeline/model";
 import { compactDuration, isRunningItem } from "../timeline/timer-service";
 import type { BranchTimelineState, ProjectRef, TimelineItem } from "../types";
 import { distractionLabel, distractionLevel } from "../focus-events";
+import { focusRhythmColor } from "../focus-rhythm-color";
 import { dateKey, logicalToday } from "../vault/format";
 import { focusRhythm, nowOnAxis } from "./focus-stats";
 
@@ -36,11 +37,11 @@ export interface TimeMapOptions {
 export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): void {
   const map = parent.createDiv({ cls: "btl-time-map" });
   const legend = map.createDiv({ cls: "btl-time-map-legend" });
-  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "顺畅"]] as const) {
+  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "顺畅"], ["discomfort", "脑不适"]] as const) {
     legend.createSpan({ cls: `btl-time-map-key is-${kind}`, text: label });
   }
-  const rhythm = focusRhythm(options.state, options.dates[options.dates.length - 1], nowOnAxis());
-  if (rhythm.some(score => score != null)) legend.createSpan({ cls: "btl-time-map-key is-rhythm", text: "顺畅度推测" });
+  const rhythm = focusRhythm(options.state, options.dates[options.dates.length - 1]);
+  if (rhythm.some(score => score != null)) legend.createSpan({ cls: "btl-time-map-key is-rhythm", text: "状态倾向" });
   const header = map.createDiv({ cls: "btl-time-map-header" });
   header.createSpan();
   for (const date of options.dates) {
@@ -99,6 +100,12 @@ export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): voi
       dot.style.top = `${mapPosition(event.minute + 1440)}%`;
       dot.onclick = () => show(dot, label);
     }
+    for (const event of day.discomforts || []) {
+      const label = `脑不适 · ${formatTime(event.minute)}`;
+      const dot = column.createEl("button", { cls: "btl-time-map-dot is-discomfort", attr: { type: "button", "aria-label": label, title: label } });
+      dot.style.top = `${mapPosition(event.minute + 1440)}%`;
+      dot.onclick = () => show(dot, label);
+    }
   }
   drawRhythm(plot, rhythm);
   map.onclick = event => { if (!(event.target as HTMLElement).closest(".btl-time-map-band, .btl-time-map-dot")) tooltip.addClass("is-hidden"); };
@@ -141,11 +148,10 @@ function drawRhythm(plot: HTMLElement, values: readonly (number | null)[]): void
     const score = values[Math.floor(minute / 60) % 24];
     if (score == null) continue;
     const next = values[(Math.floor(minute / 60) + 1) % 24];
-    const color = (value: number) => `hsl(${Math.round(210 - 170 * value)} 76% 55%)`;
-    const segment = rail.createSpan({ attr: { title: `记录中的顺畅度 · ${formatTime(minute)}` } });
+    const segment = rail.createSpan({ attr: { title: `近 28 天状态倾向 · ${formatTime(minute)}` } });
     segment.style.top = `${mapPosition(minute)}%`;
     segment.style.height = `${mapPosition(minute + 60) - mapPosition(minute)}%`;
-    segment.style.background = `linear-gradient(${color(score)}, ${color(next ?? score)})`;
+    segment.style.background = `linear-gradient(${focusRhythmColor(score)}, ${focusRhythmColor(next ?? score)})`;
   }
 }
 

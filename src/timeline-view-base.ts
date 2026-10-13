@@ -11,6 +11,7 @@ import {
 import { AchievementActions } from "./pages/achievement-actions";
 import { renderAchievementDetail, renderAchievementsPage } from "./pages/achievements";
 import { renderStatsPage } from "./pages/stats";
+import { focusRhythm } from "./pages/focus-stats";
 import { LifeActions } from "./pages/life-actions";
 import { renderPageNavigation, type TimelinePage } from "./pages/navigation";
 import { ProjectTimelineActions } from "./pages/project-actions";
@@ -378,6 +379,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
       rhythmLabels: this.plugin.settings.rhythmLabels,
       rhythmMarkers: this.plugin.settings.rhythmMarkers,
       energyPhases: this.energyPhases,
+      focusRhythm: focusRhythm(state, this.date),
       projectColors: new Map(this.plugin.repository.listProjects().map(project => [project.path, project.color || "var(--text-faint)"]))
     });
     renderFixedReminderMarkers(rendered.canvas, day, this.scale, key, state.fixedReminders, state.fixedReminderResults,
@@ -443,8 +445,8 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract completeItem(itemId: string): Promise<void>;
   protected abstract stopTiming(itemId: string): Promise<void>;
   protected abstract stopRunningItem(itemId: string): Promise<void>;
-  protected abstract recordDistraction(itemId: string, level: DistractionLevel): Promise<void>;
-  protected abstract recordGoodState(itemId: string): Promise<void>;
+  protected abstract recordDistraction(itemId: string | undefined, level: DistractionLevel): Promise<void>;
+  protected abstract recordGoodState(itemId?: string): Promise<void>;
   protected abstract takeFiveMinuteBreak(itemId: string): Promise<void>;
   protected abstract editItemNote(itemId: string): Promise<void>;
   protected abstract openItemMenu(itemId: string, event: MouseEvent): void;

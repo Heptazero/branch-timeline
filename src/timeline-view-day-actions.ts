@@ -130,7 +130,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     else await this.stopTiming(itemId);
   }
 
-  protected async recordDistraction(itemId: string, level: DistractionLevel): Promise<void> {
+  protected async recordDistraction(itemId: string | undefined, level: DistractionLevel): Promise<void> {
     const minute = this.currentLogicalMinute();
     if (minute == null) return;
     await this.updateDay(day => {
@@ -139,7 +139,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     navigator.vibrate?.(18);
   }
 
-  protected async recordGoodState(itemId: string): Promise<void> {
+  protected async recordGoodState(itemId?: string): Promise<void> {
     const minute = this.currentLogicalMinute();
     if (minute == null) return;
     await this.updateDay(day => {

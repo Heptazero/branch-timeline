@@ -1,5 +1,6 @@
 import { Menu, Notice, TFile, setIcon } from "obsidian";
 import { openDateHeatmapPopover } from "./date-heatmap-popover";
+import { openFocusStatusPopover } from "./focus-marker-popover";
 import {
   ChoiceTextModal,
   MinuteEntryModal,
@@ -27,6 +28,15 @@ import { dateKey, logicalToday } from "./vault/format";
 export { BRANCH_TIMELINE_VIEW } from "./timeline-view-base";
 
 export class BranchTimelineView extends BranchTimelineViewDayActions {
+  private async recordDiscomfort(): Promise<void> {
+    const minute = this.currentLogicalMinute();
+    if (minute == null) return;
+    await this.updateDay(day => {
+      (day.discomforts ||= []).push({ id: this.uid("discomfort"), minute });
+    });
+    navigator.vibrate?.(12);
+  }
+
   async focusRunningItem(itemId: string): Promise<void> {
     this.date = logicalToday();
     this.followsToday = true;
@@ -108,6 +118,7 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
 
   protected openAddMenu(event: MouseEvent): void {
     const menu = new Menu();
+    const anchor = event.currentTarget as HTMLElement;
     if (this.page === "life") { this.lifeActions.add(this.lifeAnchor == null ? dateKey(new Date()) : lifeDateAt(this.lifeAnchor)); return; }
     const minute = this.day ? this.nowOnAxis(this.day) ?? this.day.napEnd : 12 * 60;
     if (this.page === "projects") {
@@ -141,6 +152,13 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     menu.addItem(item => item.setTitle("添加分支").setIcon("git-branch-plus").onClick(() => void this.addTimelineBranch(minute)));
     menu.addItem(item => item.setTitle("添加精力区间").setIcon("layers-2").onClick(() => void this.addEnergyPhase(minute, 1)));
     menu.addItem(item => item.setTitle("定点提醒").setIcon("bell").onClick(() => void this.fixedReminderActions.openManager(undefined, undefined, minute)));
+    if (dateKey(this.date) === dateKey(logicalToday())) menu.addItem(item => item.setTitle("记录状态").setIcon("activity").onClick(() => {
+      openFocusStatusPopover(anchor, {
+        good: () => this.recordGoodState(),
+        distract: level => this.recordDistraction(undefined, level),
+        discomfort: () => this.recordDiscomfort()
+      });
+    }));
     menu.addSeparator();
     menu.addItem(item => item.setTitle("记录项目工时").setIcon("timer").onClick(() => void this.plugin.recordProjectWork(this.date)));
     menu.addSeparator();
