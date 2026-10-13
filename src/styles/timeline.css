@@ -58,6 +58,7 @@
 .btl-focus-dot.is-distraction.is-heavy { width: 12px; height: 12px; box-shadow: 0 0 0 3px color-mix(in srgb, #d84b4b 24%, transparent); }
 .btl-focus-dot.is-good { left: calc(50% - 11px); background: #3d83d9; box-shadow: 0 0 0 1px color-mix(in srgb, #3d83d9 55%, transparent); }
 .btl-focus-dot.is-discomfort { left: calc(50% - 23px); background: #a56bca; box-shadow: 0 0 0 1px color-mix(in srgb, #a56bca 55%, transparent); }
+.btl-focus-dot.is-mental { left: calc(50% - 35px); box-shadow: 0 0 0 1px var(--background-modifier-border); }
 .btl-global-timer { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .btl-global-timer strong { color: var(--interactive-accent); font-variant-numeric: tabular-nums; }
 .btl-page-content { display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; }
@@ -66,6 +67,8 @@
 .btl-energy-layer { position: absolute; inset: 0; pointer-events: none; }
 .btl-focus-rhythm-rail { position: absolute; z-index: 4; top: 0; right: 1px; bottom: 0; width: 6px; border-radius: 3px; background: color-mix(in srgb, var(--text-faint) 13%, transparent); pointer-events: none; }
 .btl-focus-rhythm-rail span { position: absolute; right: 0; left: 0; }
+.btl-focus-rhythm-rail .btl-focus-rhythm-notch { z-index: 1; right: -2px; left: -2px; height: 4px; min-height: 4px; transform: translateY(-50%); border-radius: 3px; box-shadow: 0 0 0 1px var(--background-primary); }
+.btl-time-map-dot.is-mental { right: auto; left: calc(50% - 10px); }.btl-time-map-dot.is-mental::before { background: var(--btl-mental-color); }
 .btl-energy-zone { position: absolute; z-index: 0; right: 8px; left: 8px; background: color-mix(in srgb, var(--btl-energy-color) 10%, transparent); pointer-events: none; }
 .btl-energy-line { position: absolute; z-index: 2; right: 8px; left: 8px; border-top: 1.5px dashed var(--btl-energy-color); pointer-events: none; }
 .btl-energy-label { position: absolute; z-index: 18; display: flex; max-width: 42%; min-height: 32px; align-items: center; gap: 2px; transform: scaleY(var(--btl-preview-inverse)); transform-origin: left top; color: var(--btl-energy-color); font-size: 9px; font-weight: 720; pointer-events: auto; }

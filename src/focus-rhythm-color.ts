@@ -1,5 +1,6 @@
-/** 蓝色表示记录到顺畅，红色表示记录到走神；没有记录时不着色。 */
+/** 0=难以投入，0.5=中性，1=高度清醒专注。 */
 export function focusRhythmColor(score: number): string {
-  const blue = Math.round(Math.max(0, Math.min(1, score)) * 100);
-  return `color-mix(in srgb, #244fa6 ${blue}%, #d84b4b)`;
+  const value = Math.max(0, Math.min(1, score));
+  if (value <= .5) return `color-mix(in srgb, #8b929d ${Math.round(value * 200)}%, #d84b4b)`;
+  return `color-mix(in srgb, #244fa6 ${Math.round((value - .5) * 200)}%, #8b929d)`;
 }

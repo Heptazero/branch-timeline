@@ -29,7 +29,6 @@ export interface TimelineRenderOptions {
   rhythmMarkers?: readonly RhythmMarkerDefinition[];
   energyPhases?: readonly TimelineEnergyPhase[];
   projectColors?: ReadonlyMap<string, string>;
-  focusRhythm?: readonly (number | null)[];
 }
 
 export interface TimelineRenderResult {
@@ -61,7 +60,7 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   canvas.style.height = `${layout.height}px`;
   applyTimelineLod(canvas, scale);
   renderEnergyPhases(canvas, day, scale, options.energyPhases || []);
-  if (options.focusRhythm) renderFocusRhythmRail(canvas, day, scale, options.focusRhythm, nowMinute);
+  renderFocusRhythmRail(canvas, day, scale, nowMinute);
 
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.addClass("btl-paths");

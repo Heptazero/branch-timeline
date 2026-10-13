@@ -1,5 +1,6 @@
 import { DISTRACTION_LEVELS } from "./focus-events";
-import type { DistractionLevel } from "./types";
+import { focusRhythmColor } from "./focus-rhythm-color";
+import type { DistractionLevel, MentalStateLabel } from "./types";
 
 export interface FocusMarkerActions {
   record: (level: DistractionLevel) => void | Promise<void>;
@@ -9,8 +10,8 @@ export interface FocusMarkerActions {
 }
 
 export interface FocusStatusActions {
-  good: () => void | Promise<void>;
-  distract: (level: DistractionLevel) => void | Promise<void>;
+  labels: readonly MentalStateLabel[];
+  record: (score: number, label?: string) => void | Promise<void>;
   discomfort: () => void | Promise<void>;
 }
 
@@ -65,17 +66,33 @@ export function openFocusStatusPopover(anchor: HTMLElement, actions: FocusStatus
   closeCurrent = cleanup;
   document.addEventListener("pointerdown", outside, true);
   window.addEventListener("resize", cleanup);
-  panel.createEl("strong", { text: "记录当前状态" });
-  const choices = panel.createDiv({ cls: "btl-status-options" });
-  for (const [kind, label] of [["good", "顺畅"], ["distract", "走神"], ["discomfort", "脑不适"]] as const) {
-    const button = choices.createEl("button", { text: label, cls: `is-${kind}`, attr: { type: "button" } });
-    button.onclick = () => {
-      cleanup();
-      if (kind === "good") void actions.good();
-      else if (kind === "discomfort") void actions.discomfort();
-      else openFocusMarkerPopover(anchor, { record: actions.distract });
-    };
+  panel.createEl("strong", { text: "当下可用脑力" });
+  const slider = panel.createEl("input", { cls: "btl-status-slider", type: "range",
+    attr: { min: "0", max: "100", step: "5", value: "50", "aria-label": "当下可用脑力：红色难以投入，蓝色高度专注" } });
+  const scale = panel.createDiv({ cls: "btl-status-scale" });
+  scale.createSpan({ text: "难以投入" });
+  const current = scale.createSpan({ text: "中性" });
+  scale.createSpan({ text: "高度专注" });
+  const presets = panel.createDiv({ cls: "btl-status-presets" });
+  let selected: MentalStateLabel | undefined;
+  const paint = () => {
+    const score = Number(slider.value);
+    slider.style.setProperty("--btl-status-color", focusRhythmColor(score / 100));
+    current.setText(selected?.name || `${score}/100`);
+    for (const button of Array.from(presets.children)) button.toggleClass("is-active", button.getAttribute("data-label-id") === selected?.id);
+  };
+  slider.oninput = () => { selected = undefined; paint(); };
+  for (const label of actions.labels) {
+    const button = presets.createEl("button", { text: label.name, attr: { type: "button", "data-label-id": label.id } });
+    button.onclick = () => { selected = label; slider.value = String(label.score); paint(); };
   }
+  paint();
+  const footer = panel.createDiv({ cls: "btl-status-footer" });
+  footer.createEl("button", { text: "脑不适", attr: { type: "button" } }).onclick = () => { cleanup(); void actions.discomfort(); };
+  footer.createEl("button", { text: "记录", cls: "mod-cta", attr: { type: "button" } }).onclick = () => {
+    cleanup();
+    void actions.record(Number(slider.value), selected?.name);
+  };
   place(panel, anchor);
 }
 

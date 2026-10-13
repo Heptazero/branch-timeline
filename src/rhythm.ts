@@ -7,6 +7,7 @@ import type {
   TimelineRhythmMarker
 } from "./types";
 import { normalizeEnergyPhases } from "./timeline/energy-phases";
+import { normalizeMentalStates } from "./focus-state-model";
 
 export const DEFAULT_RHYTHM: RhythmSchedule = {
   wake: 7 * 60,
@@ -96,6 +97,7 @@ export function normalizeTimelineDay(value: Partial<TimelineDayState>): Timeline
       typeof event?.id === "string" && Number.isFinite(event.minute)
         ? [{ id: event.id, minute: clamp(Math.round(event.minute), schedule.wake, schedule.sleep) }]
         : []) : [],
+    mentalStates: normalizeMentalStates(value.mentalStates, schedule.wake, schedule.sleep),
     branches: Array.isArray(value.branches) ? value.branches : [],
     items: Array.isArray(value.items) ? value.items : [],
     energyPhases: Array.isArray(value.energyPhases) ? normalizeEnergyPhases(value.energyPhases) : undefined

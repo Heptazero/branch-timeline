@@ -6,6 +6,7 @@ import { DEFAULT_RHYTHM, DEFAULT_RHYTHM_MARKERS } from "./rhythm";
 import type { BranchTimelineSettings, ItemMetadataRequirement } from "./types";
 import { normalizeTaskHeadings } from "./vault/project-tasks";
 import { compileFormat } from "./pages/life-diary";
+import { renderMentalStateSettings } from "./focus-state-settings";
 
 const PROJECT_TYPE_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
 
@@ -55,7 +56,7 @@ const OPTIONAL_PAGES: ReadonlyArray<{ id: Exclude<BranchTimelineSettings["visibl
 const SETTINGS_GROUPS = [
   { id: "data", label: "数据", sections: ["storage", "life"] },
   { id: "projects", label: "项目", sections: ["types", "tasks", "creation"] },
-  { id: "timer", label: "计时", sections: ["marks", "reminder"] },
+  { id: "timer", label: "计时", sections: ["marks", "mental", "reminder"] },
   { id: "pages", label: "页面", sections: ["visibility"] }
 ] as const;
 
@@ -81,6 +82,7 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   rhythmElapsedMark: "↑",
   rhythmRemainingMark: "↓",
   timerReminderMinutes: 45,
+  mentalStateLabels: [],
   visiblePages: ["day", "projects", "habits", "achievements", "policy", "life"],
   pageVisibilityVersion: 2,
   projectOrder: [],
@@ -262,6 +264,11 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     const marks = section("timer", "marks", "时间标记", "经过标记 剩余标记 节律");
     this.textSetting(marks.body, "经过标记", "一天前半段显示在计时左侧。", "rhythmElapsedMark");
     this.textSetting(marks.body, "剩余标记", "一天后半段显示在计时左侧。", "rhythmRemainingMark");
+    const mental = section("timer", "mental", "可用脑力", "状态 红蓝 渐变 默认位置 分神 专注");
+    renderMentalStateSettings(mental.body, this.plugin.settings.mentalStateLabels,
+      () => this.plugin.saveSettings(false), focusLast => this.redisplay(focusLast
+        ? () => this.containerEl.querySelector<HTMLInputElement>(".btl-mental-state-row:last-child input[type=text]")?.focus()
+        : undefined));
     const reminder = section("timer", "reminder", "提醒", "计时提醒 分钟");
     new Setting(reminder.body)
       .setName("计时提醒")

@@ -73,10 +73,16 @@ button.btl-rhythm-resize { position: absolute; right: 1px; bottom: 1px; width: 2
 .btl-focus-recovery { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 5px; }
 .btl-focus-recovery button { min-height: 36px; border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 4px 6px; background: var(--background-secondary); color: var(--text-normal); font-size: 10px; }
 .btl-focus-recovery button:last-child { border-color: color-mix(in srgb, var(--interactive-accent) 38%, var(--background-modifier-border)); color: var(--interactive-accent); }
-.btl-status-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
-.btl-status-options button { min-height: 38px; border: 1px solid var(--background-modifier-border); border-radius: 8px; background: var(--background-secondary); color: var(--text-normal); font-size: 11px; font-weight: 650; }
-.btl-status-options button.is-good { color: #244fa6; }.btl-status-options button.is-distract { color: #d84b4b; }.btl-status-options button.is-discomfort { color: #a56bca; }
-.btl-status-options button:hover { background: var(--background-modifier-hover); }
+.btl-status-slider { display: block; width: 100%; height: 28px; margin: 4px 0 0; accent-color: var(--btl-status-color, #8b929d); background: transparent; touch-action: none; }
+.btl-status-scale { display: flex; align-items: center; justify-content: space-between; color: var(--text-muted); font-size: 10px; }
+.btl-status-scale span:nth-child(2) { color: var(--text-normal); font-weight: 700; }
+.btl-status-presets { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.btl-status-presets:empty { display: none; }
+.btl-status-presets button { min-height: 30px; border: 1px solid var(--background-modifier-border); border-radius: 999px; padding: 3px 9px; background: var(--background-secondary); color: var(--text-normal); font-size: 10px; }
+.btl-status-presets button.is-active { border-color: var(--interactive-accent); color: var(--interactive-accent); }
+.btl-status-footer { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
+.btl-status-footer button { min-height: 34px; border-radius: 7px; padding: 4px 10px; font-size: 11px; }
+.btl-status-footer button:first-child { margin-right: auto; color: #a56bca; }
 .btl-project-type-setting .setting-item-info { display: none; }.btl-project-type-setting .setting-item-control { width: 100%; flex-wrap: nowrap; }.btl-project-type-setting input[type="text"] { min-width: 0; flex: 1 1 auto; }
 .btl-project-type-drag { cursor: grab; touch-action: none; }
 .btl-project-type-drag:active { cursor: grabbing; }

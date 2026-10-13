@@ -11,7 +11,6 @@ import {
 import { AchievementActions } from "./pages/achievement-actions";
 import { renderAchievementDetail, renderAchievementsPage } from "./pages/achievements";
 import { renderStatsPage } from "./pages/stats";
-import { focusRhythm } from "./pages/focus-stats";
 import { LifeActions } from "./pages/life-actions";
 import { renderPageNavigation, type TimelinePage } from "./pages/navigation";
 import { ProjectTimelineActions } from "./pages/project-actions";
@@ -379,7 +378,6 @@ export abstract class BranchTimelineViewBase extends ItemView {
       rhythmLabels: this.plugin.settings.rhythmLabels,
       rhythmMarkers: this.plugin.settings.rhythmMarkers,
       energyPhases: this.energyPhases,
-      focusRhythm: focusRhythm(state, this.date),
       projectColors: new Map(this.plugin.repository.listProjects().map(project => [project.path, project.color || "var(--text-faint)"]))
     });
     renderFixedReminderMarkers(rendered.canvas, day, this.scale, key, state.fixedReminders, state.fixedReminderResults,

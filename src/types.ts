@@ -17,6 +17,7 @@ export interface BranchTimelineSettings {
   rhythmElapsedMark: string;
   rhythmRemainingMark: string;
   timerReminderMinutes: number;
+  mentalStateLabels: MentalStateLabel[];
   visiblePages: TimelinePage[];
   pageVisibilityVersion: number;
   projectOrder: string[];
@@ -84,6 +85,19 @@ export interface TimelineDiscomfort {
   minute: number;
 }
 
+export interface MentalStateLabel {
+  id: string;
+  name: string;
+  score: number;
+}
+
+export interface TimelineMentalState {
+  id: string;
+  minute: number;
+  score: number;
+  label?: string;
+}
+
 export interface TimelineTag {
   id: string;
   name: string;
@@ -142,6 +156,7 @@ export interface TimelineDayState {
   distractions?: TimelineDistraction[];
   goodStates?: TimelineGoodState[];
   discomforts?: TimelineDiscomfort[];
+  mentalStates?: TimelineMentalState[];
   /** 旧版单一午休节点，仅用于读取迁移。 */
   pivot?: number;
   /** 旧版单一午休完成状态，仅用于读取迁移。 */

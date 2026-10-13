@@ -154,8 +154,8 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     menu.addItem(item => item.setTitle("定点提醒").setIcon("bell").onClick(() => void this.fixedReminderActions.openManager(undefined, undefined, minute)));
     if (dateKey(this.date) === dateKey(logicalToday())) menu.addItem(item => item.setTitle("记录状态").setIcon("activity").onClick(() => {
       openFocusStatusPopover(anchor, {
-        good: () => this.recordGoodState(),
-        distract: level => this.recordDistraction(undefined, level),
+        labels: this.plugin.settings.mentalStateLabels,
+        record: (score, label) => this.recordMentalState(score, label),
         discomfort: () => this.recordDiscomfort()
       });
     }));
@@ -164,6 +164,13 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     menu.addSeparator();
     menu.addItem(item => item.setTitle("添加项目待办").setIcon("list-plus").onClick(() => void this.plugin.addProjectTask(this.date)));
     menu.showAtMouseEvent(event);
+  }
+
+  private async recordMentalState(score: number, label?: string): Promise<void> {
+    const minute = this.currentLogicalMinute();
+    if (minute == null) return;
+    await this.updateDay(day => { (day.mentalStates ||= []).push({ id: this.uid("mental"), minute, score, ...(label ? { label } : {}) }); });
+    navigator.vibrate?.(12);
   }
 
   protected shiftDate(amount: number): void {

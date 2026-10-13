@@ -288,8 +288,9 @@ test("focus rhythm uses state marks without timers and keeps discomfort separate
   assert.equal(profile[10], 2 / 6);
   assert.equal(profile[11], null);
   assert.equal(distractionWeight(days["2026-08-12"].distractions![0]), 4);
-  assert.equal(focusRhythmColor(0), "color-mix(in srgb, #244fa6 0%, #d84b4b)");
-  assert.equal(focusRhythmColor(1), "color-mix(in srgb, #244fa6 100%, #d84b4b)");
+  assert.equal(focusRhythmColor(0), "color-mix(in srgb, #8b929d 0%, #d84b4b)");
+  assert.equal(focusRhythmColor(.5), "color-mix(in srgb, #8b929d 100%, #d84b4b)");
+  assert.equal(focusRhythmColor(1), "color-mix(in srgb, #244fa6 100%, #8b929d)");
   assert.equal(normalizeTimelineDay(days["2026-08-11"]).discomforts?.[0].minute, 640);
   assert.equal(burdenLabel({ minutes: 90, distractions: 0, load: 0, good: 0 }), "0/h");
 });

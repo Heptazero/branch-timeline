@@ -3,6 +3,15 @@
   color: var(--text-normal);
   font-size: 14px;
 }
+.btl-mental-state-row .setting-item-info { display: none; }
+.btl-mental-state-row .setting-item-control { width: 100%; flex-wrap: nowrap; gap: 8px; }
+.btl-mental-state-row input[type="text"] { min-width: 74px; flex: 1 1 110px; }
+.btl-mental-state-row input[type="range"] { min-width: 78px; flex: 2 1 150px; accent-color: var(--interactive-accent); }
+.btl-mental-state-swatch { width: 13px; height: 13px; flex: 0 0 13px; border-radius: 50%; }
+.btl-mental-state-remove { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; padding: 0; }
+.btl-mental-state-remove svg { width: 15px; height: 15px; }
+.btl-mental-state-add { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; }
+.btl-mental-state-add svg { width: 15px; height: 15px; }
 .btl-settings-root .setting-item { font-size: 1em; }
 .btl-settings-root .setting-item-name,
 .btl-settings-root button,

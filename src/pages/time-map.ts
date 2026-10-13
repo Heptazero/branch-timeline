@@ -37,7 +37,7 @@ export interface TimeMapOptions {
 export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): void {
   const map = parent.createDiv({ cls: "btl-time-map" });
   const legend = map.createDiv({ cls: "btl-time-map-legend" });
-  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "顺畅"], ["discomfort", "脑不适"]] as const) {
+  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "高度专注"], ["discomfort", "脑不适"]] as const) {
     legend.createSpan({ cls: `btl-time-map-key is-${kind}`, text: label });
   }
   const rhythm = focusRhythm(options.state, options.dates[options.dates.length - 1]);
@@ -104,6 +104,13 @@ export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): voi
       const label = `脑不适 · ${formatTime(event.minute)}`;
       const dot = column.createEl("button", { cls: "btl-time-map-dot is-discomfort", attr: { type: "button", "aria-label": label, title: label } });
       dot.style.top = `${mapPosition(event.minute + 1440)}%`;
+      dot.onclick = () => show(dot, label);
+    }
+    for (const event of day.mentalStates || []) {
+      const label = `${event.label || "可用脑力"} · ${event.score}/100 · ${formatTime(event.minute)}`;
+      const dot = column.createEl("button", { cls: "btl-time-map-dot is-mental", attr: { type: "button", "aria-label": label, title: label } });
+      dot.style.top = `${mapPosition(event.minute + 1440)}%`;
+      dot.style.setProperty("--btl-mental-color", focusRhythmColor(event.score / 100));
       dot.onclick = () => show(dot, label);
     }
   }

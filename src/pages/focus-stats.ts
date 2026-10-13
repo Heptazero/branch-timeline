@@ -1,4 +1,5 @@
 import { distractionWeight } from "../focus-events";
+import { mergeFocusSpans, projectFocusSpans } from "../focus-state-model";
 import { itemEnd, itemStart } from "../timeline/model";
 import { isRunningItem } from "../timeline/timer-service";
 import type { BranchTimelineState, TimelineDayState } from "../types";
@@ -16,14 +17,7 @@ export function recordedSpans(day: TimelineDayState, nowMinute?: number, project
     const end = Math.min(2880, itemEnd(item, day.wake, nowMinute));
     return end > start ? [{ start, end }] : [];
   });
-  spans.sort((a, b) => a.start - b.start);
-  const merged: Span[] = [];
-  for (const span of spans) {
-    const previous = merged[merged.length - 1];
-    if (previous && span.start <= previous.end) previous.end = Math.max(previous.end, span.end);
-    else merged.push({ ...span });
-  }
-  return merged;
+  return mergeFocusSpans(spans);
 }
 
 export function nowOnAxis(): number {
@@ -42,19 +36,32 @@ export function burdenLabel(total: FocusTotal): string {
   return `${Number.isInteger(rate) ? rate.toFixed(0) : rate.toFixed(1)}/h`;
 }
 
-/** 近 28 天同一小时的主动状态记录；未记录的时段保持空白。 */
+/** A 28-day hour-of-day summary. Project minutes are evidence; marks are point samples. */
 export function focusRhythm(state: BranchTimelineState, endDate: Date): (number | null)[] {
   const end = endDate < logicalToday() ? endDate : logicalToday();
-  const good = Array<number>(24).fill(0);
-  const load = Array<number>(24).fill(0);
+  const weighted = Array<number>(24).fill(0);
+  const evidence = Array<number>(24).fill(0);
+  const add = (minute: number, score: number, weight: number) => {
+    const hour = Math.floor(minute / 60) % 24;
+    weighted[hour] += score * weight;
+    evidence[hour] += weight;
+  };
   for (let offset = 0; offset < 28; offset++) {
     const date = new Date(end.getFullYear(), end.getMonth(), end.getDate() - offset);
     const day = state.days[dateKey(date)];
     if (!day) continue;
-    for (const event of day.goodStates || []) good[Math.floor(event.minute / 60) % 24]++;
-    for (const event of day.distractions || []) load[Math.floor(event.minute / 60) % 24] += distractionWeight(event);
+    for (const span of projectFocusSpans(day, dateKey(date) === dateKey(logicalToday()) ? nowOnAxis() : undefined)) {
+      for (let minute = span.start; minute < span.end;) {
+        const stop = Math.min(span.end, (Math.floor(minute / 60) + 1) * 60);
+        add(minute, .72, stop - minute);
+        minute = stop;
+      }
+    }
+    for (const event of day.goodStates || []) add(event.minute, 1, 5);
+    for (const event of day.distractions || []) add(event.minute, 0, 5 * distractionWeight(event));
+    for (const event of day.mentalStates || []) add(event.minute, event.score / 100, 5);
   }
-  return good.map((value, hour) => value + load[hour] > 0 ? value / (value + load[hour]) : null);
+  return weighted.map((value, hour) => evidence[hour] > 0 ? value / evidence[hour] : null);
 }
 
 export function recordedMinutes(day: TimelineDayState, nowMinute?: number, projectPath?: string): number {
