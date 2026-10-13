@@ -1,4 +1,5 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
+import { predictFocusByTime } from "./focus-prediction";
 import type BranchTimelinePlugin from "./main";
 import { FixedReminderActions } from "./fixed-reminders/actions";
 import { renderFixedReminderMarkers } from "./fixed-reminders/markers";
@@ -378,6 +379,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
       rhythmLabels: this.plugin.settings.rhythmLabels,
       rhythmMarkers: this.plugin.settings.rhythmMarkers,
       energyPhases: this.energyPhases,
+      focusPrediction: predictFocusByTime(state.days, key),
       projectColors: new Map(this.plugin.repository.listProjects().map(project => [project.path, project.color || "var(--text-faint)"]))
     });
     renderFixedReminderMarkers(rendered.canvas, day, this.scale, key, state.fixedReminders, state.fixedReminderResults,

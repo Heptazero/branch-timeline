@@ -3,6 +3,8 @@ import { compactDuration, isRunningItem } from "../timeline/timer-service";
 import type { BranchTimelineState, ProjectRef, TimelineItem } from "../types";
 import { distractionLabel, distractionLevel } from "../focus-events";
 import { focusRhythmColor } from "../focus-rhythm-color";
+import { predictFocusByTime } from "../focus-prediction";
+import { focusPredictionGradient } from "../focus-prediction-gradient";
 import { dateKey, logicalToday } from "../vault/format";
 import { nowOnAxis } from "./focus-stats";
 
@@ -37,7 +39,7 @@ export interface TimeMapOptions {
 export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): void {
   const map = parent.createDiv({ cls: "btl-time-map" });
   const legend = map.createDiv({ cls: "btl-time-map-legend" });
-  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "高度专注"], ["mental", "状态"], ["discomfort", "脑不适"]] as const) {
+  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "高度专注"], ["mental", "状态"], ["discomfort", "脑不适"], ["forecast", "预测"]] as const) {
     legend.createSpan({ cls: `btl-time-map-key is-${kind}`, text: label });
   }
   const header = map.createDiv({ cls: "btl-time-map-header" });
@@ -47,9 +49,21 @@ export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): voi
     button.toggleClass("is-selected", dateKey(date) === dateKey(options.selected));
     button.onclick = () => options.onOpenDate(date);
   }
+  header.createSpan();
   const chart = map.createDiv({ cls: "btl-time-map-chart" });
   const axis = chart.createDiv({ cls: "btl-time-map-axis" });
   const plot = chart.createDiv({ cls: "btl-time-map-plot" });
+  const prediction = predictFocusByTime(options.state.days, dateKey(options.selected));
+  const forecastRail = chart.createDiv({ cls: "btl-time-map-forecast", attr: {
+    "aria-label": prediction.points.some(point => point.ready) ? "所选日期的日内专注预测" : "记录不足，尚无日内专注预测"
+  } });
+  const forecastGradient = focusPredictionGradient(prediction, 120, 1560);
+  if (forecastGradient) {
+    const fill = forecastRail.createDiv({ cls: "btl-time-map-forecast-fill" });
+    fill.style.top = `${mapPosition(1560)}%`;
+    fill.style.height = `${100 - mapPosition(1560)}%`;
+    fill.style.background = forecastGradient;
+  }
   const tooltip = map.createDiv({ cls: "btl-time-map-tooltip is-hidden" });
   const show = (button: HTMLElement, content: string) => {
     tooltip.setText(content);

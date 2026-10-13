@@ -4,7 +4,7 @@ import { focusRailMarks, normalizeMentalStateLabels } from "../src/focus-state-m
 import { normalizeTimelineDay } from "../src/rhythm";
 import type { TimelineDayState } from "../src/types";
 
-test("project facts never imply mental state; only explicit marks appear", () => {
+test("project facts do not create manual status marks", () => {
   const day: TimelineDayState = {
     wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
     items: [

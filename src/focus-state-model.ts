@@ -30,7 +30,7 @@ export function normalizeMentalStates(value: unknown, wake: number, sleep: numbe
       : []);
 }
 
-/** A work record is not evidence of mental state; only explicit observations appear. */
+/** Actual marks are explicit observations; historical prediction is calculated separately. */
 export function focusRailMarks(day: TimelineDayState): FocusMark[] {
   return [
     ...(day.distractions || []).map(event => ({ minute: event.minute, score: 0, label: "走神" })),
