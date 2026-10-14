@@ -11,6 +11,7 @@ import {
   diaryHeading,
   parseDiaryDay,
   projectDayTotal,
+  removeProjectWorkLog,
   setHabitInDiary,
   setProjectTaskDone,
   upsertProjectDayTotal,
@@ -78,6 +79,13 @@ export class VaultRepository {
   async updateProjectWorkLogNote(projectPath: string, workId: string, taskTitle: string | undefined, note: string): Promise<void> {
     const file = this.projectFile(projectPath);
     await this.process(file, content => updateProjectWorkLogNote(content, workId, taskTitle, note));
+  }
+
+  async removeProjectWorkLog(projectPath: string, workId: string): Promise<void> {
+    const file = this.projectFile(projectPath);
+    const before = await this.app.vault.read(file);
+    if (removeProjectWorkLog(before, workId) === before) return;
+    await this.process(file, content => removeProjectWorkLog(content, workId));
   }
 
   async readProjectDayTotal(projectPath: string, date: string): Promise<ReturnType<typeof projectDayTotal>> {

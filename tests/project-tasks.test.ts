@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { appendProjectLog, setProjectTaskDone, updateProjectWorkLogNote } from "../src/vault/format";
+import { appendProjectLog, removeProjectWorkLog, setProjectTaskDone, updateProjectWorkLogNote } from "../src/vault/format";
 import { appendProjectTaskAtHeading, ensureProjectTaskId, fuzzyMatchProjectTask, indexProjectTasks, linkProjectTask, normalizeTaskHeadings, upsertProjectTaskTotals } from "../src/vault/project-tasks";
 
 test("finds open tasks below multiple configured headings and nested headings", () => {
@@ -68,4 +68,16 @@ test("edits a marked work note without duplicating its dated log entry", () => {
   const edited = updateProjectWorkLogNote(logged, "fact-one", "实验", "修订");
   assert.match(edited, /\[14:20\] 0\.5h @实验 修订 <!-- btl-work:fact-one -->/);
   assert.equal(edited.match(/btl-work:fact-one/g)?.length, 1);
+});
+
+test("deletes only the uniquely marked work line and preserves manual notes", () => {
+  const source = "## log\n- 1006\n\t- 手写说明\n";
+  const first = appendProjectLog(source, "2026-10-06", "10:00", 1, "第一次", "fact-one");
+  const second = appendProjectLog(first, "2026-10-06", "11:00", .5, "第二次", "fact-two");
+  const removed = removeProjectWorkLog(second, "fact-one");
+  assert.doesNotMatch(removed, /btl-work:fact-one/);
+  assert.match(removed, /手写说明/);
+  assert.match(removed, /btl-work:fact-two/);
+  assert.equal(removeProjectWorkLog(removed, "fact-one"), removed);
+  assert.throws(() => removeProjectWorkLog(`${second}\n\t- [12:00] 1h <!-- btl-work:fact-one -->`, "fact-one"));
 });

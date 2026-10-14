@@ -1,6 +1,6 @@
 import { DISTRACTION_LEVELS } from "./focus-events";
-import { focusRhythmColor } from "./focus-rhythm-color";
-import type { DistractionLevel, MentalStateLabel } from "./types";
+import { applyFocusColors, focusRhythmColor } from "./focus-rhythm-color";
+import type { DistractionLevel, FocusColors, MentalStateLabel } from "./types";
 
 export interface FocusMarkerActions {
   record: (level: DistractionLevel) => void | Promise<void>;
@@ -11,6 +11,7 @@ export interface FocusMarkerActions {
 
 export interface FocusStatusActions {
   labels: readonly MentalStateLabel[];
+  colors: FocusColors;
   record: (score: number, label?: string) => void | Promise<void>;
   discomfort: () => void | Promise<void>;
 }
@@ -54,6 +55,7 @@ export function openFocusMarkerPopover(anchor: HTMLElement, actions: FocusMarker
 export function openFocusStatusPopover(anchor: HTMLElement, actions: FocusStatusActions): void {
   closeCurrent?.();
   const panel = document.body.createDiv({ cls: "btl-focus-popover btl-status-popover" });
+  applyFocusColors(panel, actions.colors);
   const cleanup = (): void => {
     document.removeEventListener("pointerdown", outside, true);
     window.removeEventListener("resize", cleanup);

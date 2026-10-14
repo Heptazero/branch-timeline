@@ -16,7 +16,7 @@ export function focusPredictionGradient(prediction: FocusPrediction, start: numb
 
 /** Boost color contrast only; the underlying prediction score stays unchanged. */
 export function focusPredictionDisplayScore(score: number): number {
-  return Math.max(0, Math.min(1, .5 + (score - .5) * 4));
+  return Math.max(0, Math.min(1, .5 + (score - .5) * 5));
 }
 
 function sample(points: readonly FocusPredictionPoint[], minute: number): FocusPredictionPoint {

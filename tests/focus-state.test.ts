@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { focusRailMarks, normalizeMentalStateLabels } from "../src/focus-state-model";
+import { DEFAULT_FOCUS_COLORS, normalizeFocusColors } from "../src/focus-rhythm-color";
 import { normalizeTimelineDay } from "../src/rhythm";
 import type { TimelineDayState } from "../src/types";
 
@@ -23,4 +24,11 @@ test("project facts do not create manual status marks", () => {
   const normalized = normalizeTimelineDay(day);
   assert.deepEqual(normalized.mentalStates, [{ id: "alert", minute: 640, score: 95, label: "清醒" }]);
   assert.deepEqual(normalizeMentalStateLabels([{ id: "a", name: "焦虑", score: -10 }, { id: "a", name: "重复", score: 20 }]), [{ id: "a", name: "焦虑", score: 0 }]);
+});
+
+test("custom focus colors validate per endpoint and preserve defaults", () => {
+  assert.deepEqual(normalizeFocusColors(undefined), DEFAULT_FOCUS_COLORS);
+  assert.deepEqual(normalizeFocusColors({ low: "#ff0033", neutral: "bad", high: "#0088FF" }), {
+    low: "#ff0033", neutral: DEFAULT_FOCUS_COLORS.neutral, high: "#0088FF"
+  });
 });

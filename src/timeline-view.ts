@@ -156,6 +156,7 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     if (dateKey(this.date) === dateKey(logicalToday())) menu.addItem(item => item.setTitle("记录状态").setIcon("activity").onClick(() => {
       openFocusStatusPopover(anchor, {
         labels: this.plugin.settings.mentalStateLabels,
+        colors: this.plugin.settings.focusColors,
         record: (score, label) => this.recordMentalState(score, label),
         discomfort: () => this.recordDiscomfort()
       });

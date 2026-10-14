@@ -1,5 +1,6 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
 import { predictFocusByTime } from "./focus-prediction";
+import { applyFocusColors } from "./focus-rhythm-color";
 import type BranchTimelinePlugin from "./main";
 import { FixedReminderActions } from "./fixed-reminders/actions";
 import { renderFixedReminderMarkers } from "./fixed-reminders/markers";
@@ -123,7 +124,6 @@ export abstract class BranchTimelineViewBase extends ItemView {
     }, 90);
   }
   async refresh(): Promise<void> { await this.render(true); }
-
   protected async render(preserveScroll: boolean, anchor?: ScrollAnchor): Promise<void> {
     const requestId = ++this.renderId;
     const previousScroll = preserveScroll ? this.scroller?.scrollTop || 0 : 0;
@@ -141,10 +141,10 @@ export abstract class BranchTimelineViewBase extends ItemView {
       this.selectedProjectPath = null;
       this.selectedAchievementId = null;
     }
-
     const root = this.contentEl;
     root.empty();
     root.addClass("branch-timeline-hz");
+    applyFocusColors(root, this.plugin.settings.focusColors);
     const toolbar = root.createDiv({ cls: "btl-toolbar" });
     const toolbarLeft = toolbar.createDiv({ cls: "btl-toolbar-left" });
     const undo = this.iconButton(toolbarLeft, "undo-2", "撤回", () => void this.plugin.undoLast());

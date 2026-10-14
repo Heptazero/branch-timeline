@@ -3,6 +3,7 @@ import test from "node:test";
 import type { BranchTimelineState } from "../src/types";
 import { appendProjectLog, projectDayTotal, upsertProjectDayTotal, upsertProjectNote } from "../src/vault/format";
 import { changedProjectDates, completedProjectTaskTotals, completedProjectTotals } from "../src/vault/project-time-sync";
+import { removeTimelineItem } from "../src/timeline/remove-item";
 
 test("writes one absolute project total with hours and keeps manual entries", () => {
   const source = "## log\n- 1003\n\t- [10:00] [+0.5] 手写实验\n";
@@ -60,4 +61,35 @@ test("recomputes one task total across days without counting running time", () =
   const state = { days: { "2026-10-02": day(45), "2026-10-03": day(75) } } as unknown as BranchTimelineState;
   state.days["2026-10-03"].items.push({ id: "running", title: "实验", kind: "fact", startMin: 800, endMin: 800, factTiming: true, projectPath: "a.md", projectTaskId: "task-a" });
   assert.equal(completedProjectTaskTotals(state, "a.md").get("task-a"), 120);
+});
+
+test("deleting a timed fact removes its marked log before removing the timeline record", async () => {
+  const date = "2026-10-03";
+  const state = { days: { [date]: { items: [
+    { id: "fact-a", kind: "fact", projectPath: "a.md", projectLogId: "work-a" },
+    { id: "fact-b", kind: "fact", projectPath: "a.md", projectLogId: "work-b" }
+  ] } } };
+  const calls: string[] = [];
+  const plugin = {
+    repository: { removeProjectWorkLog: async (_path: string, id: string) => { calls.push(id); } },
+    store: { load: async () => state, update: async (mutate: (value: typeof state) => void) => { mutate(state); } }
+  } as unknown as Parameters<typeof removeTimelineItem>[0];
+  await removeTimelineItem(plugin, date, "fact-a");
+  assert.deepEqual(calls, ["work-a"]);
+  assert.deepEqual(state.days[date].items.map(item => item.id), ["fact-b"]);
+});
+
+test("deleting a reassigned fact removes the log from its original project", async () => {
+  const date = "2026-10-03";
+  const state = { days: { [date]: { items: [
+    { id: "fact-a", kind: "fact", projectPath: "new.md", projectLogPath: "old.md", projectLogId: "work-a" }
+  ] } } };
+  const calls: string[] = [];
+  const plugin = {
+    repository: { removeProjectWorkLog: async (path: string) => { calls.push(path); } },
+    store: { load: async () => state, update: async (mutate: (value: typeof state) => void) => { mutate(state); } }
+  } as unknown as Parameters<typeof removeTimelineItem>[0];
+  await removeTimelineItem(plugin, date, "fact-a");
+  assert.deepEqual(calls, ["old.md"]);
+  assert.equal(state.days[date].items.length, 0);
 });

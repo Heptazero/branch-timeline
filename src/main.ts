@@ -5,6 +5,7 @@ import type { ProjectWorkResult } from "./project-work-modal";
 import { normalizeRhythmMarkers, normalizeRhythmSchedule } from "./rhythm";
 import { BranchTimelineSettingTab, DEFAULT_SETTINGS } from "./settings";
 import { normalizeMentalStateLabels } from "./focus-state-model";
+import { normalizeFocusColors } from "./focus-rhythm-color";
 import { loadTags } from "./tags";
 import { BRANCH_TIMELINE_VIEW, BranchTimelineView } from "./timeline-view";
 import type { BranchTimelineSettings, ProjectRef } from "./types";
@@ -103,6 +104,7 @@ export default class BranchTimelinePlugin extends Plugin {
       rhythmMarkers: normalizeRhythmMarkers(saved?.rhythmMarkers, rhythm, rhythmLabels),
       rhythmLabels,
       mentalStateLabels: normalizeMentalStateLabels(saved?.mentalStateLabels),
+      focusColors: normalizeFocusColors(saved?.focusColors),
       visiblePages: Array.isArray(saved?.visiblePages)
         ? ["day", ...saved.visiblePages.filter(page => page !== "day"), ...(saved.pageVisibilityVersion === 2 ? [] : ["life" as const])]
         : DEFAULT_SETTINGS.visiblePages,

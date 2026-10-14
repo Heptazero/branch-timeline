@@ -287,9 +287,9 @@ test("focus rail uses explicit marks and keeps discomfort separate", () => {
   assert.deepEqual(focusRailMarks(days["2026-08-12"]), [{ minute: 615, score: 0, label: "走神" }]);
   assert.deepEqual(focusRailMarks(days["2026-08-11"]), [{ minute: 600, score: 100, label: "高度专注" }]);
   assert.equal(distractionWeight(days["2026-08-12"].distractions![0]), 4);
-  assert.equal(focusRhythmColor(0), "color-mix(in srgb, #8b929d 0%, #d84b4b)");
-  assert.equal(focusRhythmColor(.5), "color-mix(in srgb, #8b929d 100%, #d84b4b)");
-  assert.equal(focusRhythmColor(1), "color-mix(in srgb, #244fa6 100%, #8b929d)");
+  assert.match(focusRhythmColor(0), /--btl-focus-low.*#d84b4b/);
+  assert.match(focusRhythmColor(.5), /--btl-focus-neutral.*100%/);
+  assert.match(focusRhythmColor(1), /--btl-focus-high.*#126cff/);
   assert.equal(normalizeTimelineDay(days["2026-08-11"]).discomforts?.[0].minute, 640);
   assert.equal(burdenLabel({ minutes: 90, distractions: 0, load: 0, good: 0 }), "0/h");
 });

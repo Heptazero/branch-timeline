@@ -7,6 +7,7 @@ import { rhythmRealKey } from "./rhythm";
 import { ENERGY_PHASE_COLORS, materializeEnergyPhases } from "./timeline/energy-phases";
 import { backfillItem as applyBackfill, clampMinute } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
+import { removeTimelineItem } from "./timeline/remove-item";
 import { TimerService, compactDuration, elapsedMinutes, isRunningItem, readableDuration } from "./timeline/timer-service";
 import type { DistractionLevel, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "./types";
 import { dateKey } from "./vault/format";
@@ -69,7 +70,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
         target.note = note?.trim() || undefined;
         target.projectTaskTitle = taskTitle;
         target.projectTaskId = finish?.taskId;
-        if (target.projectPath && minutes > 0) target.projectLogId = item.id;
+        if (target.projectPath && minutes > 0) { target.projectLogId = item.id; target.projectLogPath = target.projectPath; }
       }
     });
     new Notice(`完成 · ${item.title}`);
@@ -112,7 +113,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
         fact.note = note.trim() || undefined;
         fact.projectTaskTitle = taskTitle;
         fact.projectTaskId = finish?.taskId;
-        if (fact.projectPath && minutes > 0) fact.projectLogId = factId;
+        if (fact.projectPath && minutes > 0) { fact.projectLogId = factId; fact.projectLogPath = fact.projectPath; }
       }
     });
     if (summary) new Notice(`计时结束 · ${summary}`);
@@ -189,6 +190,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     await this.updateDay(day => {
       const item = day.items.find(candidate => candidate.id === itemId);
       if (!item || item.projectPath === projectPath) return;
+      if (item.projectLogId && item.projectPath && !item.projectLogPath) item.projectLogPath = item.projectPath;
       item.projectPath = projectPath || undefined;
       item.projectBranchId = null;
       item.projectTaskId = undefined;
@@ -215,6 +217,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
 
   protected async backfillGap(startMinute: number, endMinute: number): Promise<void> {
     const minutes = Math.max(1, Math.round(endMinute - startMinute));
+    const factId = this.uid("fact");
     const projects = this.plugin.repository.listProjects().filter(project =>
       ["active", "doing", "进行中"].includes(project.status.trim().toLowerCase())
     );
@@ -231,7 +234,8 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
           this.date,
           endMinute,
           minutes,
-          draft.note || draft.title
+          draft.note || draft.title,
+          factId
         );
       } catch (error) {
         new Notice(error instanceof Error ? error.message : "项目补记写入失败");
@@ -240,17 +244,17 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     }
     await this.updateDay(day => {
       day.items.push({
-        id: this.uid("fact"),
+        id: factId,
         title: draft.title,
         kind: "fact",
         startMin: startMinute,
         endMin: endMinute,
         projectPath: draft.projectPath || undefined,
+        projectLogId: draft.projectPath ? factId : undefined, projectLogPath: draft.projectPath || undefined,
         note: draft.note || undefined
       });
     });
   }
-
   protected async renameItem(item: TimelineItem): Promise<void> {
     const value = await this.text("重命名", "标题", item.title);
     if (value == null) return;
@@ -294,8 +298,8 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     new ConfirmModal(
       this.app,
       `删除“${item.title}”？`,
-      item.projectTaskId ? "只从时间轴移除；项目笔记中的待办保留。" : "这条时间轴记录会被删除。",
-      () => this.updateDay(day => { day.items = day.items.filter(candidate => candidate.id !== item.id); })
+      item.projectLogId ? "同时删除关联的项目工时日志；项目待办保留。" : item.projectTaskId ? "只从时间轴移除；项目笔记中的待办保留。" : "这条时间轴记录会被删除。",
+      () => removeTimelineItem(this.plugin, dateKey(this.date), item.id).then(() => this.render(true)).catch(error => { new Notice(error instanceof Error ? error.message : "删除失败"); })
     ).open();
   }
 

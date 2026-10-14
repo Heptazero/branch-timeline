@@ -244,6 +244,24 @@ export function updateProjectWorkLogNote(content: string, workId: string, taskTi
   return lines.join("\n");
 }
 
+/** Remove only a uniquely marked plugin work entry; leave handwritten lines and date headings untouched. */
+export function removeProjectWorkLog(content: string, workId: string): string {
+  const lines = content.split("\n");
+  const range = sectionRange(lines, "log");
+  if (!range) return content;
+  const marker = `<!-- btl-work:${workId} -->`;
+  const matches: number[] = [];
+  for (let index = range.headingLine + 1; index < range.endLine; index += 1) {
+    if (lines[index].includes(marker)) matches.push(index);
+  }
+  if (!matches.length) return content;
+  if (matches.length !== 1 || !/^\s*-\s+\[\d{2}:\d{2}\]\s+\d+(?:\.\d+)?h(?:\s+.*?)?\s+<!-- btl-work:[^<>]+ -->\s*$/.test(lines[matches[0]])) {
+    throw new Error("项目工时日志格式或标记有冲突，请手动检查");
+  }
+  lines.splice(matches[0], 1);
+  return lines.join("\n");
+}
+
 export function upsertProjectNote(
   content: string,
   date: string,

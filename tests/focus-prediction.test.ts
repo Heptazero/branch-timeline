@@ -72,8 +72,8 @@ test("no forecast from sparse days, today, future days, or discomfort alone", ()
 
 test("forecast contrast makes a mild tendency visible without changing neutrality", () => {
   assert.equal(focusPredictionDisplayScore(.5), .5);
-  assert.ok(Math.abs(focusPredictionDisplayScore(.57) - .78) < .0001);
-  assert.ok(Math.abs(focusPredictionDisplayScore(.43) - .22) < .0001);
+  assert.ok(Math.abs(focusPredictionDisplayScore(.57) - .85) < .0001);
+  assert.ok(Math.abs(focusPredictionDisplayScore(.43) - .15) < .0001);
   assert.equal(focusPredictionDisplayScore(0), 0);
   assert.equal(focusPredictionDisplayScore(1), 1);
 });

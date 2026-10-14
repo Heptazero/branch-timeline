@@ -7,6 +7,8 @@ import type { BranchTimelineSettings, ItemMetadataRequirement } from "./types";
 import { normalizeTaskHeadings } from "./vault/project-tasks";
 import { compileFormat } from "./pages/life-diary";
 import { renderMentalStateSettings } from "./focus-state-settings";
+import { DEFAULT_FOCUS_COLORS } from "./focus-rhythm-color";
+import { renderFocusColorSettings } from "./focus-color-settings";
 
 const PROJECT_TYPE_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
 
@@ -83,6 +85,7 @@ export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   rhythmRemainingMark: "↓",
   timerReminderMinutes: 45,
   mentalStateLabels: [],
+  focusColors: { ...DEFAULT_FOCUS_COLORS },
   visiblePages: ["day", "projects", "habits", "achievements", "policy", "life"],
   pageVisibilityVersion: 2,
   projectOrder: [],
@@ -265,6 +268,7 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     this.textSetting(marks.body, "经过标记", "一天前半段显示在计时左侧。", "rhythmElapsedMark");
     this.textSetting(marks.body, "剩余标记", "一天后半段显示在计时左侧。", "rhythmRemainingMark");
     const mental = section("timer", "mental", "可用脑力", "状态 红蓝 渐变 默认位置 分神 专注");
+    renderFocusColorSettings(mental.body, this.plugin.settings.focusColors, () => this.plugin.saveSettings());
     renderMentalStateSettings(mental.body, this.plugin.settings.mentalStateLabels,
       () => this.plugin.saveSettings(false), focusLast => this.redisplay(focusLast
         ? () => this.containerEl.querySelector<HTMLInputElement>(".btl-mental-state-row:last-child input[type=text]")?.focus()

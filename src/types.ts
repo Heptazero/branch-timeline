@@ -18,6 +18,7 @@ export interface BranchTimelineSettings {
   rhythmRemainingMark: string;
   timerReminderMinutes: number;
   mentalStateLabels: MentalStateLabel[];
+  focusColors: FocusColors;
   visiblePages: TimelinePage[];
   pageVisibilityVersion: number;
   projectOrder: string[];
@@ -91,6 +92,12 @@ export interface MentalStateLabel {
   score: number;
 }
 
+export interface FocusColors {
+  low: string;
+  neutral: string;
+  high: string;
+}
+
 export interface TimelineMentalState {
   id: string;
   minute: number;
@@ -133,6 +140,7 @@ export interface TimelineItem {
   projectTaskId?: string;
   projectTaskTitle?: string;
   projectLogId?: string;
+  projectLogPath?: string;
   tagId?: string;
   tag?: string;
   note?: string;

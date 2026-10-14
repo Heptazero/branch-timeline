@@ -3,6 +3,7 @@ import type BranchTimelinePlugin from "../main";
 import { ConfirmModal, MinuteEntryModal } from "../modals";
 import { backfillItem as applyBackfill } from "../timeline/model";
 import { showItemMenu } from "../timeline/menu";
+import { removeTimelineItem } from "../timeline/remove-item";
 import type { ProjectTimelineBranch, TimelineDayState, TimelineItem } from "../types";
 import { dateKey, logicalToday } from "../vault/format";
 import { defaultDay } from "../vault/state-store";
@@ -246,6 +247,7 @@ export class ProjectTimelineActions {
   private async setItemProject(date: string, itemId: string, projectPath: string | null): Promise<void> {
     await this.updateItem(date, itemId, target => {
       if (target.projectPath === projectPath) return;
+      if (target.projectLogId && target.projectPath && !target.projectLogPath) target.projectLogPath = target.projectPath;
       target.projectPath = projectPath || undefined;
       target.projectBranchId = null;
       target.projectTaskId = undefined;
@@ -257,10 +259,11 @@ export class ProjectTimelineActions {
     new ConfirmModal(
       this.options.app,
       `删除“${item.title}”？`,
-      item.projectTaskId ? "只从时间轴移除；项目笔记中的待办保留。" : "这条时间轴记录会被删除。",
-      () => this.updateItem(date, item.id, (_target, day) => {
-        day.items = day.items.filter(candidate => candidate.id !== item.id);
-      })
+      item.projectLogId ? "同时删除关联的项目工时日志；项目待办保留。" : item.projectTaskId ? "只从时间轴移除；项目笔记中的待办保留。" : "这条时间轴记录会被删除。",
+      () => {
+        this.preserveAnchor();
+        return removeTimelineItem(this.options.plugin, date, item.id).then(() => this.options.refresh()).catch(error => { new Notice(error instanceof Error ? error.message : "删除失败"); });
+      }
     ).open();
   }
 
