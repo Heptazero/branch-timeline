@@ -152,6 +152,14 @@ test("groups project work below the MMDD log line", () => {
   assert.match(ordered, /- 0812\n- 0813\n\t- \[09:00\] 0.5h 早上\n- 0814/);
 });
 
+test("adds work after date sorting removes trailing blank lines", () => {
+  const source = "## log\n- 1002\n\t- [12:00] 1h\n\n- 1001\n\t- [11:00] 1h\n\n";
+  const worked = appendProjectLog(source, "2026-10-14", "13:00", .5, "", "fact-test");
+  assert.match(worked, /- 1014\n\t- \[13:00\] 0\.5h <!-- btl-work:fact-test -->/);
+  const noted = upsertProjectNote(source, "2026-10-14", "13:00", "", "测试");
+  assert.match(noted, /- 1014\n\t- 13:00 测试/);
+});
+
 test("inserts and updates project notes in date and time order", () => {
   let source = "## log\n- 0710\n\t- 09:00 后一天\n- 0708\n\t- 08:00 前一天\n";
   source = upsertProjectNote(source, "0709", "12:00", "", "中午");

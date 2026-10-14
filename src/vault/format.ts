@@ -198,10 +198,11 @@ export function appendProjectLog(
 ): string {
   const { lines, range } = ensureNamedSection(content, "log");
   sortProjectLogDateBlocks(lines, range.headingLine + 1, range.endLine);
+  const sortedEnd = sectionRange(lines, "log")!.endLine;
   const mmdd = date.length === 10 ? `${date.slice(5, 7)}${date.slice(8, 10)}` : date;
-  let dateLine = findProjectDateLine(lines, range.headingLine + 1, range.endLine, date);
-  let sectionEnd = range.endLine;
-  for (let index = range.headingLine + 1; dateLine < 0 && index < range.endLine; index += 1) {
+  let dateLine = findProjectDateLine(lines, range.headingLine + 1, sortedEnd, date);
+  let sectionEnd = sortedEnd;
+  for (let index = range.headingLine + 1; dateLine < 0 && index < sortedEnd; index += 1) {
     const entry = projectLogDate(lines[index]);
     if (!entry) continue;
     if (entry.mmdd.localeCompare(mmdd) > 0) {
@@ -271,9 +272,10 @@ export function upsertProjectNote(
 ): string {
   const { lines, range } = ensureNamedSection(content, "log");
   sortProjectLogDateBlocks(lines, range.headingLine + 1, range.endLine);
+  const sortedEnd = sectionRange(lines, "log")!.endLine;
   const mmdd = date.length === 10 ? `${date.slice(5, 7)}${date.slice(8, 10)}` : date;
-  let sectionEnd = range.endLine;
-  let dateLine = findProjectDateLine(lines, range.headingLine + 1, range.endLine, date);
+  let sectionEnd = sortedEnd;
+  let dateLine = findProjectDateLine(lines, range.headingLine + 1, sortedEnd, date);
   for (let index = range.headingLine + 1; dateLine < 0 && index < sectionEnd; index += 1) {
     const entry = projectLogDate(lines[index]);
     if (!entry) continue;
