@@ -13,10 +13,7 @@
 .btl-mental-state-add { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; }
 .btl-mental-state-add svg { width: 15px; height: 15px; }
 .btl-focus-colors { display: grid; gap: 4px; margin-bottom: 8px; }
-.btl-focus-color-row { display: grid; min-height: 36px; grid-template-columns: minmax(0, 1fr) 32px 76px; align-items: center; gap: 8px; }
-.btl-focus-color-row > span { color: var(--text-normal); font-size: 12px; }
-.btl-settings-root button.btl-focus-color-swatch { width: 30px; height: 30px; border: 2px solid var(--background-primary); border-radius: 50%; padding: 0; box-shadow: 0 0 0 1px var(--background-modifier-border); }
-.btl-focus-color-row input[type="text"] { width: 76px; font-size: 11px; font-family: var(--font-monospace); }
+.btl-focus-color-row { min-height: 36px; }
 .btl-settings-root .setting-item { font-size: 1em; }
 .btl-settings-root .setting-item-name,
 .btl-settings-root button,
