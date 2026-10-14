@@ -31,6 +31,7 @@ export interface TimelineRenderOptions {
   energyPhases?: readonly TimelineEnergyPhase[];
   projectColors?: ReadonlyMap<string, string>;
   focusPrediction?: FocusPrediction;
+  onMentalStateMenu?: (id: string, event: MouseEvent) => void;
 }
 
 export interface TimelineRenderResult {
@@ -75,7 +76,7 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   canvas.createDiv({ cls: "btl-gap-layer" });
   canvas.createDiv({ cls: "btl-now-layer" });
   updateTimelineTemporalLayers(canvas, day, scale, nowMinute, options.gapHorizon);
-  renderFocusMarkers(canvas, day, scale);
+  renderFocusMarkers(canvas, day, scale, options.onMentalStateMenu);
   renderRhythm(canvas, day, scale, options.rhythmLabels, options.rhythmMarkers || []);
   renderBranches(canvas, svg, day, layout);
 

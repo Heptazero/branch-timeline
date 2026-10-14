@@ -58,11 +58,14 @@
 .btl-focus-dot.is-distraction.is-heavy { width: 12px; height: 12px; box-shadow: 0 0 0 3px color-mix(in srgb, #d84b4b 24%, transparent); }
 .btl-focus-dot.is-good { left: calc(50% - 11px); background: #3d83d9; box-shadow: 0 0 0 1px color-mix(in srgb, #3d83d9 55%, transparent); }
 .btl-focus-dot.is-discomfort { left: calc(50% - 23px); background: #a56bca; box-shadow: 0 0 0 1px color-mix(in srgb, #a56bca 55%, transparent); }
-.btl-focus-dot.is-mental { left: calc(50% - 35px); box-shadow: 0 0 0 1px var(--background-modifier-border); }
+.btl-focus-dot.is-mental { left: calc(50% - 35px); display: grid; width: 28px; height: 28px; place-items: center; border: 0; padding: 0; background: transparent; box-shadow: none; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+.btl-focus-dot.is-mental::before { content: ""; width: 9px; height: 9px; border: 2px solid var(--background-primary); border-radius: 50%; background: var(--btl-state-color); box-shadow: 0 0 0 1px var(--background-modifier-border); }
+.btl-focus-dot.is-mental:hover, .btl-focus-dot.is-mental:focus-visible { background: var(--background-modifier-hover); outline: none; }
 .btl-global-timer { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .btl-global-timer strong { color: var(--interactive-accent); font-variant-numeric: tabular-nums; }
-.btl-page-content { display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; }
-.btl-timeline-scroller { position: relative; min-height: 0; flex: 1 1 auto; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+.btl-page-content { display: flex; min-width: 0; min-height: 0; flex: 1 1 auto; flex-direction: column; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
+.btl-timeline-scroller { position: relative; min-height: 0; flex: 1 1 auto; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; }
+.btl-page-content::-webkit-scrollbar, .btl-timeline-scroller::-webkit-scrollbar { display: none; }
 .btl-canvas { --btl-preview-inverse: 1; position: relative; width: 100%; min-width: 280px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .btl-energy-layer { position: absolute; inset: 0; pointer-events: none; }
 .btl-focus-rhythm-rail { position: absolute; z-index: 4; top: 0; right: 1px; bottom: 0; width: 6px; border-radius: 3px; background: color-mix(in srgb, var(--text-faint) 13%, transparent); pointer-events: none; }

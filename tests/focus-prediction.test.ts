@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { predictFocusByTime } from "../src/focus-prediction";
-import { focusPredictionGradient } from "../src/focus-prediction-gradient";
+import { focusPredictionDisplayScore, focusPredictionGradient } from "../src/focus-prediction-gradient";
 import type { TimelineDayState } from "../src/types";
 
 const TARGET = "2026-10-10";
@@ -68,4 +68,12 @@ test("no forecast from sparse days, today, future days, or discomfort alone", ()
   days["2026-10-11"] = { ...day(), mentalStates: [{ id: "future", minute: 630, score: 0 }] };
   days["2026-10-01"] = { ...day(), discomforts: [{ id: "pain", minute: 630 }] };
   assert.equal(point(days, 630).score, baseline);
+});
+
+test("forecast contrast makes a mild tendency visible without changing neutrality", () => {
+  assert.equal(focusPredictionDisplayScore(.5), .5);
+  assert.ok(Math.abs(focusPredictionDisplayScore(.57) - .78) < .0001);
+  assert.ok(Math.abs(focusPredictionDisplayScore(.43) - .22) < .0001);
+  assert.equal(focusPredictionDisplayScore(0), 0);
+  assert.equal(focusPredictionDisplayScore(1), 1);
 });

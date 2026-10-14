@@ -188,9 +188,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     this.countdownButton.createEl("strong");
     this.countdownButton.onclick = () => this.openRhythmSettings(this.countdownButton!);
     this.updateCountdown();
-
     const runningHost = root.createDiv({ cls: "btl-running-bar is-hidden" });
-
     const pageContent = root.createDiv({ cls: "btl-page-content" });
 
     const state = await this.plugin.store.load();
@@ -380,6 +378,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
       rhythmMarkers: this.plugin.settings.rhythmMarkers,
       energyPhases: this.energyPhases,
       focusPrediction: predictFocusByTime(state.days, key),
+      onMentalStateMenu: (id, event) => this.openMentalStateMenu(id, event),
       projectColors: new Map(this.plugin.repository.listProjects().map(project => [project.path, project.color || "var(--text-faint)"]))
     });
     renderFixedReminderMarkers(rendered.canvas, day, this.scale, key, state.fixedReminders, state.fixedReminderResults,
@@ -464,6 +463,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract previewScale(next: number, anchorClientY: number, commit: boolean): Promise<void>;
   protected abstract addProject(): Promise<void>;
   protected abstract openAddMenu(event: MouseEvent): void;
+  protected abstract openMentalStateMenu(id: string, event: MouseEvent): void;
   protected abstract shiftDate(amount: number): void;
   protected abstract dateTitle(): string;
   protected abstract openDatePicker(anchor: HTMLElement): Promise<void>;

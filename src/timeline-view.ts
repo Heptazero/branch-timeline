@@ -3,6 +3,7 @@ import { openDateHeatmapPopover } from "./date-heatmap-popover";
 import { openFocusStatusPopover } from "./focus-marker-popover";
 import {
   ChoiceTextModal,
+  ConfirmModal,
   MinuteEntryModal,
   TextareaEntryModal,
   TextEntryModal,
@@ -171,6 +172,21 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     if (minute == null) return;
     await this.updateDay(day => { (day.mentalStates ||= []).push({ id: this.uid("mental"), minute, score, ...(label ? { label } : {}) }); });
     navigator.vibrate?.(12);
+  }
+
+  protected openMentalStateMenu(id: string, event: MouseEvent): void {
+    const state = this.day?.mentalStates?.find(entry => entry.id === id);
+    if (!state) return;
+    const menu = new Menu();
+    menu.addItem(item => item.setTitle("删除这条状态").setIcon("trash-2").setWarning(true).onClick(() => {
+      new ConfirmModal(
+        this.app,
+        `删除“${state.label || "可用脑力"}”记录？`,
+        "只删除这个时间点的状态，不影响其他记录或状态预设。",
+        () => this.updateDay(day => { day.mentalStates = (day.mentalStates || []).filter(entry => entry.id !== id); })
+      ).open();
+    }));
+    menu.showAtMouseEvent(event);
   }
 
   protected shiftDate(amount: number): void {

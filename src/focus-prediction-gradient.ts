@@ -8,10 +8,15 @@ export function focusPredictionGradient(prediction: FocusPrediction, start: numb
   const points = [sample(prediction.points, start), ...visible, sample(prediction.points, end)];
   const stops = points.map(point => {
     const position = ((point.minute - start) / (end - start) * 100).toFixed(2);
-    const color = focusRhythmColor(point.ready ? point.score : .5);
+    const color = focusRhythmColor(point.ready ? focusPredictionDisplayScore(point.score) : .5);
     return `${color} ${position}%`;
   });
   return `linear-gradient(to bottom, ${stops.join(", ")})`;
+}
+
+/** Boost color contrast only; the underlying prediction score stays unchanged. */
+export function focusPredictionDisplayScore(score: number): number {
+  return Math.max(0, Math.min(1, .5 + (score - .5) * 4));
 }
 
 function sample(points: readonly FocusPredictionPoint[], minute: number): FocusPredictionPoint {
