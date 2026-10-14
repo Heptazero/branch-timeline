@@ -1,6 +1,8 @@
 import { Menu, Notice, TFile, setIcon } from "obsidian";
 import { openDateHeatmapPopover } from "./date-heatmap-popover";
 import { openFocusStatusPopover } from "./focus-marker-popover";
+import { setMentalStateMinute } from "./focus-state-model";
+import { openMentalStateTimePopover } from "./mental-state-time-popover";
 import {
   ChoiceTextModal,
   ConfirmModal,
@@ -178,7 +180,13 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
   protected openMentalStateMenu(id: string, event: MouseEvent): void {
     const state = this.day?.mentalStates?.find(entry => entry.id === id);
     if (!state) return;
+    const anchor = event.currentTarget as HTMLElement;
     const menu = new Menu();
+    menu.addItem(item => item.setTitle("修改时间").setIcon("clock-3").onClick(() => {
+      if (!this.day) return;
+      openMentalStateTimePopover(anchor, state.minute, this.day.wake, this.day.sleep,
+        minute => this.updateDay(day => setMentalStateMinute(day, id, minute)));
+    }));
     menu.addItem(item => item.setTitle("删除这条状态").setIcon("trash-2").setWarning(true).onClick(() => {
       new ConfirmModal(
         this.app,

@@ -58,12 +58,16 @@ button.btl-rhythm-resize { position: absolute; right: 1px; bottom: 1px; width: 2
 .btl-time-wheel button.is-selected { color: var(--text-normal); font-size: 18px; font-weight: 760; }
 .btl-rhythm-popover-actions { display: flex; justify-content: flex-end; gap: 7px; }
 .btl-rhythm-popover-actions button { border-radius: 8px; padding: 5px 11px; }
+.btl-mental-time-popover { width: min(260px, calc(100vw - 16px)); }
+.btl-mental-time-fine { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 8px; }
+.btl-mental-time-fine button { flex: 1; min-height: 30px; border-radius: 7px; }
 .btl-color-popover { position: fixed; z-index: 10001; display: flex; gap: 6px; border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 6px; background: var(--background-primary); box-shadow: 0 8px 24px rgba(0,0,0,.22); }
 .btl-color-popover button { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid transparent; border-radius: 9px; padding: 0; background: transparent; }
 .btl-color-popover button::after { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--btl-color-choice); box-shadow: 0 0 0 1px color-mix(in srgb, var(--btl-color-choice) 60%, var(--background-modifier-border)); }
 .btl-color-popover button:hover { background: var(--background-modifier-hover); }
 .btl-color-popover button.is-selected { border-color: var(--btl-color-choice); background: color-mix(in srgb, var(--btl-color-choice) 12%, var(--background-primary)); }
 .btl-focus-popover { position: fixed; z-index: 10002; box-sizing: border-box; width: min(330px, calc(100vw - 16px)); border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 9px; background: var(--background-primary); box-shadow: 0 12px 32px rgba(0,0,0,.24); font-family: var(--font-interface); }
+.btl-focus-popover.btl-status-popover { width: min(520px, calc(100vw - 16px)); }
 .btl-focus-popover > strong { display: block; padding: 2px 3px 8px; color: var(--text-normal); font-size: 12px; }
 .btl-focus-levels { display: grid; gap: 4px; }
 .btl-focus-levels button { display: grid; min-height: 43px; grid-template-columns: 28px minmax(0,1fr); align-items: center; border: 0; border-radius: 8px; padding: 4px 7px; background: transparent; color: var(--text-normal); text-align: left; }

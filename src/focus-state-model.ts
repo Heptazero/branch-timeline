@@ -30,6 +30,11 @@ export function normalizeMentalStates(value: unknown, wake: number, sleep: numbe
       : []);
 }
 
+export function setMentalStateMinute(day: TimelineDayState, id: string, minute: number): void {
+  const entry = day.mentalStates?.find(state => state.id === id);
+  if (entry && Number.isFinite(minute)) entry.minute = Math.max(day.wake, Math.min(day.sleep, Math.round(minute)));
+}
+
 /** Actual marks are explicit observations; historical prediction is calculated separately. */
 export function focusRailMarks(day: TimelineDayState): FocusMark[] {
   return [
