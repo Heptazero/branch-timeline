@@ -39,7 +39,7 @@ export interface TimeMapOptions {
 export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): void {
   const map = parent.createDiv({ cls: "btl-time-map" });
   const legend = map.createDiv({ cls: "btl-time-map-legend" });
-  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "高度专注"], ["mental", "状态"], ["discomfort", "脑不适"], ["forecast", "预测"]] as const) {
+  for (const [kind, label] of [["sleep", "睡眠"], ["activity", "记录"], ["dot", "走神"], ["good", "高度专注"], ["mental", "状态"], ["forecast", "预测"]] as const) {
     legend.createSpan({ cls: `btl-time-map-key is-${kind}`, text: label });
   }
   const header = map.createDiv({ cls: "btl-time-map-header" });
@@ -109,12 +109,6 @@ export function renderTimeMap(parent: HTMLElement, options: TimeMapOptions): voi
     for (const event of day.goodStates || []) {
       const label = `状态顺畅 · ${formatTime(event.minute)}`;
       const dot = column.createEl("button", { cls: "btl-time-map-dot is-good", attr: { type: "button", "aria-label": label, title: label } });
-      dot.style.top = `${mapPosition(event.minute + 1440)}%`;
-      dot.onclick = () => show(dot, label);
-    }
-    for (const event of day.discomforts || []) {
-      const label = `脑不适 · ${formatTime(event.minute)}`;
-      const dot = column.createEl("button", { cls: "btl-time-map-dot is-discomfort", attr: { type: "button", "aria-label": label, title: label } });
       dot.style.top = `${mapPosition(event.minute + 1440)}%`;
       dot.onclick = () => show(dot, label);
     }

@@ -81,11 +81,6 @@ export interface TimelineGoodState {
   itemId?: string;
 }
 
-export interface TimelineDiscomfort {
-  id: string;
-  minute: number;
-}
-
 export interface MentalStateLabel {
   id: string;
   name: string;
@@ -163,7 +158,6 @@ export interface TimelineDayState {
   rhythmMarkers?: TimelineRhythmMarker[];
   distractions?: TimelineDistraction[];
   goodStates?: TimelineGoodState[];
-  discomforts?: TimelineDiscomfort[];
   mentalStates?: TimelineMentalState[];
   /** 旧版单一午休节点，仅用于读取迁移。 */
   pivot?: number;

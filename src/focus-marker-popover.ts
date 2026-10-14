@@ -1,5 +1,6 @@
 import { DISTRACTION_LEVELS } from "./focus-events";
 import { applyFocusColors, focusRhythmColor } from "./focus-rhythm-color";
+import { renderTimeWheel, timeLabel } from "./time-wheel";
 import type { DistractionLevel, FocusColors, MentalStateLabel } from "./types";
 
 export interface FocusMarkerActions {
@@ -12,8 +13,10 @@ export interface FocusMarkerActions {
 export interface FocusStatusActions {
   labels: readonly MentalStateLabel[];
   colors: FocusColors;
-  record: (score: number, label?: string) => void | Promise<void>;
-  discomfort: () => void | Promise<void>;
+  minute: number;
+  lower: number;
+  upper: number;
+  record: (score: number, minute: number, label?: string) => void | Promise<void>;
 }
 
 let closeCurrent: (() => void) | null = null;
@@ -68,14 +71,38 @@ export function openFocusStatusPopover(anchor: HTMLElement, actions: FocusStatus
   closeCurrent = cleanup;
   document.addEventListener("pointerdown", outside, true);
   window.addEventListener("resize", cleanup);
-  panel.createEl("strong", { text: "当下可用脑力" });
-  const slider = panel.createEl("input", { cls: "btl-status-slider", type: "range",
+  let selectedMinute = actions.minute;
+  const head = panel.createDiv({ cls: "btl-status-head" });
+  head.createEl("strong", { text: "可用脑力" });
+  const timeButton = head.createEl("button", { cls: "btl-status-time", attr: { type: "button", "aria-label": "选择记录时间" } });
+  const content = panel.createDiv({ cls: "btl-status-content" });
+  timeButton.setText(timeLabel(selectedMinute));
+  timeButton.onclick = () => {
+    timeButton.disabled = true;
+    content.addClass("is-hidden");
+    const picker = panel.createDiv({ cls: "btl-status-time-picker" });
+    panel.addClass("is-time-selecting");
+    const wheel = renderTimeWheel(picker, selectedMinute, actions.lower, actions.upper, minute => {
+      selectedMinute = minute;
+      timeButton.setText(timeLabel(minute));
+    });
+    const controls = picker.createDiv({ cls: "btl-rhythm-popover-actions" });
+    controls.createEl("button", { text: "完成", cls: "mod-cta" }).onclick = () => {
+      picker.remove();
+      content.removeClass("is-hidden");
+      panel.removeClass("is-time-selecting");
+      timeButton.disabled = false;
+      place(panel, anchor);
+    };
+    window.requestAnimationFrame(() => { wheel.focus(); place(panel, anchor); });
+  };
+  const slider = content.createEl("input", { cls: "btl-status-slider", type: "range",
     attr: { min: "0", max: "100", step: "5", value: "50", "aria-label": "当下可用脑力：红色难以投入，蓝色高度专注" } });
-  const scale = panel.createDiv({ cls: "btl-status-scale" });
+  const scale = content.createDiv({ cls: "btl-status-scale" });
   scale.createSpan({ text: "难以投入" });
   const current = scale.createSpan({ text: "中性" });
   scale.createSpan({ text: "高度专注" });
-  const presets = panel.createDiv({ cls: "btl-status-presets" });
+  const presets = content.createDiv({ cls: "btl-status-presets" });
   let selected: MentalStateLabel | undefined;
   const paint = () => {
     const score = Number(slider.value);
@@ -89,11 +116,10 @@ export function openFocusStatusPopover(anchor: HTMLElement, actions: FocusStatus
     button.onclick = () => { selected = label; slider.value = String(label.score); paint(); };
   }
   paint();
-  const footer = panel.createDiv({ cls: "btl-status-footer" });
-  footer.createEl("button", { text: "脑不适", attr: { type: "button" } }).onclick = () => { cleanup(); void actions.discomfort(); };
+  const footer = content.createDiv({ cls: "btl-status-footer" });
   footer.createEl("button", { text: "记录", cls: "mod-cta", attr: { type: "button" } }).onclick = () => {
     cleanup();
-    void actions.record(Number(slider.value), selected?.name);
+    void actions.record(Number(slider.value), selectedMinute, selected?.name);
   };
   place(panel, anchor);
 }

@@ -22,11 +22,6 @@ export function renderFocusMarkers(
     const dot = canvas.createDiv({ cls: "btl-focus-dot is-good", attr: { title: label, "aria-label": label } });
     dot.style.top = `${minuteToY(day, scale, event.minute)}px`;
   }
-  for (const event of day.discomforts || []) {
-    const label = `脑不适 · ${formatTime(event.minute)}`;
-    const dot = canvas.createDiv({ cls: "btl-focus-dot is-discomfort", attr: { title: label, "aria-label": label } });
-    dot.style.top = `${minuteToY(day, scale, event.minute)}px`;
-  }
   for (const event of day.mentalStates || []) {
     const label = `${event.label || "可用脑力"} · ${event.score}/100 · ${formatTime(event.minute)}`;
     const dot = canvas.createEl("button", {

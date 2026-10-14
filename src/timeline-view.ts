@@ -31,15 +31,6 @@ import { dateKey, logicalToday } from "./vault/format";
 export { BRANCH_TIMELINE_VIEW } from "./timeline-view-base";
 
 export class BranchTimelineView extends BranchTimelineViewDayActions {
-  private async recordDiscomfort(): Promise<void> {
-    const minute = this.currentLogicalMinute();
-    if (minute == null) return;
-    await this.updateDay(day => {
-      (day.discomforts ||= []).push({ id: this.uid("discomfort"), minute });
-    });
-    navigator.vibrate?.(12);
-  }
-
   async focusRunningItem(itemId: string): Promise<void> {
     this.date = logicalToday();
     this.followsToday = true;
@@ -156,11 +147,14 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     menu.addItem(item => item.setTitle("添加精力区间").setIcon("layers-2").onClick(() => void this.addEnergyPhase(minute, 1)));
     menu.addItem(item => item.setTitle("定点提醒").setIcon("bell").onClick(() => void this.fixedReminderActions.openManager(undefined, undefined, minute)));
     if (dateKey(this.date) === dateKey(logicalToday())) menu.addItem(item => item.setTitle("记录状态").setIcon("activity").onClick(() => {
+      const now = this.currentLogicalMinute() ?? minute;
       openFocusStatusPopover(anchor, {
         labels: this.plugin.settings.mentalStateLabels,
         colors: this.plugin.settings.focusColors,
-        record: (score, label) => this.recordMentalState(score, label),
-        discomfort: () => this.recordDiscomfort()
+        minute: Math.max(this.day?.wake ?? now, Math.min(this.day?.sleep ?? now, now)),
+        lower: this.day?.wake ?? now,
+        upper: this.day?.sleep ?? now,
+        record: (score, at, label) => this.recordMentalState(score, at, label)
       });
     }));
     menu.addSeparator();
@@ -170,9 +164,7 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     menu.showAtMouseEvent(event);
   }
 
-  private async recordMentalState(score: number, label?: string): Promise<void> {
-    const minute = this.currentLogicalMinute();
-    if (minute == null) return;
+  private async recordMentalState(score: number, minute: number, label?: string): Promise<void> {
     await this.updateDay(day => { (day.mentalStates ||= []).push({ id: this.uid("mental"), minute, score, ...(label ? { label } : {}) }); });
     navigator.vibrate?.(12);
   }

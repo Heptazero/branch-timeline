@@ -54,7 +54,7 @@ test("negative manual states outside timers can make the tendency red", () => {
   assert.equal(point(days, 630).ready, false);
 });
 
-test("no forecast from sparse days, today, future days, or discomfort alone", () => {
+test("no forecast from sparse days, today, or future days", () => {
   const one = day();
   one.mentalStates = [{ id: "good", minute: 600, score: 100 }];
   const sparse = { "2026-10-09": one };
@@ -66,7 +66,6 @@ test("no forecast from sparse days, today, future days, or discomfort alone", ()
   const baseline = point(days, 630).score;
   days[TARGET] = { ...day(), mentalStates: [{ id: "today", minute: 630, score: 0 }] };
   days["2026-10-11"] = { ...day(), mentalStates: [{ id: "future", minute: 630, score: 0 }] };
-  days["2026-10-01"] = { ...day(), discomforts: [{ id: "pain", minute: 630 }] };
   assert.equal(point(days, 630).score, baseline);
 });
 

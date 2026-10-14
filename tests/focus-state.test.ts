@@ -13,8 +13,7 @@ test("project facts do not create manual status marks", () => {
       { id: "plan", title: "计划", kind: "todo", plannedMin: 700, projectPath: "research.md" }
     ],
     distractions: [{ id: "dip", minute: 630, level: "heavy" }],
-    mentalStates: [{ id: "alert", minute: 640, score: 95, label: "清醒" }],
-    discomforts: [{ id: "pain", minute: 650 }]
+    mentalStates: [{ id: "alert", minute: 640, score: 95, label: "清醒" }]
   };
   assert.deepEqual(focusRailMarks({ ...day, distractions: [], mentalStates: [] }), []);
   assert.deepEqual(focusRailMarks(day), [
@@ -23,6 +22,7 @@ test("project facts do not create manual status marks", () => {
   ]);
   const normalized = normalizeTimelineDay(day);
   assert.deepEqual(normalized.mentalStates, [{ id: "alert", minute: 640, score: 95, label: "清醒" }]);
+  assert.equal("discomforts" in normalizeTimelineDay({ ...day, discomforts: [{ id: "old", minute: 650 }] }), false);
   assert.deepEqual(normalizeMentalStateLabels([{ id: "a", name: "焦虑", score: -10 }, { id: "a", name: "重复", score: 20 }]), [{ id: "a", name: "焦虑", score: 0 }]);
 });
 

@@ -65,7 +65,9 @@ export function normalizeRhythmMarkers(
   }).sort((left, right) => left.minute - right.minute);
 }
 
-export function normalizeTimelineDay(value: Partial<TimelineDayState>): TimelineDayState {
+export function normalizeTimelineDay(value: Partial<TimelineDayState> & { discomforts?: unknown }): TimelineDayState {
+  const retained = { ...value };
+  delete retained.discomforts;
   const wake = finite(value.wake, DEFAULT_RHYTHM.wake);
   const sleep = finite(value.sleep, DEFAULT_RHYTHM.sleep);
   const legacyPivot = finite(value.pivot, DEFAULT_RHYTHM.napStart);
@@ -74,7 +76,7 @@ export function normalizeTimelineDay(value: Partial<TimelineDayState>): Timeline
   const sleepPrep = finite(value.sleepPrep, Math.max(napEnd + 30, sleep - 60));
   const schedule = orderedSchedule({ wake, napStart, napEnd, sleepPrep, sleep });
   return {
-    ...value,
+    ...retained,
     ...schedule,
     wakeReal: !!value.wakeReal,
     napStartReal: !!(value.napStartReal ?? value.pivotReal),
@@ -92,10 +94,6 @@ export function normalizeTimelineDay(value: Partial<TimelineDayState>): Timeline
       typeof event?.id === "string" && Number.isFinite(event.minute)
         ? [{ id: event.id, minute: clamp(Math.round(event.minute), schedule.wake, schedule.sleep),
           ...(typeof event.itemId === "string" ? { itemId: event.itemId } : {}) }]
-        : []) : [],
-    discomforts: Array.isArray(value.discomforts) ? value.discomforts.flatMap(event =>
-      typeof event?.id === "string" && Number.isFinite(event.minute)
-        ? [{ id: event.id, minute: clamp(Math.round(event.minute), schedule.wake, schedule.sleep) }]
         : []) : [],
     mentalStates: normalizeMentalStates(value.mentalStates, schedule.wake, schedule.sleep),
     branches: Array.isArray(value.branches) ? value.branches : [],

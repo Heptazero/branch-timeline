@@ -281,15 +281,14 @@ test("weekly time map keeps an overnight sleep together and places hours vertica
   assert.equal(Math.round((1430 + afterMidnight!.bed) / 2), 1440);
 });
 
-test("focus rail uses explicit marks and keeps discomfort separate", () => {
+test("focus rail uses explicit marks", () => {
   const days: Record<string, TimelineDayState> = {};
   for (const date of [11, 12, 13]) {
     days[`2026-08-${date}`] = {
       wake: 420, napStart: 840, napEnd: 870, sleepPrep: 1500, sleep: 1560, branches: [],
       items: [],
       goodStates: date === 12 ? [] : [{ id: `good-${date}`, minute: 600 }],
-      distractions: date === 12 ? [{ id: "d", minute: 615, level: "heavy" }] : [],
-      discomforts: [{ id: `pain-${date}`, minute: 640 }]
+      distractions: date === 12 ? [{ id: "d", minute: 615, level: "heavy" }] : []
     };
   }
   assert.deepEqual(focusRailMarks(days["2026-08-12"]), [{ minute: 615, score: 0, label: "走神" }]);
@@ -298,7 +297,6 @@ test("focus rail uses explicit marks and keeps discomfort separate", () => {
   assert.match(focusRhythmColor(0), /--btl-focus-low.*#d84b4b/);
   assert.match(focusRhythmColor(.5), /--btl-focus-neutral.*100%/);
   assert.match(focusRhythmColor(1), /--btl-focus-high.*#126cff/);
-  assert.equal(normalizeTimelineDay(days["2026-08-11"]).discomforts?.[0].minute, 640);
   assert.equal(burdenLabel({ minutes: 90, distractions: 0, load: 0, good: 0 }), "0/h");
 });
 
