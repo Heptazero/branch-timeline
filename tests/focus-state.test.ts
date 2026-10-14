@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { focusRailMarks, normalizeMentalStateLabels, setMentalStateMinute } from "../src/focus-state-model";
 import { DEFAULT_FOCUS_COLORS, normalizeFocusColors } from "../src/focus-rhythm-color";
+import { focusPopoverX } from "../src/focus-popover-layout";
 import { normalizeTimelineDay } from "../src/rhythm";
 import type { TimelineDayState } from "../src/types";
 
@@ -44,4 +45,10 @@ test("editing a mental state changes only its time and stays within the logical 
   assert.equal(day.mentalStates?.[0]?.minute, 1560);
   setMentalStateMinute(day, "missing", 500);
   assert.equal(day.mentalStates?.length, 2);
+});
+
+test("status popover stays inside a narrow sidebar", () => {
+  assert.deepEqual(focusPopoverX({ right: 700 }, { left: 400, right: 720 }, 1200, 320), { left: 408, width: 304 });
+  assert.deepEqual(focusPopoverX({ right: 700 }, { left: 400, right: 620 }, 1200, 320), { left: 408, width: 204 });
+  assert.deepEqual(focusPopoverX({ right: 1100 }, undefined, 1200, 320), { left: 780, width: 320 });
 });

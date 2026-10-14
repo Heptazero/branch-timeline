@@ -67,7 +67,7 @@ button.btl-rhythm-resize { position: absolute; right: 1px; bottom: 1px; width: 2
 .btl-color-popover button:hover { background: var(--background-modifier-hover); }
 .btl-color-popover button.is-selected { border-color: var(--btl-color-choice); background: color-mix(in srgb, var(--btl-color-choice) 12%, var(--background-primary)); }
 .btl-focus-popover { position: fixed; z-index: 10002; box-sizing: border-box; width: min(330px, calc(100vw - 16px)); border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 9px; background: var(--background-primary); box-shadow: 0 12px 32px rgba(0,0,0,.24); font-family: var(--font-interface); }
-.btl-focus-popover.btl-status-popover { width: min(520px, calc(100vw - 16px)); }
+.btl-focus-popover.btl-status-popover { width: min(320px, calc(100vw - 16px)); }
 .btl-focus-popover.btl-status-popover.is-time-selecting { width: min(260px, calc(100vw - 16px)); }
 .btl-status-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
 .btl-status-head strong { color: var(--text-normal); font-size: 12px; }

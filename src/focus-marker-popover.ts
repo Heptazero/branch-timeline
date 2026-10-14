@@ -1,4 +1,5 @@
 import { DISTRACTION_LEVELS } from "./focus-events";
+import { focusPopoverX } from "./focus-popover-layout";
 import { applyFocusColors, focusRhythmColor } from "./focus-rhythm-color";
 import { renderTimeWheel, timeLabel } from "./time-wheel";
 import type { DistractionLevel, FocusColors, MentalStateLabel } from "./types";
@@ -140,11 +141,14 @@ function action(parent: HTMLElement, label: string, run: () => void | Promise<vo
 
 function place(panel: HTMLElement, anchor: HTMLElement): void {
   const anchorRect = anchor.getBoundingClientRect();
+  const paneRect = anchor.closest(".branch-timeline-hz")?.getBoundingClientRect();
+  const preferredWidth = panel.hasClass("is-time-selecting") ? 260 : panel.hasClass("btl-status-popover") ? 320 : 330;
+  const horizontal = focusPopoverX(anchorRect, paneRect, window.innerWidth, preferredWidth);
+  panel.style.width = `${horizontal.width}px`;
   const panelRect = panel.getBoundingClientRect();
-  const left = Math.max(8, Math.min(window.innerWidth - panelRect.width - 8, anchorRect.right - panelRect.width));
   const below = anchorRect.bottom + 6;
   const top = below + panelRect.height <= window.innerHeight - 8
     ? below : Math.max(8, anchorRect.top - panelRect.height - 6);
-  panel.style.left = `${left}px`;
+  panel.style.left = `${horizontal.left}px`;
   panel.style.top = `${top}px`;
 }
