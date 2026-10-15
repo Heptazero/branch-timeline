@@ -1,5 +1,6 @@
 import { setIcon } from "obsidian";
 import { rhythmBoundaryBounds, rhythmLabel, updateRhythmMarker, updateRhythmSchedule } from "./rhythm";
+import { renderTimeWheel, timeLabel } from "./time-wheel";
 import type { RhythmBoundaryKey, RhythmKey, RhythmMarkerDefinition, RhythmSchedule } from "./types";
 
 type Target = { kind: "boundary"; key: RhythmBoundaryKey } | { kind: "marker"; id: string };
@@ -164,28 +165,10 @@ export function openRhythmSchedulePopover(
     let selected = Math.round(minuteOf(target) / 5) * 5;
     const current = head.createEl("span", { text: timeLabel(selected) });
     const [lower, upper] = boundsOf(target);
-    const wheel = panel.createDiv({ cls: "btl-time-wheel" });
-    const select = (minute: number, button?: HTMLButtonElement): void => {
+    const wheel = renderTimeWheel(panel, selected, lower, upper, minute => {
       selected = minute;
       current.setText(timeLabel(minute));
-      wheel.querySelectorAll("button").forEach(item => item.toggleClass("is-selected", item === button));
-    };
-    for (let minute = Math.ceil(lower / 5) * 5; minute <= upper; minute += 5) {
-      const button = wheel.createEl("button", { text: timeLabel(minute), attr: { type: "button" } });
-      button.dataset.minute = String(minute);
-      button.toggleClass("is-selected", minute === selected);
-      button.onclick = () => { select(minute, button); button.scrollIntoView({ block: "center", behavior: "smooth" }); };
-    }
-    wheel.addEventListener("scroll", () => {
-      window.clearTimeout(Number(wheel.dataset.timer || 0));
-      wheel.dataset.timer = String(window.setTimeout(() => {
-        const center = wheel.getBoundingClientRect().top + wheel.clientHeight / 2;
-        const nearest = [...wheel.querySelectorAll<HTMLButtonElement>("button")].sort((a, b) =>
-          Math.abs(a.getBoundingClientRect().top + a.clientHeight / 2 - center) -
-          Math.abs(b.getBoundingClientRect().top + b.clientHeight / 2 - center))[0];
-        if (nearest) select(Number(nearest.dataset.minute), nearest);
-      }, 80));
-    }, { passive: true });
+    }, false);
     const actions = panel.createDiv({ cls: "btl-rhythm-popover-actions" });
     actions.createEl("button", { text: "取消" }).onclick = renderList;
     actions.createEl("button", { text: "完成", cls: "mod-cta" }).onclick = async () => {
@@ -194,14 +177,9 @@ export function openRhythmSchedulePopover(
       await save(); renderList();
     };
     resize();
-    window.requestAnimationFrame(() => { wheel.querySelector<HTMLElement>(`[data-minute="${selected}"]`)?.scrollIntoView({ block: "center" }); position(); });
+    window.requestAnimationFrame(() => { wheel.focus(); position(); });
   };
   renderList();
-}
-
-function timeLabel(minute: number): string {
-  const value = clockLabel(minute);
-  return minute >= 1440 ? `${value} · 次日` : value;
 }
 
 function clockLabel(minute: number): string {

@@ -5,6 +5,7 @@ import { finishProjectTimer } from "./project-timer-finish";
 import { prepareTimelineTodoProject, rememberTimelineTodoProject } from "./timeline-todo-project";
 import { rhythmRealKey } from "./rhythm";
 import { ENERGY_PHASE_COLORS, materializeEnergyPhases } from "./timeline/energy-phases";
+import { recordBackfilledGap } from "./timeline/backfill-gap";
 import { backfillItem as applyBackfill, clampMinute } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
 import { removeTimelineItem } from "./timeline/remove-item";
@@ -56,16 +57,10 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     const note = timing && !item.projectPath ? await this.note(`完成 · ${item.title}`, "本次做了什么（可选）", item.note || "") : finish?.note ?? null;
     if (timing && note == null) return;
     const taskTitle = finish?.taskTitle || (!timing ? item.projectTaskTitle || (item.projectTaskId ? item.title : undefined) : undefined);
-    if (item.projectPath && !finish) {
-      try {
-        const logNote = [taskTitle ? `@${taskTitle}` : "", note || ""].filter(Boolean).join(" ");
-        if (item.projectTaskId) await this.plugin.repository.completeProjectTaskWithLog(item.projectPath, item.projectTaskId, this.date, end, minutes, logNote, item.id);
-        else if (timing && minutes > 0) await this.plugin.repository.addProjectLog(item.projectPath, this.date, end, minutes, logNote, item.id);
-      } catch (error) { new Notice(error instanceof Error ? error.message : "项目工时写入失败"); return; }
-    }
-    await this.updateDay(day => {
+    const commit = () => this.persistDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
-      this.timers.complete(day, itemId, end || target?.plannedMin || day.napEnd);
+      if (!target || target.kind === "fact") throw new Error("代办已改变，请重新打开后操作");
+      this.timers.complete(day, itemId, end || target.plannedMin || day.napEnd);
       if (target && timing) {
         target.note = note?.trim() || undefined;
         target.projectTaskTitle = taskTitle;
@@ -73,6 +68,16 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
         if (target.projectPath && minutes > 0) { target.projectLogId = item.id; target.projectLogPath = target.projectPath; }
       }
     });
+    try {
+      if (finish) await finish.commit(commit);
+      else if (item.projectPath) {
+        const logNote = [taskTitle ? `@${taskTitle}` : "", note || ""].filter(Boolean).join(" ");
+        if (item.projectTaskId) await this.plugin.repository.completeProjectTaskWithLog(item.projectPath, item.projectTaskId, this.date, end, minutes, logNote, item.id, commit);
+        else if (timing && minutes > 0) await this.plugin.repository.addProjectLog(item.projectPath, this.date, end, minutes, logNote, item.id, commit);
+        else await commit();
+      } else await commit();
+    } catch (error) { new Notice(error instanceof Error ? error.message : "完成失败"); return; }
+    await this.refreshDay();
     new Notice(`完成 · ${item.title}`);
   }
 
@@ -102,11 +107,11 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     if (note == null) return;
     const taskTitle = finish?.taskTitle;
     let summary = "";
-    await this.updateDay(day => {
+    const commit = () => this.persistDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
-      if (!target) return;
+      if (!target) throw new Error("计时事项已改变，请重新打开后操作");
       const running = target.factTiming || (target.kind === "todo" && target.startedMin != null);
-      if (!running) return;
+      if (!running) throw new Error("计时已结束，请重新打开后操作");
       summary = `${target.title} · ${compactDuration(elapsedMinutes(target, day, end))}`;
       const fact = target.kind === "todo" ? this.timers.stopTodo(day, itemId, end, () => factId) : this.timers.stop(day, itemId, end);
       if (fact) {
@@ -116,6 +121,11 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
         if (fact.projectPath && minutes > 0) { fact.projectLogId = factId; fact.projectLogPath = fact.projectPath; }
       }
     });
+    try {
+      if (finish) await finish.commit(commit);
+      else await commit();
+    } catch (error) { new Notice(error instanceof Error ? error.message : "计时结束失败"); return; }
+    await this.refreshDay();
     if (summary) new Notice(`计时结束 · ${summary}`);
   }
 
@@ -203,16 +213,18 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     if (!item) return;
     const minutes = await this.minutes(`补记 · ${item.title}`);
     if (minutes == null) return;
-    if (item.kind === "todo" && item.projectPath && item.projectTaskId) {
-      try { await this.plugin.repository.setProjectTaskDone(item.projectPath, item.projectTaskId, true); }
-      catch (error) { new Notice(error instanceof Error ? error.message : "项目待办更新失败"); return; }
-    }
-    await this.updateDay(day => {
+    const commit = () => this.persistDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
       if (!target) return;
       const end = this.nowOnAxis(day) ?? target.endMin ?? target.plannedMin ?? day.napEnd;
       applyBackfill(target, end, minutes, day.wake);
     });
+    try {
+      if (item.kind === "todo" && item.projectPath && item.projectTaskId) {
+        await this.plugin.repository.setProjectTaskDone(item.projectPath, item.projectTaskId, true, commit);
+      } else await commit();
+    } catch (error) { new Notice(error instanceof Error ? error.message : "补记失败"); return; }
+    await this.refreshDay();
   }
 
   protected async backfillGap(startMinute: number, endMinute: number): Promise<void> {
@@ -227,33 +239,9 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       submitLabel: "补记"
     });
     if (!draft) return;
-    if (draft.projectPath) {
-      try {
-        await this.plugin.repository.addProjectLog(
-          draft.projectPath,
-          this.date,
-          endMinute,
-          minutes,
-          draft.note || draft.title,
-          factId
-        );
-      } catch (error) {
-        new Notice(error instanceof Error ? error.message : "项目补记写入失败");
-        return;
-      }
-    }
-    await this.updateDay(day => {
-      day.items.push({
-        id: factId,
-        title: draft.title,
-        kind: "fact",
-        startMin: startMinute,
-        endMin: endMinute,
-        projectPath: draft.projectPath || undefined,
-        projectLogId: draft.projectPath ? factId : undefined, projectLogPath: draft.projectPath || undefined,
-        note: draft.note || undefined
-      });
-    });
+    try { await recordBackfilledGap(this.plugin, this.date, startMinute, endMinute, draft, factId); }
+    catch (error) { new Notice(error instanceof Error ? error.message : "项目补记写入失败"); return; }
+    await this.refreshDay();
   }
   protected async renameItem(item: TimelineItem): Promise<void> {
     const value = await this.text("重命名", "标题", item.title);
@@ -269,23 +257,25 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     if (!item) return;
     const note = await this.note("备注", "写点什么", item.note || "");
     if (note == null) return;
+    const commit = () => this.persistDay(day => {
+      const target = day.items.find(candidate => candidate.id === itemId);
+      if (!target) throw new Error("事项已改变，请重新打开后操作");
+      target.note = note.trim() || undefined;
+    });
     if (item.projectPath) {
       try {
         if (item.projectLogId) {
-          await this.plugin.repository.updateProjectWorkLogNote(item.projectPath, item.projectLogId, item.projectTaskTitle, note);
+          await this.plugin.repository.updateProjectWorkLogNote(item.projectPath, item.projectLogId, item.projectTaskTitle, note, commit);
         } else {
           const minute = item.startMin ?? item.startedMin ?? item.plannedMin ?? item.endMin ?? this.day?.wake ?? 0;
-          await this.plugin.repository.syncProjectNote(item.projectPath, this.date, minute, item.note || "", note);
+          await this.plugin.repository.syncProjectNote(item.projectPath, this.date, minute, item.note || "", note, commit);
         }
       } catch (error) {
         new Notice(error instanceof Error ? error.message : "项目备注同步失败");
         return;
       }
-    }
-    await this.updateDay(day => {
-      const target = day.items.find(candidate => candidate.id === itemId);
-      if (target) target.note = note.trim() || undefined;
-    });
+    } else await commit();
+    await this.refreshDay();
   }
 
   protected async renameBranch(branch: TimelineBranch): Promise<void> {
@@ -368,21 +358,15 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     if (!draft) return;
     const id = this.uid("todo");
     let taskId: string | undefined;
-    try { taskId = await prepareTimelineTodoProject(this.plugin, draft, this.date, minute, id); }
-    catch (error) { new Notice(error instanceof Error ? error.message : "项目待办写入失败"); return; }
-    await this.updateDay(day => {
+    try { taskId = await prepareTimelineTodoProject(this.plugin, draft, this.date, minute, id, assignedTaskId => this.persistDay(day => {
       day.items.push({
-        id,
-        title: draft.title,
-        kind: "todo",
-        plannedMin: minute,
-        branchId,
-        projectPath: draft.projectPath || undefined,
-        projectTaskId: taskId,
-        projectTaskTitle: draft.task ? draft.title : undefined,
-        note: draft.note || undefined
+        id, title: draft.title, kind: "todo", plannedMin: minute, branchId,
+        projectPath: draft.projectPath || undefined, projectTaskId: assignedTaskId,
+        projectTaskTitle: draft.task ? draft.title : undefined, note: draft.note || undefined
       });
-    });
+    })); }
+    catch (error) { new Notice(error instanceof Error ? error.message : "项目待办写入失败"); return; }
+    await this.refreshDay();
     await rememberTimelineTodoProject(this.plugin, draft, taskId);
   }
 
@@ -489,11 +473,19 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
   }
 
   protected async updateDay(mutator: (day: TimelineDayState) => void): Promise<void> {
+    await this.persistDay(mutator);
+    await this.refreshDay();
+  }
+
+  protected async persistDay(mutator: (day: TimelineDayState) => void): Promise<void> {
     const key = dateKey(this.date);
     await this.plugin.store.update(state => {
       const day = state.days[key] ||= defaultDay(this.plugin.settings.rhythm);
       mutator(day);
     });
+  }
+
+  protected async refreshDay(): Promise<void> {
     await this.plugin.refreshTimerStatus();
     await this.render(true);
   }

@@ -31,6 +31,7 @@ export default class BranchTimelinePlugin extends Plugin {
   private readonly deliveredTimerReminders = new Set<string>();
   private readonly deliveredFixedReminders = new Set<string>();
   private lifeDiaryRefreshTimer: number | null = null;
+  private lastStateError: string | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -39,7 +40,11 @@ export default class BranchTimelinePlugin extends Plugin {
     this.projectTimeSync = new ProjectTimeSync(this.repository, this.store, () => this.refreshSyncClouds());
     this.store.setUndoRecorder(action => this.undoManager.record(action));
     this.store.setChangeListener((before, after) => {
-      for (const date of changedProjectDates(before, after)) this.projectTimeSync.schedule(date, projectPathsOn(before, after, date));
+      try {
+        for (const date of changedProjectDates(before, after)) this.projectTimeSync.schedule(date, projectPathsOn(before, after, date));
+      } catch (error) {
+        new Notice(error instanceof Error ? `时间线已保存，但项目汇总未同步：${error.message}` : "时间线已保存，但项目汇总未同步");
+      }
     });
     this.repository.setUndoRecorder(action => this.undoManager.record(action));
     await this.store.ensure();
@@ -141,13 +146,17 @@ export default class BranchTimelinePlugin extends Plugin {
   }
 
   async undoLast(): Promise<void> {
-    const before = await this.store.load();
-    if (!(await this.undoManager.undo())) return;
-    const after = await this.store.load();
-    for (const date of changedProjectDates(before, after)) this.projectTimeSync.schedule(date, projectPathsOn(before, after, date));
-    this.store.setPath(this.settings.statePath);
-    this.repository.updateSettings(this.settings);
-    await this.refreshViews();
+    try {
+      const before = await this.store.load();
+      if (!(await this.undoManager.undo())) return;
+      const after = await this.store.load();
+      for (const date of changedProjectDates(before, after)) this.projectTimeSync.schedule(date, projectPathsOn(before, after, date));
+      this.store.setPath(this.settings.statePath);
+      this.repository.updateSettings(this.settings);
+      await this.refreshViews();
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : "撤回失败，已停止以保护其他修改");
+    }
   }
 
   async openTimelineRight(focus = true): Promise<void> {
@@ -202,15 +211,17 @@ export default class BranchTimelinePlugin extends Plugin {
       headingKey = result.task.headingKey;
     }
     const logNote = [taskTitle ? `@${taskTitle}` : "", result.note].filter(Boolean).join(" ");
-    try { await this.repository.recordProjectWork(project.path, date, end, result.minutes, logNote, factId, result.task, taskId); }
-    catch (error) { new Notice(error instanceof Error ? error.message : "项目工时写入失败"); return; }
-    await this.store.update(state => {
-      const day = state.days[dateKey(date)] ||= defaultDay(this.settings.rhythm);
-      day.items.push({
-        id: factId, title: taskTitle || result.note || project.name, kind: "fact", startMin: start, endMin: end,
-        projectPath: project.path, projectTaskId: taskId, projectTaskTitle: taskTitle, projectLogId: factId, note: result.note || undefined
+    try {
+      await this.repository.recordProjectWork(project.path, date, end, result.minutes, logNote, factId, result.task, taskId, false, async () => {
+        await this.store.update(state => {
+          const day = state.days[dateKey(date)] ||= defaultDay(this.settings.rhythm);
+          day.items.push({
+            id: factId, title: taskTitle || result.note || project.name, kind: "fact", startMin: start, endMin: end,
+            projectPath: project.path, projectTaskId: taskId, projectTaskTitle: taskTitle, projectLogId: factId, note: result.note || undefined
+          });
+        });
       });
-    });
+    } catch (error) { new Notice(error instanceof Error ? error.message : "项目工时写入失败"); return; }
     this.settings.linkProjectWorkTasks = result.linkTask;
     if (taskId) this.settings.lastProjectTasks[project.path] = taskId;
     if (headingKey) this.settings.lastProjectTaskHeadings[project.path] = headingKey;
@@ -225,11 +236,14 @@ export default class BranchTimelinePlugin extends Plugin {
     const title = await this.text("添加项目待办", "待办标题");
     if (!title) return;
     const id = this.uid("btl");
-    await this.repository.addProjectTask(project.path, title, id);
-    await this.store.update(state => {
-      const day = state.days[dateKey(date)] ||= defaultDay(this.settings.rhythm);
-      day.items.push({ id, title, kind: "todo", plannedMin: this.minuteNow(date), projectPath: project.path, projectTaskId: id });
-    });
+    try {
+      await this.repository.addProjectTask(project.path, title, id, async () => {
+        await this.store.update(state => {
+          const day = state.days[dateKey(date)] ||= defaultDay(this.settings.rhythm);
+          day.items.push({ id, title, kind: "todo", plannedMin: this.minuteNow(date), projectPath: project.path, projectTaskId: id });
+        });
+      });
+    } catch (error) { new Notice(error instanceof Error ? error.message : "项目待办写入失败"); return; }
     new Notice(`已添加到 ${project.name}`);
     await this.refreshViews();
   }
@@ -268,7 +282,21 @@ export default class BranchTimelinePlugin extends Plugin {
   }
 
   async refreshTimerStatus(): Promise<void> {
-    const state = await this.store.load();
+    let state: Awaited<ReturnType<StateStore["load"]>>;
+    try {
+      state = await this.store.load();
+      this.lastStateError = null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "时间线状态读取失败";
+      if (this.lastStateError !== message) new Notice(message);
+      this.lastStateError = message;
+      this.timerStatusItemId = null;
+      if (this.timerStatusItem) {
+        this.timerStatusItem.setText("时间线状态读取失败");
+        this.timerStatusItem.removeClass("is-hidden");
+      }
+      return;
+    }
     const day = state.days[dateKey(logicalToday())];
     const now = this.logicalMinuteNow();
     const active = day ? runningItems(day) : [];

@@ -7,6 +7,7 @@ export interface ProjectTimerFinish {
   note: string;
   taskId?: string;
   taskTitle?: string;
+  commit: (updateTimeline: () => Promise<void>) => Promise<void>;
 }
 
 /** Finish a timed timeline item without asking for an already-known duration. */
@@ -38,16 +39,16 @@ export async function finishProjectTimer(
   const taskTitle = result.task?.kind === "existing" ? result.task.entry.title
     : result.task?.kind === "new" ? result.task.title : undefined;
   const note = [taskTitle ? `@${taskTitle}` : "", result.note].filter(Boolean).join(" ");
-  try {
-    await plugin.repository.recordProjectWork(project.path, date, end, minutes, note, factId, result.task, taskId, completeTask);
-  } catch (error) {
-    new Notice(error instanceof Error ? error.message : "项目工时写入失败");
-    return null;
-  }
-  plugin.settings.linkProjectWorkTasks = result.linkTask;
-  if (taskId) plugin.settings.lastProjectTasks[project.path] = taskId;
-  if (result.task?.kind === "new") plugin.settings.lastProjectTaskHeadings[project.path] = result.task.headingKey;
-  else if (result.task?.kind === "existing") plugin.settings.lastProjectTaskHeadings[project.path] = result.task.entry.headingKey;
-  await plugin.saveSettings(false);
-  return { note: result.note, taskId, taskTitle };
+  return {
+    note: result.note, taskId, taskTitle,
+    commit: async updateTimeline => {
+      await plugin.repository.recordProjectWork(project.path, date, end, minutes, note, factId, result.task, taskId, completeTask, updateTimeline);
+      plugin.settings.linkProjectWorkTasks = result.linkTask;
+      if (taskId) plugin.settings.lastProjectTasks[project.path] = taskId;
+      if (result.task?.kind === "new") plugin.settings.lastProjectTaskHeadings[project.path] = result.task.headingKey;
+      else if (result.task?.kind === "existing") plugin.settings.lastProjectTaskHeadings[project.path] = result.task.entry.headingKey;
+      try { await plugin.saveSettings(false); }
+      catch (error) { new Notice(error instanceof Error ? `工时已保存，但偏好设置未保存：${error.message}` : "工时已保存，但偏好设置未保存"); }
+    }
+  };
 }

@@ -4,7 +4,8 @@ export function renderTimeWheel(
   initial: number,
   lower: number,
   upper: number,
-  onChange: (minute: number) => void
+  onChange: (minute: number) => void,
+  fineAdjust = true
 ): { focus: () => void; selected: () => number } {
   let selected = initial;
   const wheel = parent.createDiv({ cls: "btl-time-wheel" });
@@ -32,9 +33,11 @@ export function renderTimeWheel(
       if (nearest) select(Number(nearest.dataset.minute));
     }, 80));
   }, { passive: true });
-  const fine = parent.createDiv({ cls: "btl-mental-time-fine" });
-  fine.createEl("button", { text: "−1 分钟", attr: { type: "button" } }).onclick = () => select(selected - 1);
-  fine.createEl("button", { text: "+1 分钟", attr: { type: "button" } }).onclick = () => select(selected + 1);
+  if (fineAdjust) {
+    const fine = parent.createDiv({ cls: "btl-mental-time-fine" });
+    fine.createEl("button", { text: "−1 分钟", attr: { type: "button" } }).onclick = () => select(selected - 1);
+    fine.createEl("button", { text: "+1 分钟", attr: { type: "button" } }).onclick = () => select(selected + 1);
+  }
   select(initial);
   return {
     focus: () => wheel.querySelector<HTMLElement>(`[data-minute="${initial}"]`)?.scrollIntoView({ block: "center" }),

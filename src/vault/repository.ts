@@ -19,6 +19,7 @@ import {
   upsertProjectNote
 } from "./format";
 import { indexProjectTasks, linkProjectTask, upsertProjectTaskTotals } from "./project-tasks";
+import { revertTextChange } from "./revert-text-change";
 import type { ProjectTaskIndex, ProjectWorkTask } from "./project-tasks";
 
 export class VaultRepository {
@@ -70,22 +71,20 @@ export class VaultRepository {
     );
   }
 
-  async addProjectLog(projectPath: string, date: Date, endMinute: number, minutes: number, note: string, workId?: string): Promise<void> {
+  async addProjectLog(projectPath: string, date: Date, endMinute: number, minutes: number, note: string, workId?: string, commit?: () => Promise<void>): Promise<void> {
     const file = this.projectFile(projectPath);
     const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
-    await this.process(file, content => appendProjectLog(content, dateKey(date), time, minutes / 60, note, workId));
+    await this.process(file, content => appendProjectLog(content, dateKey(date), time, minutes / 60, note, workId), commit);
   }
 
-  async updateProjectWorkLogNote(projectPath: string, workId: string, taskTitle: string | undefined, note: string): Promise<void> {
+  async updateProjectWorkLogNote(projectPath: string, workId: string, taskTitle: string | undefined, note: string, commit?: () => Promise<void>): Promise<void> {
     const file = this.projectFile(projectPath);
-    await this.process(file, content => updateProjectWorkLogNote(content, workId, taskTitle, note));
+    await this.process(file, content => updateProjectWorkLogNote(content, workId, taskTitle, note), commit);
   }
 
-  async removeProjectWorkLog(projectPath: string, workId: string): Promise<void> {
+  async removeProjectWorkLog(projectPath: string, workId: string, commit?: () => Promise<void>): Promise<void> {
     const file = this.projectFile(projectPath);
-    const before = await this.app.vault.read(file);
-    if (removeProjectWorkLog(before, workId) === before) return;
-    await this.process(file, content => removeProjectWorkLog(content, workId));
+    await this.process(file, content => removeProjectWorkLog(content, workId), commit);
   }
 
   async readProjectDayTotal(projectPath: string, date: string): Promise<ReturnType<typeof projectDayTotal>> {
@@ -108,38 +107,40 @@ export class VaultRepository {
     date: Date | string,
     minute: number,
     previousNote: string,
-    nextNote: string
+    nextNote: string,
+    commit?: () => Promise<void>
   ): Promise<void> {
     const file = this.projectFile(projectPath);
     const key = typeof date === "string" ? date : dateKey(date);
     const normalized = ((minute % 1440) + 1440) % 1440;
     const time = `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
-    await this.process(file, content => upsertProjectNote(content, key, time, previousNote, nextNote));
+    await this.process(file, content => upsertProjectNote(content, key, time, previousNote, nextNote), commit);
   }
 
-  async addProjectTask(projectPath: string, title: string, id: string): Promise<void> {
+  async addProjectTask(projectPath: string, title: string, id: string, commit?: () => Promise<void>): Promise<void> {
     const file = this.projectFile(projectPath);
-    await this.process(file, content => appendProjectTask(content, title, id));
+    await this.process(file, content => appendProjectTask(content, title, id), commit);
   }
 
   async projectTasks(projectPath: string): Promise<ProjectTaskIndex> {
     return indexProjectTasks(await this.app.vault.read(this.projectFile(projectPath)), this.settings.projectTaskHeadings);
   }
 
-  async prepareTimelineTodo(projectPath: string, date: Date, minute: number, note: string, task: ProjectWorkTask | null, taskId?: string): Promise<void> {
-    if (!note && !task) return;
+  async prepareTimelineTodo(projectPath: string, date: Date, minute: number, note: string, task: ProjectWorkTask | null, taskId?: string, commit?: () => Promise<void>): Promise<void> {
+    if (!note && !task) { await commit?.(); return; }
     const file = this.projectFile(projectPath);
     const time = `${String(Math.floor(minute / 60) % 24).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
     await this.process(file, content => {
       if (task && !taskId) throw new Error("关联任务缺少 ID");
       const withTask = task ? linkProjectTask(content, this.settings.projectTaskHeadings, task, taskId!) : content;
       return note ? upsertProjectNote(withTask, dateKey(date), time, "", note) : withTask;
-    });
+    }, commit);
   }
 
   async recordProjectWork(
     projectPath: string, date: Date, endMinute: number, minutes: number, note: string,
-    workId: string, task: ProjectWorkTask | null, taskId: string | undefined, completeTask = false
+    workId: string, task: ProjectWorkTask | null, taskId: string | undefined, completeTask = false,
+    commit?: () => Promise<void>
   ): Promise<void> {
     const file = this.projectFile(projectPath);
     const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
@@ -149,7 +150,7 @@ export class VaultRepository {
       if (task) next = linkProjectTask(next, this.settings.projectTaskHeadings, task, taskId!);
       if (completeTask && taskId) next = setProjectTaskDone(next, taskId, true);
       return minutes > 0 ? appendProjectLog(next, dateKey(date), time, minutes / 60, note, workId) : next;
-    });
+    }, commit);
   }
 
   async syncProjectTaskTotals(projectPath: string, totals: ReadonlyMap<string, number>): Promise<void> {
@@ -159,12 +160,12 @@ export class VaultRepository {
     await this.app.vault.process(file, content => upsertProjectTaskTotals(content, totals));
   }
 
-  async setProjectTaskDone(projectPath: string, id: string, done: boolean): Promise<void> {
+  async setProjectTaskDone(projectPath: string, id: string, done: boolean, commit?: () => Promise<void>): Promise<void> {
     const file = this.projectFile(projectPath);
-    await this.process(file, content => setProjectTaskDone(content, id, done));
+    await this.process(file, content => setProjectTaskDone(content, id, done), commit);
   }
 
-  async completeProjectTaskWithLog(projectPath: string, id: string, date: Date, endMinute: number, minutes: number, note: string, workId: string): Promise<void> {
+  async completeProjectTaskWithLog(projectPath: string, id: string, date: Date, endMinute: number, minutes: number, note: string, workId: string, commit?: () => Promise<void>): Promise<void> {
     const file = this.projectFile(projectPath);
     const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
     await this.process(file, content => {
@@ -173,7 +174,7 @@ export class VaultRepository {
       }
       const completed = setProjectTaskDone(content, id, true);
       return minutes > 0 ? appendProjectLog(completed, dateKey(date), time, minutes / 60, note, workId) : completed;
-    });
+    }, commit);
   }
 
   async createProject(name: string, status: string, date: Date): Promise<ProjectRef> {
@@ -224,12 +225,38 @@ export class VaultRepository {
     return created;
   }
 
-  private async process(file: TFile, transform: (content: string) => string): Promise<void> {
-    const before = await this.app.vault.read(file);
-    await this.app.vault.process(file, transform);
+  /** Pair a Markdown edit with an optional state write; never roll back across someone else's edit. */
+  private async process(file: TFile, transform: (content: string) => string, commit?: () => Promise<void>): Promise<void> {
+    let before = "";
+    let after = "";
+    await this.app.vault.process(file, content => {
+      before = content;
+      after = transform(content);
+      return after;
+    });
+    if (commit) {
+      try { await commit(); }
+      catch (error) {
+        try {
+          await this.app.vault.process(file, content => {
+            if (content !== after) throw new Error("项目文件已在别处修改，不能安全回退");
+            return before;
+          });
+        } catch (rollbackError) {
+          throw new AggregateError([error, rollbackError], `项目与时间线写入未同时完成：${file.path}`);
+        }
+        throw error;
+      }
+    }
+    if (before === after) return;
     this.recordUndo?.(async () => {
       const current = this.app.vault.getAbstractFileByPath(file.path);
-      if (current instanceof TFile) await this.app.vault.modify(current, before);
+      if (!(current instanceof TFile)) throw new Error(`文件已移动，无法安全撤回：${file.path}`);
+      await this.app.vault.process(current, content => {
+        const reverted = revertTextChange(before, after, content);
+        if (reverted == null) throw new Error(`相关内容已在别处修改，撤回已停止：${file.path}`);
+        return reverted;
+      });
     });
   }
 }

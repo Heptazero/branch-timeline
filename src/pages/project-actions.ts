@@ -56,30 +56,26 @@ export class ProjectTimelineActions {
     if (!title) return;
     const { date, minute } = splitAbsoluteMinute(abs);
     const id = this.uid("btl");
+    this.preserveAnchor();
     try {
-      await this.options.plugin.repository.addProjectTask(this.options.projectPath, title, id);
+      await this.options.plugin.repository.addProjectTask(this.options.projectPath, title, id, async () => {
+        await this.options.plugin.store.update(state => {
+          const day = state.days[date] ||= defaultDay(this.options.plugin.settings.rhythm);
+          day.items.push({
+            id, title, kind: "todo", plannedMin: minute,
+            projectPath: this.options.projectPath, projectTaskId: id, projectBranchId: branchId
+          });
+          if (!branchId) return;
+          const branch = state.projects[this.options.projectPath]?.branches.find(candidate => candidate.id === branchId);
+          if (!branch) return;
+          branch.startAbs = Math.min(branch.startAbs, abs);
+          branch.endAbs = Math.max(branch.endAbs, abs);
+        });
+      });
     } catch (error) {
       new Notice(error instanceof Error ? error.message : "项目待办写入失败");
       return;
     }
-    this.preserveAnchor();
-    await this.options.plugin.store.update(state => {
-      const day = state.days[date] ||= defaultDay(this.options.plugin.settings.rhythm);
-      day.items.push({
-        id,
-        title,
-        kind: "todo",
-        plannedMin: minute,
-        projectPath: this.options.projectPath,
-        projectTaskId: id,
-        projectBranchId: branchId
-      });
-      if (!branchId) return;
-      const branch = state.projects[this.options.projectPath]?.branches.find(candidate => candidate.id === branchId);
-      if (!branch) return;
-      branch.startAbs = Math.min(branch.startAbs, abs);
-      branch.endAbs = Math.max(branch.endAbs, abs);
-    });
     await this.options.refresh();
   }
 
@@ -106,16 +102,18 @@ export class ProjectTimelineActions {
   async editNote(date: string, item: TimelineItem): Promise<void> {
     const note = await this.options.note("备注", "写点什么", item.note || "");
     if (note == null) return;
+    this.preserveAnchor();
     try {
       const state = await this.options.plugin.store.load();
       const day = state.days[date];
       const minute = item.startMin ?? item.startedMin ?? item.plannedMin ?? item.endMin ?? day?.wake ?? 0;
-      await this.options.plugin.repository.syncProjectNote(this.options.projectPath, date, minute, item.note || "", note);
+      await this.options.plugin.repository.syncProjectNote(this.options.projectPath, date, minute, item.note || "", note,
+        () => this.persistItem(date, item.id, target => { target.note = note.trim() || undefined; }));
     } catch (error) {
       new Notice(error instanceof Error ? error.message : "项目备注同步失败");
       return;
     }
-    await this.updateItem(date, item.id, target => { target.note = note.trim() || undefined; });
+    await this.options.refresh();
   }
 
   openItemMenu(entry: ProjectTimelineEntry, event: MouseEvent): void {
@@ -149,15 +147,8 @@ export class ProjectTimelineActions {
     const state = await this.options.plugin.store.load();
     const item = state.days[date]?.items.find(candidate => candidate.id === itemId);
     if (!item || item.kind === "fact") return;
-    if (item.projectTaskId) {
-      try {
-        await this.options.plugin.repository.setProjectTaskDone(this.options.projectPath, item.projectTaskId, true);
-      } catch (error) {
-        new Notice(error instanceof Error ? error.message : "项目待办更新失败");
-        return;
-      }
-    }
-    await this.updateItem(date, itemId, (target, day) => {
+    this.preserveAnchor();
+    const commit = () => this.persistItem(date, itemId, (target, day) => {
       const end = this.minuteForDate(date, day, target.plannedMin ?? day.napEnd);
       target.kind = "fact";
       target.startMin = target.startedMin ?? end;
@@ -165,6 +156,11 @@ export class ProjectTimelineActions {
       target.factTiming = false;
       delete target.startedMin;
     });
+    try {
+      if (item.projectTaskId) await this.options.plugin.repository.setProjectTaskDone(this.options.projectPath, item.projectTaskId, true, commit);
+      else await commit();
+    } catch (error) { new Notice(error instanceof Error ? error.message : "项目待办更新失败"); return; }
+    await this.options.refresh();
   }
 
   private async startItemTiming(date: string, itemId: string): Promise<void> {
@@ -228,14 +224,17 @@ export class ProjectTimelineActions {
     if (!item) return;
     const minutes = await new Promise<number | null>(resolve => new MinuteEntryModal(this.options.app, `补记 · ${item.title}`, resolve).open());
     if (minutes == null) return;
-    if (item.kind === "todo" && item.projectPath && item.projectTaskId) {
-      try { await this.options.plugin.repository.setProjectTaskDone(item.projectPath, item.projectTaskId, true); }
-      catch (error) { new Notice(error instanceof Error ? error.message : "项目待办更新失败"); return; }
-    }
-    await this.updateItem(date, itemId, (target, day) => {
+    this.preserveAnchor();
+    const commit = () => this.persistItem(date, itemId, (target, day) => {
       const end = this.minuteForDate(date, day, target.endMin ?? target.plannedMin ?? day.napEnd);
       applyBackfill(target, end, minutes, day.wake);
     });
+    try {
+      if (item.kind === "todo" && item.projectPath && item.projectTaskId) {
+        await this.options.plugin.repository.setProjectTaskDone(item.projectPath, item.projectTaskId, true, commit);
+      } else await commit();
+    } catch (error) { new Notice(error instanceof Error ? error.message : "补记失败"); return; }
+    await this.options.refresh();
   }
 
   private async renameItem(date: string, item: TimelineItem): Promise<void> {
@@ -295,12 +294,17 @@ export class ProjectTimelineActions {
     mutate: (item: TimelineItem, day: TimelineDayState) => void
   ): Promise<void> {
     this.preserveAnchor();
+    await this.persistItem(date, itemId, mutate);
+    await this.options.refresh();
+  }
+
+  private async persistItem(date: string, itemId: string, mutate: (item: TimelineItem, day: TimelineDayState) => void): Promise<void> {
     await this.options.plugin.store.update(state => {
       const day = state.days[date];
       const item = day?.items.find(candidate => candidate.id === itemId);
-      if (day && item) mutate(item, day);
+      if (!day || !item) throw new Error("事项已改变，请重新打开后操作");
+      mutate(item, day);
     });
-    await this.options.refresh();
   }
 
   private preserveAnchor(): void {

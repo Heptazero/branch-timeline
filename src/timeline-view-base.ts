@@ -14,7 +14,7 @@ import { AchievementActions } from "./pages/achievement-actions";
 import { renderAchievementDetail, renderAchievementsPage } from "./pages/achievements";
 import { renderStatsPage } from "./pages/stats";
 import { LifeActions } from "./pages/life-actions";
-import { renderPageNavigation, type TimelinePage } from "./pages/navigation";
+import type { TimelinePage } from "./pages/navigation";
 import { ProjectTimelineActions } from "./pages/project-actions";
 import {
   renderProjectDetail,
@@ -29,6 +29,7 @@ import { RunningBar } from "./timeline/running-bar";
 import { effectiveEnergyPhases } from "./timeline/energy-phases";
 import { minuteToY } from "./timeline/model";
 import { renderTimeline } from "./timeline/renderer";
+import { renderViewHeader } from "./timeline/view-header";
 import type { DistractionLevel, ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
@@ -66,6 +67,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected projectActions: ProjectTimelineActions | null = null;
   protected countdownButton: HTMLButtonElement | null = null;
   protected syncButton: HTMLButtonElement | null = null;
+  protected lastScheduledSyncDate: string | null = null;
   protected runningBar: RunningBar | null = null;
   protected achievementActions: AchievementActions;
   protected policyActions: PolicyActions;
@@ -145,58 +147,47 @@ export abstract class BranchTimelineViewBase extends ItemView {
     root.empty();
     root.addClass("branch-timeline-hz");
     applyFocusColors(root, this.plugin.settings.focusColors);
-    const toolbar = root.createDiv({ cls: "btl-toolbar" });
-    const toolbarLeft = toolbar.createDiv({ cls: "btl-toolbar-left" });
-    const undo = this.iconButton(toolbarLeft, "undo-2", "撤回", () => void this.plugin.undoLast());
-    undo.addClass("btl-undo-button");
-    undo.disabled = !this.plugin.undoManager.canUndo;
-    this.syncButton = this.iconButton(toolbarLeft, "cloud", "同步云", () => {
-      this.plugin.checkProjectSync(dateKey(this.date));
-    });
-    this.syncButton.addClass("btl-sync-cloud");
-    this.updateSyncCloud();
-    const dateNav = toolbar.createDiv({ cls: "btl-date-nav" });
-    dateNav.toggleClass("is-hidden", this.page === "life");
-    const previousDate = this.iconButton(dateNav, "chevron-left", "前一天", () => this.shiftDate(-1));
-    const dateButton = dateNav.createEl("button", { cls: "btl-date-button", text: this.dateTitle() });
-    dateButton.onclick = () => void this.openDatePicker(dateButton);
-    const nextDate = this.iconButton(dateNav, "chevron-right", "后一天", () => this.shiftDate(1));
     const allProjectTime = this.page === "projects" && !this.selectedProjectPath && this.projectTimeScope === "total";
-    previousDate.disabled = allProjectTime;
-    dateButton.disabled = allProjectTime;
-    nextDate.disabled = allProjectTime;
-    const toolbarActions = toolbar.createDiv({ cls: "btl-toolbar-actions" });
-    this.iconButton(toolbarActions, "settings", "设置", () => this.openPluginSettings());
-    const add = this.iconButton(toolbarActions, "plus", "添加", event => this.openAddMenu(event));
-    add.addClass("btl-add-button");
-
-    const navigationRow = root.createDiv({ cls: "btl-page-nav-row" });
-    renderPageNavigation(navigationRow, this.page, page => {
-      this.date = logicalToday();
-      this.followsToday = true;
-      if (page === "life") this.lifeAnchor = undefined;
-      if (page === "projects") this.projectAnchor = undefined;
-      if (page === "policy") this.policyPeriod = policyPeriodAt(new Date());
-      this.page = page;
-      if (page !== "projects") this.selectedProjectPath = null;
-      if (page !== "achievements") this.selectedAchievementId = null;
-      void this.render(false);
-    }, this.plugin.settings.visiblePages);
-    this.countdownButton = navigationRow.createEl("button", { cls: "btl-day-countdown", attr: { "aria-label": "设置节律" } });
-    this.countdownButton.toggleClass("is-hidden", this.page === "life");
-    this.countdownButton.createSpan();
-    this.countdownButton.createEl("strong");
-    this.countdownButton.onclick = () => this.openRhythmSettings(this.countdownButton!);
+    const { syncButton, countdownButton, runningHost, pageContent } = renderViewHeader({
+      root, page: this.page, dateTitle: this.dateTitle(), visiblePages: this.plugin.settings.visiblePages,
+      canUndo: this.plugin.undoManager.canUndo, disableDateNav: allProjectTime,
+      iconButton: (parent, icon, label, action) => this.iconButton(parent, icon, label, action),
+      onUndo: () => void this.plugin.undoLast(),
+      onSync: () => this.plugin.checkProjectSync(dateKey(this.date)),
+      onShiftDate: amount => this.shiftDate(amount),
+      onDatePicker: anchor => void this.openDatePicker(anchor),
+      onSettings: () => this.openPluginSettings(), onAdd: event => this.openAddMenu(event),
+      onNavigate: page => {
+        this.date = logicalToday();
+        this.followsToday = true;
+        if (page === "life") this.lifeAnchor = undefined;
+        if (page === "projects") this.projectAnchor = undefined;
+        if (page === "policy") this.policyPeriod = policyPeriodAt(new Date());
+        this.page = page;
+        if (page !== "projects") this.selectedProjectPath = null;
+        if (page !== "achievements") this.selectedAchievementId = null;
+        void this.render(false);
+      },
+      onRhythm: anchor => this.openRhythmSettings(anchor)
+    });
+    this.syncButton = syncButton;
+    this.countdownButton = countdownButton;
+    this.updateSyncCloud();
     this.updateCountdown();
-    const runningHost = root.createDiv({ cls: "btl-running-bar is-hidden" });
-    const pageContent = root.createDiv({ cls: "btl-page-content" });
-
-    const state = await this.plugin.store.load();
+    let state: Awaited<ReturnType<typeof this.plugin.store.load>>;
+    try { state = await this.plugin.store.load(); }
+    catch (error) {
+      if (requestId === this.renderId) pageContent.createDiv({ cls: "btl-state-error", text: error instanceof Error ? error.message : "时间线状态读取失败" });
+      return;
+    }
     if (requestId !== this.renderId) return;
     const key = dateKey(this.date);
     const day = state.days[key] || defaultDay(this.plugin.settings.rhythm);
     this.day = day;
-    this.plugin.projectTimeSync.schedule(key);
+    if (this.lastScheduledSyncDate !== key) {
+      this.lastScheduledSyncDate = key;
+      this.plugin.projectTimeSync.schedule(key);
+    }
     this.energyPhases = effectiveEnergyPhases(state.days, key);
     this.runningBar = new RunningBar(runningHost, {
       open: itemId => void this.focusRunningItem(itemId),

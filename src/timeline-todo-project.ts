@@ -6,13 +6,14 @@ export async function prepareTimelineTodoProject(
   draft: TimelineItemDraftResult,
   date: Date,
   minute: number,
-  todoId: string
+  todoId: string,
+  commit: (taskId?: string) => Promise<void>
 ): Promise<string | undefined> {
   const taskId = draft.task?.kind === "existing" ? draft.task.entry.id || todoId
     : draft.task?.kind === "new" ? todoId : undefined;
   if (draft.projectPath) {
-    await plugin.repository.prepareTimelineTodo(draft.projectPath, date, minute, draft.note, draft.task, taskId);
-  }
+    await plugin.repository.prepareTimelineTodo(draft.projectPath, date, minute, draft.note, draft.task, taskId, () => commit(taskId));
+  } else await commit(taskId);
   return taskId;
 }
 

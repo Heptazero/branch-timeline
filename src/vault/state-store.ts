@@ -32,9 +32,20 @@ export class StateStore {
 
   async load(): Promise<BranchTimelineState> {
     const path = normalizePath(this.path);
+    return this.loadAt(path);
+  }
+
+  private async loadAt(path: string): Promise<BranchTimelineState> {
     if (!(await this.app.vault.adapter.exists(path))) return structuredClone(EMPTY_STATE);
     try {
       const parsed = JSON.parse(await this.app.vault.adapter.read(path)) as Partial<BranchTimelineState>;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("状态文件不是对象");
+      if (typeof parsed.version === "number" && parsed.version > EMPTY_STATE.version) throw new Error("状态文件版本较新");
+      if (!parsed.days || typeof parsed.days !== "object" || Array.isArray(parsed.days)) throw new Error("状态文件缺少有效的 days");
+      if (parsed.projects != null && (typeof parsed.projects !== "object" || Array.isArray(parsed.projects))) throw new Error("projects 格式无效");
+      for (const field of ["achievements", "policySides", "policyCards", "policyNodes", "policyEvents", "fixedReminders", "fixedReminderResults", "lifeEvents"] as const) {
+        if (parsed[field] != null && !Array.isArray(parsed[field])) throw new Error(`${field} 格式无效`);
+      }
       return {
         version: 1,
         days: parsed.days && typeof parsed.days === "object"
@@ -58,22 +69,29 @@ export class StateStore {
         fixedReminderResults: Array.isArray(parsed.fixedReminderResults) ? parsed.fixedReminderResults.flatMap(normalizeFixedReminderResult) : [],
         lifeEvents: Array.isArray(parsed.lifeEvents) ? parsed.lifeEvents : []
       };
-    } catch {
-      return structuredClone(EMPTY_STATE);
+    } catch (error) {
+      throw new Error(`读取时间线状态失败（${path}），已停止写入以保护原始数据`, { cause: error });
     }
   }
 
   async update(mutator: (state: BranchTimelineState) => void): Promise<BranchTimelineState> {
     let result = structuredClone(EMPTY_STATE);
-    this.queue = this.queue.then(async () => {
-      result = await this.load();
+    const operation = this.queue.then(async () => {
+      const path = normalizePath(this.path);
+      result = await this.loadAt(path);
       const before = structuredClone(result);
       mutator(result);
-      await this.write(result);
-      this.recordUndo?.(() => this.write(before));
+      const written = await this.write(result, path);
+      this.recordUndo?.(async () => {
+        if (await this.app.vault.adapter.read(path) !== written) {
+          throw new Error("时间线状态已在别处改变，撤回已停止以免覆盖新数据");
+        }
+        await this.write(before, path);
+      });
       this.onChange?.(before, result);
     });
-    await this.queue;
+    this.queue = operation.then(() => undefined, () => undefined);
+    await operation;
     return result;
   }
 
@@ -81,11 +99,12 @@ export class StateStore {
     if (!(await this.app.vault.adapter.exists(normalizePath(this.path)))) await this.write(EMPTY_STATE);
   }
 
-  private async write(state: BranchTimelineState): Promise<void> {
-    const path = normalizePath(this.path);
+  private async write(state: BranchTimelineState, path = normalizePath(this.path)): Promise<string> {
     const parent = path.split("/").slice(0, -1).join("/");
     if (parent && !(await this.app.vault.adapter.exists(parent))) await this.mkdirRecursive(parent);
-    await this.app.vault.adapter.write(path, `${JSON.stringify(state, null, 2)}\n`);
+    const content = `${JSON.stringify(state, null, 2)}\n`;
+    await this.app.vault.adapter.write(path, content);
+    return content;
   }
 
   private async mkdirRecursive(path: string): Promise<void> {

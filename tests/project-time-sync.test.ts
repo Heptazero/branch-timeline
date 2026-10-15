@@ -71,7 +71,7 @@ test("deleting a timed fact removes its marked log before removing the timeline 
   ] } } };
   const calls: string[] = [];
   const plugin = {
-    repository: { removeProjectWorkLog: async (_path: string, id: string) => { calls.push(id); } },
+    repository: { removeProjectWorkLog: async (_path: string, id: string, commit: () => Promise<void>) => { calls.push(id); await commit(); } },
     store: { load: async () => state, update: async (mutate: (value: typeof state) => void) => { mutate(state); } }
   } as unknown as Parameters<typeof removeTimelineItem>[0];
   await removeTimelineItem(plugin, date, "fact-a");
@@ -86,7 +86,7 @@ test("deleting a reassigned fact removes the log from its original project", asy
   ] } } };
   const calls: string[] = [];
   const plugin = {
-    repository: { removeProjectWorkLog: async (path: string) => { calls.push(path); } },
+    repository: { removeProjectWorkLog: async (path: string, _id: string, commit: () => Promise<void>) => { calls.push(path); await commit(); } },
     store: { load: async () => state, update: async (mutate: (value: typeof state) => void) => { mutate(state); } }
   } as unknown as Parameters<typeof removeTimelineItem>[0];
   await removeTimelineItem(plugin, date, "fact-a");

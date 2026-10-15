@@ -6,11 +6,10 @@ export async function removeTimelineItem(plugin: BranchTimelinePlugin, date: str
   const item = state.days[date]?.items.find(candidate => candidate.id === itemId);
   if (!item) return;
   const logPath = item.projectLogPath || item.projectPath;
-  if (logPath && item.projectLogId) {
-    await plugin.repository.removeProjectWorkLog(logPath, item.projectLogId);
-  }
-  await plugin.store.update(next => {
+  const commit = async () => { await plugin.store.update(next => {
     const day = next.days[date];
     if (day) day.items = day.items.filter(candidate => candidate.id !== itemId);
-  });
+  }); };
+  if (logPath && item.projectLogId) await plugin.repository.removeProjectWorkLog(logPath, item.projectLogId, commit);
+  else await commit();
 }
