@@ -1,4 +1,6 @@
 import type { DiaryDaySnapshot } from "../types";
+import { findPluginMarker, pluginMarker } from "./comment-markers";
+import type { PluginCommentStyle } from "./comment-markers";
 
 const DAY_NAMES = ["Sun", "Mon", "Tues", "Wednes", "Thurs", "Fri", "Satur"];
 
@@ -124,7 +126,8 @@ function projectLogDate(line: string | undefined): { mmdd: string; yearDate?: st
   if (!line) return null;
   const match = line.match(/^-\s+(\d{4})(?=\s|\[|$)/);
   if (!match) return null;
-  return { mmdd: match[1], yearDate: line.match(/<!-- btl:(\d{4}-\d{2}-\d{2}) -->/)?.[1] };
+  const marker = findPluginMarker(line, "date");
+  return { mmdd: match[1], yearDate: marker && /^\d{4}-\d{2}-\d{2}$/.test(marker.value) ? marker.value : undefined };
 }
 
 function findProjectDateLine(lines: string[], start: number, end: number, date: string): number {
@@ -156,13 +159,15 @@ export function projectDayTotal(content: string, date: string): { kind: "absent"
     return { kind: "conflict", minutes: 0, owned: marked };
   }
   const token = line.match(/\[\s*(\+?)\s*(\d+(?:\.\d+)?)\s*h\s*\]/i);
-  const rest = line.replace(/^-\s+\d{4}/, "").replace(/<!-- btl:\d{4}-\d{2}-\d{2} -->/, "").trim();
+  const marker = findPluginMarker(line, "date");
+  const withoutMarker = marker ? line.replace(marker.text, "") : line;
+  const rest = withoutMarker.replace(/^-\s+\d{4}/, "").trim();
   if (!token) return { kind: rest || marked ? "conflict" : "absent", minutes: 0, owned: marked };
   if (rest !== token[0] || token[1]) return { kind: "conflict", minutes: 0, owned: marked };
   return { kind: marked ? "owned" : "manual", minutes: Math.round(Number(token[2]) * 60), owned: marked };
 }
 
-export function upsertProjectDayTotal(content: string, date: string, minutes: number): string {
+export function upsertProjectDayTotal(content: string, date: string, minutes: number, style: PluginCommentStyle = "html"): string {
   const current = projectDayTotal(content, date);
   if (current.kind === "manual" || current.kind === "conflict") throw new Error(`项目日志 ${date} 的时长需要手动检查`);
   if (minutes <= 0 && current.kind === "absent") return content;
@@ -173,7 +178,8 @@ export function upsertProjectDayTotal(content: string, date: string, minutes: nu
     if (index >= 0) lines[index] = `- ${mmdd}`;
   } else {
     const hours = Number((minutes / 60).toFixed(2));
-    const header = `- ${mmdd} [${hours}h] <!-- btl:${date} -->`;
+    const currentStyle = index >= 0 ? findPluginMarker(lines[index], "date")?.style : undefined;
+    const header = `- ${mmdd} [${hours}h] ${pluginMarker("date", date, currentStyle || style)}`;
     if (index >= 0) lines[index] = header;
     else {
       let insertAt = range.endLine;
@@ -194,7 +200,8 @@ export function appendProjectLog(
   time: string,
   hours: number,
   note: string,
-  workId?: string
+  workId?: string,
+  style: PluginCommentStyle = "html"
 ): string {
   const { lines, range } = ensureNamedSection(content, "log");
   sortProjectLogDateBlocks(lines, range.headingLine + 1, range.endLine);
@@ -227,7 +234,7 @@ export function appendProjectLog(
   while (insertAt > dateLine + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
   const value = Number(hours.toFixed(2));
   const suffix = note.trim() ? ` ${note.trim()}` : "";
-  const marker = workId ? ` <!-- btl-work:${workId} -->` : "";
+  const marker = workId ? ` ${pluginMarker("work", workId, style)}` : "";
   lines.splice(insertAt, 0, `\t- [${time}] ${value}h${suffix}${marker}`);
   sortProjectLogEntries(lines, dateLine, blockEnd + 1);
   return lines.join("\n");
@@ -235,9 +242,9 @@ export function appendProjectLog(
 
 export function updateProjectWorkLogNote(content: string, workId: string, taskTitle: string | undefined, note: string): string {
   const lines = content.split("\n");
-  const marker = `<!-- btl-work:${workId} -->`;
-  const index = lines.findIndex(line => line.includes(marker));
+  const index = lines.findIndex(line => findPluginMarker(line, "work")?.value === workId);
   if (index < 0) throw new Error("找不到这次工时的项目日志，请手动检查");
+  const marker = findPluginMarker(lines[index], "work")!.text;
   const prefix = lines[index].match(/^(\s*-\s+\[\d{2}:\d{2}\]\s+\d+(?:\.\d+)?h)/)?.[1];
   if (!prefix) throw new Error("项目日志格式已经改变，请手动检查");
   const details = [taskTitle ? `@${taskTitle}` : "", note.trim()].filter(Boolean).join(" ");
@@ -250,13 +257,16 @@ export function removeProjectWorkLog(content: string, workId: string): string {
   const lines = content.split("\n");
   const range = sectionRange(lines, "log");
   if (!range) return content;
-  const marker = `<!-- btl-work:${workId} -->`;
   const matches: number[] = [];
   for (let index = range.headingLine + 1; index < range.endLine; index += 1) {
-    if (lines[index].includes(marker)) matches.push(index);
+    if (findPluginMarker(lines[index], "work")?.value === workId) matches.push(index);
   }
   if (!matches.length) return content;
-  if (matches.length !== 1 || !/^\s*-\s+\[\d{2}:\d{2}\]\s+\d+(?:\.\d+)?h(?:\s+.*?)?\s+<!-- btl-work:[^<>]+ -->\s*$/.test(lines[matches[0]])) {
+  const line = lines[matches[0]];
+  const marker = findPluginMarker(line, "work")!;
+  const body = line.slice(0, marker.index);
+  const tail = line.slice(marker.index + marker.text.length);
+  if (matches.length !== 1 || !/^\s*-\s+\[\d{2}:\d{2}\]\s+\d+(?:\.\d+)?h(?:\s+.*?)?\s+$/.test(body) || tail.trim()) {
     throw new Error("项目工时日志格式或标记有冲突，请手动检查");
   }
   lines.splice(matches[0], 1);

@@ -1,5 +1,6 @@
 import { Notice, Platform, Plugin, WorkspaceLeaf } from "obsidian";
-import { ChoiceSuggestModal, ProjectSuggestModal, TextEntryModal } from "./modals";
+import type { Extension } from "@codemirror/state";
+import { ChoiceSuggestModal, ConfirmModal, ProjectSuggestModal, TextEntryModal } from "./modals";
 import { ProjectWorkModal } from "./project-work-modal";
 import type { ProjectWorkResult } from "./project-work-modal";
 import { normalizeRhythmMarkers, normalizeRhythmSchedule } from "./rhythm";
@@ -19,6 +20,7 @@ import { normalizeTaskHeadings } from "./vault/project-tasks";
 import type { ProjectTaskIndex } from "./vault/project-tasks";
 import { DiaryBracketSuggest } from "./diary-bracket-suggest";
 import { reminderOn } from "./fixed-reminders/model";
+import { hiddenPluginCommentsExtension } from "./editor/plugin-comment-visibility";
 
 export default class BranchTimelinePlugin extends Plugin {
   settings: BranchTimelineSettings = DEFAULT_SETTINGS;
@@ -32,6 +34,7 @@ export default class BranchTimelinePlugin extends Plugin {
   private readonly deliveredFixedReminders = new Set<string>();
   private lifeDiaryRefreshTimer: number | null = null;
   private lastStateError: string | null = null;
+  private readonly commentEditorExtensions: Extension[] = [];
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -61,6 +64,8 @@ export default class BranchTimelinePlugin extends Plugin {
     await this.refreshTimerStatus();
     this.registerInterval(window.setInterval(() => void this.refreshTimerStatus(), 60_000));
     this.registerView(BRANCH_TIMELINE_VIEW, leaf => new BranchTimelineView(leaf, this));
+    if (this.settings.hidePluginCommentsInEditor) this.commentEditorExtensions.push(hiddenPluginCommentsExtension);
+    this.registerEditorExtension(this.commentEditorExtensions);
     this.addSettingTab(new BranchTimelineSettingTab(this.app, this));
     this.addRibbonIcon("panel-right-open", "固定分支时间线到右侧", () => void this.openTimelineRight(true));
     this.addRibbonIcon("git-branch", "在中间打开分支时间线", () => void this.openTimelineCenter());
@@ -68,6 +73,7 @@ export default class BranchTimelinePlugin extends Plugin {
     this.addCommand({ id: "open-timeline-center", name: "在中间打开时间线", callback: () => void this.openTimelineCenter() });
     this.addCommand({ id: "record-project-work", name: "记录项目工时", callback: () => void this.recordProjectWork(logicalToday()) });
     this.addCommand({ id: "add-project-task", name: "添加项目待办", callback: () => void this.addProjectTask(logicalToday()) });
+    this.addCommand({ id: "convert-project-comment-style", name: "转换项目笔记的插件注释格式", callback: () => void this.convertProjectComments() });
     this.app.workspace.onLayoutReady(() => {
       if (Platform.isDesktopApp) void this.openTimelineRight(false);
     });
@@ -92,6 +98,8 @@ export default class BranchTimelinePlugin extends Plugin {
     this.settings = {
       ...DEFAULT_SETTINGS,
       ...settings,
+      pluginCommentStyle: saved?.pluginCommentStyle === "obsidian" ? "obsidian" : "html",
+      hidePluginCommentsInEditor: saved?.hidePluginCommentsInEditor === true,
       projectTypes: Array.isArray(saved?.projectTypes)
         ? saved.projectTypes
           .filter(item => item && typeof item.type === "string" && typeof item.color === "string")
@@ -139,10 +147,37 @@ export default class BranchTimelinePlugin extends Plugin {
       await this.loadSettings();
       this.store.setPath(this.settings.statePath);
       this.repository.updateSettings(this.settings);
+      this.syncCommentEditorExtensions();
     });
     this.store?.setPath(this.settings.statePath);
     this.repository?.updateSettings(this.settings);
+    this.syncCommentEditorExtensions();
     if (refresh) await this.refreshViews();
+  }
+
+  private syncCommentEditorExtensions(): void {
+    const hidden = this.settings.hidePluginCommentsInEditor;
+    if (hidden === !!this.commentEditorExtensions.length) return;
+    this.commentEditorExtensions.splice(0, this.commentEditorExtensions.length, ...(hidden ? [hiddenPluginCommentsExtension] : []));
+    this.app.workspace.updateOptions();
+  }
+
+  private async convertProjectComments(): Promise<void> {
+    try {
+      const plan = await this.repository.previewPluginCommentConversion(this.settings.pluginCommentStyle);
+      if (!plan.markerCount) { new Notice("项目笔记中的插件注释已是当前格式"); return; }
+      const label = this.settings.pluginCommentStyle === "obsidian" ? "Obsidian %%" : "HTML";
+      new ConfirmModal(this.app, "转换项目笔记注释", `将 ${plan.changes.length} 个项目文件中的 ${plan.markerCount} 个插件标记转换为 ${label}；不改正文。若文件在确认后变化，转换会停止。`, async () => {
+        try {
+          await this.repository.applyPluginCommentConversion(plan);
+          new Notice(`已转换 ${plan.markerCount} 个插件标记`);
+        } catch (error) {
+          new Notice(error instanceof Error ? error.message : "注释转换失败");
+        }
+      }, "转换", false).open();
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : "无法检查项目笔记注释");
+    }
   }
 
   async undoLast(): Promise<void> {

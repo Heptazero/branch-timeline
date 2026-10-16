@@ -21,6 +21,13 @@ import {
 import { indexProjectTasks, linkProjectTask, upsertProjectTaskTotals } from "./project-tasks";
 import { revertTextChange } from "./revert-text-change";
 import type { ProjectTaskIndex, ProjectWorkTask } from "./project-tasks";
+import { convertPluginComments } from "./comment-markers";
+import type { PluginCommentStyle } from "./comment-markers";
+
+export interface PluginCommentConversionPlan {
+  changes: Array<{ path: string; before: string; after: string }>;
+  markerCount: number;
+}
 
 export class VaultRepository {
   private recordUndo: ((action: UndoAction) => void) | null = null;
@@ -53,6 +60,54 @@ export class VaultRepository {
     });
   }
 
+  async previewPluginCommentConversion(style: PluginCommentStyle): Promise<PluginCommentConversionPlan> {
+    const changes: PluginCommentConversionPlan["changes"] = [];
+    let markerCount = 0;
+    for (const project of this.listProjects()) {
+      const file = this.projectFile(project.path);
+      const before = await this.app.vault.read(file);
+      const conversion = convertPluginComments(before, style);
+      if (!conversion.count) continue;
+      changes.push({ path: file.path, before, after: conversion.content });
+      markerCount += conversion.count;
+    }
+    return { changes, markerCount };
+  }
+
+  async applyPluginCommentConversion(plan: PluginCommentConversionPlan): Promise<void> {
+    const changed: PluginCommentConversionPlan["changes"] = [];
+    try {
+      for (const change of plan.changes) {
+        const file = this.projectFile(change.path);
+        await this.app.vault.process(file, content => {
+          if (content !== change.before) throw new Error(`${file.basename} 已修改，请重新运行转换命令`);
+          return change.after;
+        });
+        changed.push(change);
+      }
+    } catch (error) {
+      const rollbackErrors: unknown[] = [];
+      for (const change of changed.reverse()) {
+        try {
+          await this.app.vault.process(this.projectFile(change.path), content => {
+            if (content !== change.after) throw new Error(`${change.path} 已再次修改，无法安全回退`);
+            return change.before;
+          });
+        } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+      }
+      if (rollbackErrors.length) throw new AggregateError([error, ...rollbackErrors], "转换未完成，部分文件无法安全回退");
+      throw error;
+    }
+    this.recordUndo?.(async () => {
+      for (const change of [...plan.changes].reverse()) {
+        await this.app.vault.process(this.projectFile(change.path), content => {
+          if (content !== change.after) throw new Error(`${change.path} 已修改，无法安全撤回转换`);
+          return change.before;
+        });
+      }
+    });
+  }
+
   async readDiaryDay(date: Date): Promise<DiaryDaySnapshot> {
     const file = this.app.vault.getAbstractFileByPath(diaryFilePath(date, this.settings.diaryFolder));
     if (!(file instanceof TFile)) return parseDiaryDay("", diaryHeading(date), this.settings.habits);
@@ -74,7 +129,7 @@ export class VaultRepository {
   async addProjectLog(projectPath: string, date: Date, endMinute: number, minutes: number, note: string, workId?: string, commit?: () => Promise<void>): Promise<void> {
     const file = this.projectFile(projectPath);
     const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
-    await this.process(file, content => appendProjectLog(content, dateKey(date), time, minutes / 60, note, workId), commit);
+    await this.process(file, content => appendProjectLog(content, dateKey(date), time, minutes / 60, note, workId, this.settings.pluginCommentStyle), commit);
   }
 
   async updateProjectWorkLogNote(projectPath: string, workId: string, taskTitle: string | undefined, note: string, commit?: () => Promise<void>): Promise<void> {
@@ -95,8 +150,8 @@ export class VaultRepository {
     const file = this.projectFile(projectPath);
     const before = await this.app.vault.read(file);
     try {
-      if (upsertProjectDayTotal(before, date, minutes) === before) return;
-      await this.app.vault.process(file, content => upsertProjectDayTotal(content, date, minutes));
+      if (upsertProjectDayTotal(before, date, minutes, this.settings.pluginCommentStyle) === before) return;
+      await this.app.vault.process(file, content => upsertProjectDayTotal(content, date, minutes, this.settings.pluginCommentStyle));
     } catch (error) {
       throw new Error(`${file.basename}：${error instanceof Error ? error.message : String(error)}`);
     }
@@ -149,15 +204,15 @@ export class VaultRepository {
       if (task && !taskId) throw new Error("关联任务缺少 ID");
       if (task) next = linkProjectTask(next, this.settings.projectTaskHeadings, task, taskId!);
       if (completeTask && taskId) next = setProjectTaskDone(next, taskId, true);
-      return minutes > 0 ? appendProjectLog(next, dateKey(date), time, minutes / 60, note, workId) : next;
+      return minutes > 0 ? appendProjectLog(next, dateKey(date), time, minutes / 60, note, workId, this.settings.pluginCommentStyle) : next;
     }, commit);
   }
 
   async syncProjectTaskTotals(projectPath: string, totals: ReadonlyMap<string, number>): Promise<void> {
     const file = this.projectFile(projectPath);
     const before = await this.app.vault.read(file);
-    if (upsertProjectTaskTotals(before, totals) === before) return;
-    await this.app.vault.process(file, content => upsertProjectTaskTotals(content, totals));
+    if (upsertProjectTaskTotals(before, totals, this.settings.pluginCommentStyle) === before) return;
+    await this.app.vault.process(file, content => upsertProjectTaskTotals(content, totals, this.settings.pluginCommentStyle));
   }
 
   async setProjectTaskDone(projectPath: string, id: string, done: boolean, commit?: () => Promise<void>): Promise<void> {
@@ -173,7 +228,7 @@ export class VaultRepository {
         throw new Error("找不到关联任务，请重新选择");
       }
       const completed = setProjectTaskDone(content, id, true);
-      return minutes > 0 ? appendProjectLog(completed, dateKey(date), time, minutes / 60, note, workId) : completed;
+      return minutes > 0 ? appendProjectLog(completed, dateKey(date), time, minutes / 60, note, workId, this.settings.pluginCommentStyle) : completed;
     }, commit);
   }
 

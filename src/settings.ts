@@ -56,7 +56,7 @@ const OPTIONAL_PAGES: ReadonlyArray<{ id: Exclude<BranchTimelineSettings["visibl
 ];
 
 const SETTINGS_GROUPS = [
-  { id: "data", label: "数据", sections: ["storage", "life"] },
+  { id: "data", label: "数据", sections: ["storage", "comments", "life"] },
   { id: "projects", label: "项目", sections: ["types", "tasks", "creation"] },
   { id: "timer", label: "计时", sections: ["marks", "mental", "reminder"] },
   { id: "pages", label: "页面", sections: ["visibility"] }
@@ -67,6 +67,8 @@ type SettingsSectionId = typeof SETTINGS_GROUPS[number]["sections"][number];
 
 export const DEFAULT_SETTINGS: BranchTimelineSettings = {
   statePath: "99_assets/branch-timeline/state.json",
+  pluginCommentStyle: "html",
+  hidePluginCommentsInEditor: false,
   diaryFolder: "20_self/22-diary",
   lifeDiaryFormats: ["[event] {内容}"],
   projectFolder: "21_project",
@@ -153,6 +155,32 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
     const storage = section("data", "storage", "文件位置", "数据文件 周记目录 Vault 路径");
     this.textSetting(storage.body, "数据文件", "分支、节律与决策树的 Vault 内路径。", "statePath");
     this.textSetting(storage.body, "周记目录", "习惯数据写入的位置。", "diaryFolder");
+    const comments = section("data", "comments", "项目笔记注释", "HTML Obsidian 百分号 %% 隐藏 同步标记 转换");
+    const styleSetting = new Setting(comments.body).setName("注释格式")
+      .setDesc("决定新写入的插件标记。旧标记仍可读取；转换旧标记可用命令面板。");
+    const styleControl = styleSetting.controlEl.createDiv({ cls: "btl-setting-segments" });
+    for (const option of [{ value: "html", label: "HTML" }, { value: "obsidian", label: "Obsidian %%" }] as const) {
+      const button = styleControl.createEl("button", {
+        text: option.label,
+        attr: { type: "button", "aria-pressed": String(this.plugin.settings.pluginCommentStyle === option.value) }
+      });
+      button.toggleClass("is-active", this.plugin.settings.pluginCommentStyle === option.value);
+      button.onclick = async () => {
+        this.plugin.settings.pluginCommentStyle = option.value;
+        for (const sibling of Array.from(styleControl.children)) {
+          const active = sibling === button;
+          sibling.toggleClass("is-active", active);
+          sibling.setAttr("aria-pressed", String(active));
+        }
+        await this.plugin.saveSettings(false);
+      };
+    }
+    new Setting(comments.body).setName("在编辑视图隐藏插件标记")
+      .setDesc("不修改笔记原文；选中标记时暂时显示。")
+      .addToggle(toggle => toggle.setValue(this.plugin.settings.hidePluginCommentsInEditor).onChange(async hidden => {
+        this.plugin.settings.hidePluginCommentsInEditor = hidden;
+        await this.plugin.saveSettings(false);
+      }));
     const life = section("data", "life", "人生时间线", "人生页日记格式 周记 内容 event");
 
     new Setting(life.body).setName("日记格式")

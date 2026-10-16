@@ -207,7 +207,8 @@ export class ConfirmModal extends Modal {
     private title: string,
     private message: string,
     private confirm: () => void | Promise<void>,
-    private confirmLabel = "删除"
+    private confirmLabel = "删除",
+    private destructive = true
   ) { super(app); }
 
   onOpen(): void {
@@ -217,7 +218,7 @@ export class ConfirmModal extends Modal {
     this.contentEl.createEl("p", { text: this.message });
     const actions = this.contentEl.createDiv({ cls: "btl-modal-actions" });
     actions.createEl("button", { text: "取消" }).onclick = () => this.close();
-    actions.createEl("button", { text: this.confirmLabel, cls: "mod-warning" }).onclick = () => {
+    actions.createEl("button", { text: this.confirmLabel, cls: this.destructive ? "mod-warning" : "mod-cta" }).onclick = () => {
       this.close();
       void this.confirm();
     };

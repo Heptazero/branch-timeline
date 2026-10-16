@@ -1,3 +1,6 @@
+import { findPluginMarker, pluginMarker } from "./comment-markers";
+import type { PluginCommentStyle } from "./comment-markers";
+
 export interface ProjectTaskHeading {
   key: string;
   title: string;
@@ -25,7 +28,7 @@ export interface ProjectTaskIndex {
 }
 
 const BLOCK_ID = /\s+\^([\w-]+)\s*$/;
-const OWNED_TOTAL = /\s*（累计\s*\d+(?:\.\d+)?h）\s*<!-- btl-task-total:([\w-]+) -->/;
+const OWNED_TOTAL = /\s*（累计\s*\d+(?:\.\d+)?h）\s*(?:<!-- btl-task-total:[\w-]+ -->|%%btl-task-total:[\w-]+%%)/;
 
 export function normalizeTaskHeadings(values: readonly string[] | undefined): string[] {
   const normalized = (values || []).map(value => value.replace(/^#{1,6}\s*/, "").split("/").map(part => part.trim()).filter(Boolean).join(" / ")).filter(Boolean);
@@ -112,14 +115,16 @@ export function linkProjectTask(content: string, configured: readonly string[], 
   return ensureProjectTaskId(content, task.entry, id);
 }
 
-export function upsertProjectTaskTotals(content: string, totals: ReadonlyMap<string, number>): string {
+export function upsertProjectTaskTotals(content: string, totals: ReadonlyMap<string, number>, style: PluginCommentStyle = "html"): string {
   const lines = content.split("\n");
   const found = new Set<string>();
   for (let line = 0; line < lines.length; line += 1) {
     if (!/^\s*[-*+]\s+\[[ xX]\]/.test(lines[line])) continue;
     const id = lines[line].match(BLOCK_ID)?.[1];
     if (!id) continue;
-    const owned = lines[line].match(OWNED_TOTAL)?.[1];
+    const ownedMarker = findPluginMarker(lines[line], "task-total");
+    const owned = lines[line].match(OWNED_TOTAL) ? ownedMarker?.value : undefined;
+    if (owned && owned !== id) throw new Error(`任务 ${id} 的累计时长标记不匹配，请手动检查`);
     if (!totals.has(id) && !owned) continue;
     if (!owned && /（累计\s*\d+(?:\.\d+)?h）/.test(lines[line])) {
       throw new Error(`任务 ${id} 已有手写累计时长，请手动检查`);
@@ -127,7 +132,7 @@ export function upsertProjectTaskTotals(content: string, totals: ReadonlyMap<str
     found.add(id);
     const clean = lines[line].replace(OWNED_TOTAL, "").replace(BLOCK_ID, "").trimEnd();
     const minutes = totals.get(id) || 0;
-    const total = minutes > 0 ? ` （累计 ${Number((minutes / 60).toFixed(2))}h） <!-- btl-task-total:${id} -->` : "";
+    const total = minutes > 0 ? ` （累计 ${Number((minutes / 60).toFixed(2))}h） ${pluginMarker("task-total", id, ownedMarker?.style || style)}` : "";
     lines[line] = `${clean}${total} ^${id}`;
   }
   for (const id of totals.keys()) if (!found.has(id)) throw new Error(`找不到关联任务 ${id}，请检查项目笔记`);

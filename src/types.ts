@@ -1,5 +1,9 @@
+import type { PluginCommentStyle } from "./vault/comment-markers";
+
 export interface BranchTimelineSettings {
   statePath: string;
+  pluginCommentStyle: PluginCommentStyle;
+  hidePluginCommentsInEditor: boolean;
   diaryFolder: string;
   lifeDiaryFormats: string[];
   projectFolder: string;
