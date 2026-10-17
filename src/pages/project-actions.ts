@@ -3,6 +3,9 @@ import type BranchTimelinePlugin from "../main";
 import { ConfirmModal, MinuteEntryModal } from "../modals";
 import { backfillItem as applyBackfill } from "../timeline/model";
 import { showItemMenu } from "../timeline/menu";
+import { TimerService } from "../timeline/timer-service";
+import { openItemProjectLog } from "../timeline/open-project-log";
+import { reassignItemProject } from "../timeline/reassign-item-project";
 import { removeTimelineItem } from "../timeline/remove-item";
 import type { ProjectTimelineBranch, TimelineDayState, TimelineItem } from "../types";
 import { dateKey, logicalToday } from "../vault/format";
@@ -123,10 +126,13 @@ export class ProjectTimelineActions {
       startTiming: () => void this.startItemTiming(date, item.id),
       stopTiming: () => void this.stopItemTiming(date, item.id),
       cancelTiming: () => void this.cancelItemTiming(date, item.id),
+      ...(date === dateKey(logicalToday()) && !item.projectLogId ? { resetStart: () => void this.resetTimingStart(date, item.id) } : {}),
       backfill: () => void this.backfillItem(date, item.id),
       toggleMilestone: () => void this.updateItem(date, item.id, target => { target.milestone = !target.milestone; }),
       rename: () => void this.renameItem(date, item),
       setProject: projectPath => void this.setItemProject(date, item.id, projectPath),
+      ...(item.projectPath || item.projectLogPath ? { openProjectLog: () => void openItemProjectLog(this.options.app, this.options.plugin.repository, item) } : {}),
+      requireProject: this.options.plugin.settings.itemMetadataRequirement === "project",
       remove: () => this.confirmRemoveItem(date, item)
     });
   }
@@ -244,13 +250,16 @@ export class ProjectTimelineActions {
   }
 
   private async setItemProject(date: string, itemId: string, projectPath: string | null): Promise<void> {
-    await this.updateItem(date, itemId, target => {
-      if (target.projectPath === projectPath) return;
-      if (target.projectLogId && target.projectPath && !target.projectLogPath) target.projectLogPath = target.projectPath;
-      target.projectPath = projectPath || undefined;
-      target.projectBranchId = null;
-      target.projectTaskId = undefined;
-      if (!projectPath) target.milestone = false;
+    this.preserveAnchor();
+    try { await reassignItemProject(this.options.plugin, date, itemId, projectPath); }
+    catch (error) { new Notice(error instanceof Error ? error.message : "项目归属修改失败"); return; }
+    await this.options.refresh();
+  }
+
+  private async resetTimingStart(date: string, itemId: string): Promise<void> {
+    if (date !== dateKey(logicalToday())) return;
+    await this.updateItem(date, itemId, (_target, day) => {
+      new TimerService().resetStart(day, itemId, this.minuteForDate(date, day, day.wake));
     });
   }
 

@@ -6,10 +6,13 @@ export interface ItemMenuActions {
   startTiming: () => void;
   stopTiming: () => void;
   cancelTiming: () => void;
+  resetStart?: () => void;
   backfill: () => void;
   toggleMilestone?: () => void;
   rename: () => void;
   setProject: (projectPath: string | null) => void;
+  openProjectLog?: () => void;
+  requireProject?: boolean;
   remove: () => void;
 }
 
@@ -28,6 +31,8 @@ export function showItemMenu(
       .setIcon("square")
       .onClick(actions.stopTiming));
     if (item.kind === "todo") menu.addItem(entry => entry.setTitle("取消计时").setIcon("x").onClick(actions.cancelTiming));
+    const resetStart = actions.resetStart;
+    if (resetStart) menu.addItem(entry => entry.setTitle("把现在作为开始时间").setIcon("rotate-ccw").onClick(resetStart));
   } else {
     menu.addItem(entry => entry.setTitle(item.kind === "fact" ? "继续计时" : "开始计时").setIcon("timer").onClick(actions.startTiming));
   }
@@ -37,9 +42,11 @@ export function showItemMenu(
     menu.addItem(entry => entry.setTitle(item.milestone ? "取消里程碑" : "设为里程碑").setIcon("flag").onClick(toggleMilestone));
   }
   menu.addItem(entry => entry.setTitle("重命名").setIcon("pencil").onClick(actions.rename));
+  const openProjectLog = actions.openProjectLog;
+  if (openProjectLog) menu.addItem(entry => entry.setTitle("打开项目日志").setIcon("file-text").onClick(openProjectLog));
   menu.addSeparator();
   menu.addItem(entry => entry.setTitle("项目").setIsLabel(true));
-  menu.addItem(entry => entry.setTitle("无项目").setChecked(!item.projectPath).onClick(() => actions.setProject(null)));
+  if (!actions.requireProject) menu.addItem(entry => entry.setTitle("无项目").setChecked(!item.projectPath).onClick(() => actions.setProject(null)));
   for (const project of assignableProjects(projects, item.projectPath)) {
     menu.addItem(entry => entry
       .setTitle(project.name)

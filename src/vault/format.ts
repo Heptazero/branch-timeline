@@ -252,6 +252,25 @@ export function updateProjectWorkLogNote(content: string, workId: string, taskTi
   return lines.join("\n");
 }
 
+/** Find a unique plugin-owned work entry inside ## log. Never treat a handwritten line as ours. */
+export function projectWorkLogEntry(content: string, workId: string): { line: number; time: string; hours: number; note: string; style: PluginCommentStyle } | null {
+  const lines = content.split("\n");
+  const range = sectionRange(lines, "log");
+  if (!range) return null;
+  const matches: Array<{ line: number; time: string; hours: number; note: string; style: PluginCommentStyle }> = [];
+  for (let index = range.headingLine + 1; index < range.endLine; index += 1) {
+    const marker = findPluginMarker(lines[index], "work");
+    if (marker?.value !== workId) continue;
+    const body = lines[index].slice(0, marker.index);
+    const tail = lines[index].slice(marker.index + marker.text.length);
+    const match = body.match(/^\s*-\s+\[(\d{2}:\d{2})\]\s+(\d+(?:\.\d+)?)h(?:\s+(.*?))?\s*$/);
+    if (!match || tail.trim()) throw new Error("项目工时日志格式已改变，请手动检查");
+    matches.push({ line: index, time: match[1], hours: Number(match[2]), note: match[3]?.trim() || "", style: marker.style });
+  }
+  if (matches.length > 1) throw new Error("项目工时日志标记重复，请手动检查");
+  return matches[0] || null;
+}
+
 /** Remove only a uniquely marked plugin work entry; leave handwritten lines and date headings untouched. */
 export function removeProjectWorkLog(content: string, workId: string): string {
   const lines = content.split("\n");

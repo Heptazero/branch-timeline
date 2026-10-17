@@ -272,8 +272,8 @@ export class BranchTimelineSettingTab extends PluginSettingTab {
         });
       });
 
-    const creation = section("projects", "creation", "创建规则", "双击创建 强制归属 项目");
-    const metadataRequirement = new Setting(creation.body).setName("双击创建强制归属");
+    const creation = section("projects", "creation", "创建规则", "创建事项 强制归属 项目");
+    const metadataRequirement = new Setting(creation.body).setName("创建事项必须选项目");
     const requirementControl = metadataRequirement.controlEl.createDiv({ cls: "btl-setting-segments" });
     for (const option of METADATA_REQUIREMENTS) {
       const button = requirementControl.createEl("button", {

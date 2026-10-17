@@ -11,6 +11,7 @@ import {
   diaryHeading,
   parseDiaryDay,
   projectDayTotal,
+  projectWorkLogEntry,
   removeProjectWorkLog,
   setHabitInDiary,
   setProjectTaskDone,
@@ -140,6 +141,91 @@ export class VaultRepository {
   async removeProjectWorkLog(projectPath: string, workId: string, commit?: () => Promise<void>): Promise<void> {
     const file = this.projectFile(projectPath);
     await this.process(file, content => removeProjectWorkLog(content, workId), commit);
+  }
+
+  async projectLogLine(projectPath: string, workId?: string): Promise<number> {
+    const content = await this.app.vault.read(this.projectFile(projectPath));
+    if (workId) {
+      const entry = projectWorkLogEntry(content, workId);
+      if (entry) return entry.line;
+    }
+    return Math.max(0, content.split("\n").findIndex(line => line.trim() === "## log"));
+  }
+
+  /** Move a marked work entry and the timeline assignment together; leave manual note edits intact. */
+  async relocateProjectWorkLog(
+    fromPath: string | null, toPath: string | null, date: string, endMinute: number,
+    minutes: number, note: string, workId: string, commit: () => Promise<void>
+  ): Promise<void> {
+    if (fromPath === toPath) {
+      if (fromPath && !projectWorkLogEntry(await this.app.vault.read(this.projectFile(fromPath)), workId)) {
+        throw new Error("找不到原项目的工时日志，未更改归属");
+      }
+      await commit();
+      return;
+    }
+    const source = fromPath ? this.projectFile(fromPath) : null;
+    const destination = toPath ? this.projectFile(toPath) : null;
+    const changes: Array<{ file: TFile; before: string; after: string }> = [];
+    try {
+      const existing = source ? projectWorkLogEntry(await this.app.vault.read(source), workId) : null;
+      if (source && !existing) throw new Error("找不到原项目的工时日志，未更改归属");
+      if (destination) {
+        let change: { file: TFile; before: string; after: string } | undefined;
+        await this.app.vault.process(destination, content => {
+          if (projectWorkLogEntry(content, workId)) throw new Error("目标项目已有同一条工时日志");
+          const time = existing?.time || `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
+          const after = appendProjectLog(content, date, time, existing?.hours ?? minutes / 60,
+            existing?.note ?? note, workId, existing?.style ?? this.settings.pluginCommentStyle);
+          change = { file: destination, before: content, after };
+          return after;
+        });
+        if (change) changes.push(change);
+      }
+      if (source) {
+        let change: { file: TFile; before: string; after: string } | undefined;
+        await this.app.vault.process(source, content => {
+          if (!projectWorkLogEntry(content, workId)) throw new Error("原项目日志已改变，未更改归属");
+          const after = removeProjectWorkLog(content, workId);
+          change = { file: source, before: content, after };
+          return after;
+        });
+        if (change) changes.push(change);
+      }
+      await commit();
+    } catch (error) {
+      const failures: unknown[] = [];
+      for (const change of changes.reverse()) {
+        try {
+          await this.app.vault.process(change.file, content => {
+            if (content !== change.after) throw new Error(`${change.file.path} 已被其他操作修改，不能安全回退`);
+            return change.before;
+          });
+        } catch (rollbackError) { failures.push(rollbackError); }
+      }
+      if (failures.length) throw new AggregateError([error, ...failures], "项目日志迁移未完成，部分文件需手动检查");
+      throw error;
+    }
+    this.recordUndo?.(async () => {
+      for (const change of [...changes].reverse()) {
+        await this.app.vault.process(change.file, content => {
+          if (content === change.after) return change.before;
+          const reverted = revertTextChange(change.before, change.after, content);
+          if (reverted != null) return reverted;
+          if (destination && change.file.path === destination.path) {
+            const actual = projectWorkLogEntry(content, workId);
+            const expected = projectWorkLogEntry(change.after, workId);
+            if (actual && expected && actual.time === expected.time && actual.hours === expected.hours
+              && actual.note === expected.note && actual.style === expected.style) return removeProjectWorkLog(content, workId);
+          }
+          if (source && change.file.path === source.path && !projectWorkLogEntry(content, workId)) {
+            const original = projectWorkLogEntry(change.before, workId);
+            if (original) return appendProjectLog(content, date, original.time, original.hours, original.note, workId, original.style);
+          }
+          throw new Error(`${change.file.path} 已修改，不能安全撤回`);
+        });
+      }
+    });
   }
 
   async readProjectDayTotal(projectPath: string, date: string): Promise<ReturnType<typeof projectDayTotal>> {

@@ -8,6 +8,8 @@ import { ENERGY_PHASE_COLORS, materializeEnergyPhases } from "./timeline/energy-
 import { recordBackfilledGap } from "./timeline/backfill-gap";
 import { backfillItem as applyBackfill, clampMinute } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
+import { openItemProjectLog } from "./timeline/open-project-log";
+import { reassignItemProject } from "./timeline/reassign-item-project";
 import { removeTimelineItem } from "./timeline/remove-item";
 import { TimerService, compactDuration, elapsedMinutes, isRunningItem, readableDuration } from "./timeline/timer-service";
 import type { DistractionLevel, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "./types";
@@ -175,6 +177,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       startTiming: () => void this.startTiming(item.id),
       stopTiming: () => void this.stopTiming(item.id),
       cancelTiming: () => void this.cancelTiming(item.id),
+      ...(this.currentLogicalMinute() != null && !item.projectLogId ? { resetStart: () => void this.resetTimingStart(item.id) } : {}),
       backfill: () => void this.backfillItem(item.id),
       ...(item.projectPath ? { toggleMilestone: () => void this.updateDay(day => {
         const target = day.items.find(candidate => candidate.id === item.id);
@@ -182,6 +185,8 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       }) } : {}),
       rename: () => void this.renameItem(item),
       setProject: projectPath => void this.setItemProject(item.id, projectPath),
+      ...(item.projectPath || item.projectLogPath ? { openProjectLog: () => void openItemProjectLog(this.app, this.plugin.repository, item) } : {}),
+      requireProject: this.plugin.settings.itemMetadataRequirement === "project",
       remove: () => this.confirmRemoveItem(item)
     });
   }
@@ -197,14 +202,16 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
   }
 
   protected async setItemProject(itemId: string, projectPath: string | null): Promise<void> {
+    try { await reassignItemProject(this.plugin, dateKey(this.date), itemId, projectPath); }
+    catch (error) { new Notice(error instanceof Error ? error.message : "项目归属修改失败"); return; }
+    await this.refreshDay();
+  }
+
+  protected async resetTimingStart(itemId: string): Promise<void> {
+    if (this.currentLogicalMinute() == null) return;
     await this.updateDay(day => {
-      const item = day.items.find(candidate => candidate.id === itemId);
-      if (!item || item.projectPath === projectPath) return;
-      if (item.projectLogId && item.projectPath && !item.projectLogPath) item.projectLogPath = item.projectPath;
-      item.projectPath = projectPath || undefined;
-      item.projectBranchId = null;
-      item.projectTaskId = undefined;
-      if (!projectPath) item.milestone = false;
+      const now = this.nowOnAxis(day);
+      if (now != null) this.timers.resetStart(day, itemId, now);
     });
   }
 
@@ -265,7 +272,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     if (item.projectPath) {
       try {
         if (item.projectLogId) {
-          await this.plugin.repository.updateProjectWorkLogNote(item.projectPath, item.projectLogId, item.projectTaskTitle, note, commit);
+          await this.plugin.repository.updateProjectWorkLogNote(item.projectLogPath || item.projectPath, item.projectLogId, item.projectTaskTitle, note, commit);
         } else {
           const minute = item.startMin ?? item.startedMin ?? item.plannedMin ?? item.endMin ?? this.day?.wake ?? 0;
           await this.plugin.repository.syncProjectNote(item.projectPath, this.date, minute, item.note || "", note, commit);

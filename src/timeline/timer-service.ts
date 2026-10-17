@@ -63,6 +63,18 @@ export class TimerService {
     return target;
   }
 
+  resetStart(day: TimelineDayState, itemId: string, now: number): boolean {
+    const target = day.items.find(candidate => candidate.id === itemId);
+    if (!target || target.projectLogId) return false;
+    if (target.kind === "todo" && target.startedMin != null) { target.startedMin = now; return true; }
+    if (target.kind === "fact" && target.factTiming) {
+      target.startMin = now;
+      target.endMin = now;
+      return true;
+    }
+    return false;
+  }
+
   stop(day: TimelineDayState, itemId: string, now: number): TimelineItem | null {
     const target = day.items.find(candidate => candidate.id === itemId);
     if (!target || target.kind !== "fact" || !target.factTiming) return null;

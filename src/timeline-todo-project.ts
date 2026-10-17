@@ -9,6 +9,7 @@ export async function prepareTimelineTodoProject(
   todoId: string,
   commit: (taskId?: string) => Promise<void>
 ): Promise<string | undefined> {
+  if (plugin.settings.itemMetadataRequirement === "project" && !draft.projectPath) throw new Error("请先选择项目");
   const taskId = draft.task?.kind === "existing" ? draft.task.entry.id || todoId
     : draft.task?.kind === "new" ? todoId : undefined;
   if (draft.projectPath) {

@@ -12,6 +12,7 @@ export async function recordBackfilledGap(
   draft: TimelineItemDraftResult,
   factId: string
 ): Promise<void> {
+  if (plugin.settings.itemMetadataRequirement === "project" && !draft.projectPath) throw new Error("请先选择项目");
   const commit = async (): Promise<void> => {
     await plugin.store.update(state => {
       const day = state.days[dateKey(date)] ||= defaultDay(plugin.settings.rhythm);
