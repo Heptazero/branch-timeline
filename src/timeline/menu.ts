@@ -5,7 +5,6 @@ export interface ItemMenuActions {
   complete: () => void;
   startTiming: () => void;
   stopTiming: () => void;
-  cancelTiming: () => void;
   resetStart?: () => void;
   backfill: () => void;
   toggleMilestone?: () => void;
@@ -30,7 +29,6 @@ export function showItemMenu(
       .setTitle("结束计时")
       .setIcon("square")
       .onClick(actions.stopTiming));
-    if (item.kind === "todo") menu.addItem(entry => entry.setTitle("取消计时").setIcon("x").onClick(actions.cancelTiming));
     const resetStart = actions.resetStart;
     if (resetStart) menu.addItem(entry => entry.setTitle("把现在作为开始时间").setIcon("rotate-ccw").onClick(resetStart));
   } else {

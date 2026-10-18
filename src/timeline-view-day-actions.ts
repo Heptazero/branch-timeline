@@ -176,7 +176,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       complete: () => void this.completeItem(item.id),
       startTiming: () => void this.startTiming(item.id),
       stopTiming: () => void this.stopTiming(item.id),
-      cancelTiming: () => void this.cancelTiming(item.id),
       ...(this.currentLogicalMinute() != null && !item.projectLogId ? { resetStart: () => void this.resetTimingStart(item.id) } : {}),
       backfill: () => void this.backfillItem(item.id),
       ...(item.projectPath ? { toggleMilestone: () => void this.updateDay(day => {

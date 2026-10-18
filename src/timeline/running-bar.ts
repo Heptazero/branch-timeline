@@ -7,6 +7,7 @@ export interface RunningBarActions {
   open: (itemId: string) => void;
   distract: (itemId: string, level: DistractionLevel) => void | Promise<void>;
   good: (itemId: string) => void | Promise<void>;
+  cancel: (itemId: string) => void | Promise<void>;
   stop: (itemId: string) => void;
   break: (itemId: string) => void | Promise<void>;
 }
@@ -15,6 +16,7 @@ export class RunningBar {
   private title: HTMLElement;
   private duration: HTMLElement;
   private stopButton: HTMLButtonElement;
+  private cancelButton: HTMLButtonElement;
   private primaryId: string | null = null;
 
   constructor(private element: HTMLElement, private actions: RunningBarActions) {
@@ -47,6 +49,16 @@ export class RunningBar {
         break: () => actions.break(itemId)
       });
     };
+    const cancel = element.createEl("button", {
+      cls: "btl-running-cancel",
+      attr: { type: "button", "aria-label": "取消计时，保留待办", title: "取消计时，保留待办" }
+    });
+    this.cancelButton = cancel;
+    setIcon(cancel, "x");
+    cancel.onclick = event => {
+      event.stopPropagation();
+      if (this.primaryId) void actions.cancel(this.primaryId);
+    };
     const stop = element.createEl("button", {
       cls: "btl-running-stop",
       attr: { type: "button", "aria-label": "结束计时", title: "结束计时" }
@@ -68,6 +80,7 @@ export class RunningBar {
     const stopLabel = primary.kind === "todo" ? "完成待办" : "结束计时";
     this.stopButton.setAttr("aria-label", stopLabel);
     this.stopButton.setAttr("title", stopLabel);
+    this.cancelButton.toggleClass("is-hidden", primary.kind !== "todo");
     this.title.setText(`${primary.title}${items.length > 1 ? ` +${items.length - 1}` : ""}`);
     this.duration.setText(compactDuration(elapsedMinutes(primary, day, nowMinute)));
   }

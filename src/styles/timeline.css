@@ -47,11 +47,18 @@
 .btl-running-icon svg { width: 15px; height: 15px; }
 .btl-running-title { min-width: 0; overflow: hidden; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .btl-running-duration { margin-left: auto; color: var(--interactive-accent); font-size: 12px; font-variant-numeric: tabular-nums; }
-.btl-running-stop, .btl-running-distract, .btl-running-good { display: grid; width: 34px; height: 34px; flex: 0 0 34px; border: 0; border-radius: 9px; padding: 0; background: transparent; color: var(--text-muted); place-items: center; }
-.btl-running-stop:hover, .btl-running-distract:hover, .btl-running-good:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.btl-running-stop, .btl-running-cancel, .btl-running-distract, .btl-running-good { display: grid; width: 34px; height: 34px; flex: 0 0 34px; border: 0; border-radius: 9px; padding: 0; background: transparent; color: var(--text-muted); place-items: center; }
+.btl-running-cancel.is-hidden { display: none; }
+.btl-running-stop:hover, .btl-running-cancel:hover, .btl-running-distract:hover, .btl-running-good:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
 .btl-running-distract::before, .btl-running-good::before { content: ""; width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 18%, transparent); }
 .btl-running-distract { color: var(--btl-focus-low, #d84b4b); }.btl-running-distract::before { background: var(--btl-focus-low, #d84b4b); }
 .btl-running-good { color: var(--btl-focus-high, #126cff); }.btl-running-good::before { background: var(--btl-focus-high, #126cff); }
+@container btl-view (max-width: 380px) {
+  .btl-running-bar { gap: 2px; padding: 3px; }
+  .btl-running-open { gap: 4px; padding: 4px; }
+  .btl-running-icon { display: none; }
+  .btl-running-stop, .btl-running-cancel, .btl-running-distract, .btl-running-good { width: 30px; flex-basis: 30px; }
+}
 .btl-focus-dot { position: absolute; z-index: 58; width: 9px; height: 9px; transform: translate(-50%, -50%); border: 2px solid var(--background-primary); border-radius: 50%; pointer-events: none; }
 .btl-focus-dot.is-distraction { left: calc(50% + 11px); background: var(--btl-focus-low, #d84b4b); box-shadow: 0 0 0 1px color-mix(in srgb, var(--btl-focus-low, #d84b4b) 55%, transparent); }
 .btl-focus-dot.is-distraction.is-light { width: 7px; height: 7px; opacity: .78; }

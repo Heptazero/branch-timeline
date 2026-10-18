@@ -125,7 +125,6 @@ export class ProjectTimelineActions {
       complete: () => void this.completeItem(date, item.id),
       startTiming: () => void this.startItemTiming(date, item.id),
       stopTiming: () => void this.stopItemTiming(date, item.id),
-      cancelTiming: () => void this.cancelItemTiming(date, item.id),
       ...(date === dateKey(logicalToday()) && !item.projectLogId ? { resetStart: () => void this.resetTimingStart(date, item.id) } : {}),
       backfill: () => void this.backfillItem(date, item.id),
       toggleMilestone: () => void this.updateItem(date, item.id, target => { target.milestone = !target.milestone; }),
@@ -218,10 +217,6 @@ export class ProjectTimelineActions {
         target.factTiming = false;
       }
     });
-  }
-
-  private async cancelItemTiming(date: string, itemId: string): Promise<void> {
-    await this.updateItem(date, itemId, target => { delete target.startedMin; });
   }
 
   private async backfillItem(date: string, itemId: string): Promise<void> {

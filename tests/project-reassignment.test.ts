@@ -118,3 +118,11 @@ test("resetting a running start discards only the current elapsed segment", () =
   assert.equal(day.items[1].endMin, 640);
   assert.equal(day.items[2].startMin, 500);
 });
+
+test("canceling a running todo keeps the todo without creating a fact", () => {
+  const day = { wake: 420, items: [{ id: "todo", title: "写作", kind: "todo" as const, startedMin: 600 }] } as TimelineDayState;
+  new TimerService().cancel(day, "todo");
+  assert.equal(day.items.length, 1);
+  assert.equal(day.items[0].kind, "todo");
+  assert.equal(day.items[0].startedMin, undefined);
+});

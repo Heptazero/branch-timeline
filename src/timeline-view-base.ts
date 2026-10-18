@@ -193,6 +193,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
       open: itemId => void this.focusRunningItem(itemId),
       distract: (itemId, level) => this.recordDistraction(itemId, level),
       good: itemId => this.recordGoodState(itemId),
+      cancel: itemId => this.cancelTiming(itemId),
       stop: itemId => void this.stopRunningItem(itemId),
       break: itemId => this.takeFiveMinuteBreak(itemId)
     });
@@ -435,6 +436,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract completeItem(itemId: string): Promise<void>;
   protected abstract stopTiming(itemId: string): Promise<void>;
   protected abstract stopRunningItem(itemId: string): Promise<void>;
+  protected abstract cancelTiming(itemId: string): Promise<void>;
   protected abstract recordDistraction(itemId: string | undefined, level: DistractionLevel): Promise<void>;
   protected abstract recordGoodState(itemId?: string): Promise<void>;
   protected abstract takeFiveMinuteBreak(itemId: string): Promise<void>;
