@@ -1,5 +1,7 @@
+import { Menu, setIcon } from "obsidian";
 import type { BranchTimelineState, ProjectRef } from "../types";
-import { nowOnAxis, recordedMinutes } from "./focus-stats";
+import { nowOnAxis } from "./focus-stats";
+import { focusHours, focusSample } from "./focus-comparison";
 import { renderFocusChart } from "./focus-chart";
 import { renderTimeMap, sleepSpan, type SleepSpan } from "./time-map";
 import { policyProgress } from "./policy-progress";
@@ -16,30 +18,54 @@ export interface StatsPageOptions {
   onOpenPolicy: () => void;
 }
 
+type StatsView = "project" | "day" | "time" | "anchor";
+const VIEWS: readonly { id: StatsView; label: string }[] = [
+  { id: "project", label: "项目排行" }, { id: "day", label: "每日趋势" },
+  { id: "time", label: "一周时间" }, { id: "anchor", label: "锚点" }
+];
+
 export function renderStatsPage(options: StatsPageOptions): void {
   const start = startOfWeek(options.date);
   const dates = Array.from({ length: 7 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
   const previous = dates.map(date => new Date(date.getFullYear(), date.getMonth(), date.getDate() - 7));
-  const dashboard = options.container.createDiv({ cls: "btl-stats-dashboard" });
-  renderSleepCard(dashboard, dates, previous, options);
-  renderFocusChart({ container: dashboard, dates, state: options.state, projects: options.projects, onOpenDate: options.onOpenDate, onOpenProject: options.onOpenProject });
-  renderAnchorCard(dashboard, dates, options.state, options.onOpenPolicy);
-}
-
-function renderRecordedTimeMetrics(card: HTMLElement, dates: readonly Date[], selected: Date, state: BranchTimelineState): void {
+  const dashboard = options.container.createDiv({ cls: "btl-stats-dashboard btl-summary-dashboard" });
+  const toolbar = dashboard.createDiv({ cls: "btl-summary-toolbar" });
+  const choose = toolbar.createEl("button", { cls: "btl-summary-select btl-summary-view", attr: { type: "button", "aria-label": "切换统计视图" } });
+  const tools = toolbar.createDiv({ cls: "btl-summary-tools" });
+  const summary = dashboard.createDiv({ cls: "btl-summary-total" });
   const today = dateKey(logicalToday());
-  const now = nowOnAxis();
-  const selectedKey = dateKey(selected);
-  const selectedDay = state.days[selectedKey];
-  const daily = selectedDay ? recordedMinutes(selectedDay, selectedKey === today ? now : undefined) : 0;
-  const weekly = dates.reduce((sum, date) => {
-    const key = dateKey(date);
-    const day = state.days[key];
-    return sum + (day ? recordedMinutes(day, key === today ? now : undefined) : 0);
-  }, 0);
-  const metrics = card.createDiv({ cls: "btl-stats-metrics btl-focus-metrics" });
-  metric(metrics, dateLabel(selected) + "总计", durationLabel(daily), null);
-  metric(metrics, "本周总计", durationLabel(weekly), null);
+  const first = dateKey(dates[0]);
+  const last = dateKey(dates[dates.length - 1]);
+  const weekly = focusSample(options.state.days, key => key >= first && key <= last, today, nowOnAxis());
+  summary.createSpan({ text: "本周总计" });
+  summary.createEl("strong", { text: focusHours(weekly.minutes) });
+  const content = dashboard.createDiv({ cls: "btl-summary-content" });
+  let view = readView();
+  choose.onclick = event => {
+    event.stopPropagation();
+    const menu = new Menu();
+    for (const option of VIEWS) menu.addItem(item => item.setTitle(option.label).setChecked(view === option.id).onClick(() => {
+      view = option.id;
+      localStorage.setItem("branch-timeline-hz-stats-view", view);
+      draw();
+    }));
+    const rect = choose.getBoundingClientRect();
+    menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
+  };
+  draw();
+
+  function draw(): void {
+    choose.empty();
+    choose.createSpan({ text: VIEWS.find(option => option.id === view)!.label });
+    setIcon(choose.createSpan(), "chevron-down");
+    content.empty();
+    tools.empty();
+    if (view === "project" || view === "day") {
+      renderFocusChart({ container: content, controls: tools, mode: view, dates, state: options.state,
+        projects: options.projects, onOpenDate: options.onOpenDate, onOpenProject: options.onOpenProject });
+    } else if (view === "time") renderSleepCard(content, dates, previous, options);
+    else renderAnchorCard(content, dates, options.state, options.onOpenPolicy);
+  }
 }
 
 function renderSleepCard(
@@ -48,7 +74,7 @@ function renderSleepCard(
   previous: readonly Date[],
   options: StatsPageOptions
 ): void {
-  const card = statsCard(dashboard, "一周时间", rangeLabel(dates));
+  const card = dashboard.createDiv({ cls: "btl-summary-time" });
   const currentSpans = dates.map(date => sleepSpan(date, options.state));
   const previousSpans = previous.map(date => sleepSpan(date, options.state)).filter((span): span is SleepSpan => !!span);
   const current = currentSpans.filter((span): span is SleepSpan => !!span);
@@ -56,12 +82,11 @@ function renderSleepCard(
   metric(metrics, "平均入睡", current.length ? timeLabel(average(current.map(span => span.bed))) : "–", timeChange(current, previousSpans, "bed"));
   metric(metrics, "平均起床", current.length ? timeLabel(average(current.map(span => span.wake))) : "–", timeChange(current, previousSpans, "wake"));
   metric(metrics, "平均睡眠", current.length ? durationLabel(average(current.map(span => span.duration))) : "–", durationChange(current, previousSpans));
-  renderRecordedTimeMetrics(card, dates, options.date, options.state);
   renderTimeMap(card, { dates, selected: options.date, state: options.state, projects: options.projects, onOpenDate: options.onOpenDate });
 }
 
 function renderAnchorCard(dashboard: HTMLElement, dates: readonly Date[], state: BranchTimelineState, onOpenPolicy: () => void): void {
-  const card = statsCard(dashboard, "锚点", rangeLabel(dates));
+  const card = dashboard.createDiv({ cls: "btl-summary-anchors" });
   const events = state.policyEvents;
   const start = dateKey(dates[0]);
   const end = dateKey(dates[dates.length - 1]);
@@ -80,17 +105,9 @@ function renderAnchorCard(dashboard: HTMLElement, dates: readonly Date[], state:
     const row = list.createEl("button", { cls: "btl-anchor-stat-row", attr: { type: "button", "aria-label": "查看锚点 " + anchor.name } });
     row.onclick = onOpenPolicy;
     row.createSpan({ cls: "btl-anchor-stat-name", text: anchor.name });
-    row.createEl("small", { text: success + "/" + violations });
+    row.createEl("small", { text: "✓ " + success + "  × " + violations });
     row.createEl("strong", { text: progress.count ? String(progress.count) : "–" });
   }
-}
-
-function statsCard(parent: HTMLElement, title: string, range: string): HTMLElement {
-  const card = parent.createDiv({ cls: "btl-stats-card" });
-  const head = card.createDiv({ cls: "btl-stats-card-head" });
-  head.createEl("strong", { text: title });
-  head.createEl("small", { text: range });
-  return card;
 }
 
 function metric(parent: HTMLElement, label: string, value: string, change: Change | null): void {
@@ -122,12 +139,9 @@ function timeLabel(value: number): string {
   return String(Math.floor(normalized / 60)).padStart(2, "0") + ":" + String(normalized % 60).padStart(2, "0");
 }
 function durationLabel(value: number): string {
-  const minutes = Math.round(value);
-  return Math.floor(minutes / 60) + "h " + String(minutes % 60).padStart(2, "0") + "m";
+  return focusHours(value);
 }
-function rangeLabel(dates: readonly Date[]): string {
-  const first = dates[0];
-  const last = dates[dates.length - 1];
-  return (first.getMonth() + 1) + "/" + first.getDate() + "–" + (last.getMonth() + 1) + "/" + last.getDate();
+function readView(): StatsView {
+  const saved = localStorage.getItem("branch-timeline-hz-stats-view");
+  return VIEWS.find(option => option.id === saved)?.id || "project";
 }
-function dateLabel(date: Date): string { return (date.getMonth() + 1) + "月" + date.getDate() + "日"; }

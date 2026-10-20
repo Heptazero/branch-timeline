@@ -65,7 +65,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected projectScale = clampProjectScale(Number(localStorage.getItem("branch-timeline-hz-project-scale")) || 120);
   protected projectAnchor: ProjectScaleAnchor | undefined;
   protected getProjectAnchor: (() => ProjectScaleAnchor) | null = null;
-  protected destroyProjectDetail: (() => void) | null = null;
+  protected projectView: { destroy: () => void; update?: () => void } | null = null;
   protected projectActions: ProjectTimelineActions | null = null;
   protected countdownButton: HTMLButtonElement | null = null;
   protected syncButton: HTMLButtonElement | null = null;
@@ -110,13 +110,14 @@ export abstract class BranchTimelineViewBase extends ItemView {
       this.updateCountdown();
       this.updateRunningBar();
       this.updateTimelineClock();
+      this.projectView?.update?.();
       void this.plugin.refreshTimerStatus();
     }, 60_000);
   }
   async onClose(): Promise<void> {
     this.stopLayoutWatch?.();
     this.gestures?.destroy();
-    this.destroyProjectDetail?.();
+    this.projectView?.destroy();
     if (this.clockTimer != null) window.clearInterval(this.clockTimer);
     if (this.scaleButtonTimer != null) window.clearTimeout(this.scaleButtonTimer);
     if (this.viewResizeTimer != null) window.clearTimeout(this.viewResizeTimer);
@@ -136,8 +137,8 @@ export abstract class BranchTimelineViewBase extends ItemView {
     const previousScroll = preserveScroll ? this.scroller?.scrollTop || 0 : 0;
     this.gestures?.destroy();
     this.gestures = null;
-    this.destroyProjectDetail?.();
-    this.destroyProjectDetail = null;
+    this.projectView?.destroy();
+    this.projectView = null;
     this.getProjectAnchor = null;
     this.projectActions = null;
     this.countdownButton = null;
@@ -244,20 +245,19 @@ export abstract class BranchTimelineViewBase extends ItemView {
             onAddTodo: (abs, branchId) => void actions.addTodo(abs, branchId),
             onAddBranch: (abs, side) => void actions.addBranch(abs, side)
           });
-          this.destroyProjectDetail = detail.destroy;
+          this.projectView = detail;
           this.getProjectAnchor = detail.getAnchor;
           this.stopLayoutWatch = observeRenderedWidth(detail.scroller, detail.renderedWidth, 300, () => this.onResize());
           this.projectAnchor = undefined;
         } else {
           this.selectedProjectPath = null;
-          renderProjectsPage({
+          this.projectView = renderProjectsPage({
             container: pageContent,
             projects,
             state,
             projectOrder: this.plugin.settings.projectOrder,
             projectTypes: this.plugin.settings.projectTypes,
             pinnedProjects: this.plugin.settings.pinnedProjects,
-            collapsedGroups: this.plugin.settings.collapsedProjectGroups,
             focusDate: this.date,
             timeScope: this.projectTimeScope,
             openProject: path => {
@@ -271,9 +271,8 @@ export abstract class BranchTimelineViewBase extends ItemView {
               localStorage.setItem("branch-timeline-hz-project-time-scope", scope);
               void this.render(false);
             },
-            onSetDailyPlan: (path, anchor) => this.openProjectDailyPlan(path, anchor),
+            onSetPlan: (path, scope, anchor) => this.openProjectPlan(path, scope, anchor),
             onTogglePin: path => void this.toggleProjectPin(path),
-            onToggleGroup: label => void this.toggleProjectGroup(label),
             onReorder: paths => void this.reorderProjects(paths)
           });
         }
@@ -483,8 +482,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract stepScale(factor: number): void;
   protected abstract toggleProjectPin(path: string): Promise<void>;
   protected abstract openProjectFile(path: string): Promise<void>;
-  protected abstract openProjectDailyPlan(path: string, anchor: HTMLElement): void;
-  protected abstract toggleProjectGroup(label: string): Promise<void>;
+  protected abstract openProjectPlan(path: string, scope: "day" | "week", anchor: HTMLElement): void;
   protected abstract reorderProjects(paths: string[]): Promise<void>;
   protected abstract openPluginSettings(): void;
   protected abstract openPolicySideMenu(side: import("./types").PolicySide, event: MouseEvent): void;

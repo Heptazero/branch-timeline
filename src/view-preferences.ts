@@ -6,5 +6,5 @@ export function clampScale(value: number): number { return Math.max(MIN_SCALE, M
 export function clampProjectScale(value: number): number { return Math.max(PROJECT_SCALE_MIN, Math.min(PROJECT_SCALE_MAX, value)); }
 export function readProjectTimeScope(): ProjectTimeScope {
   const value = localStorage.getItem("branch-timeline-hz-project-time-scope");
-  return value === "week" || value === "total" ? value : "day";
+  return value === "day" || value === "total" ? value : "week";
 }

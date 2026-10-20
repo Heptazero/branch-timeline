@@ -2,6 +2,7 @@ import { itemDuration } from "../timeline/model";
 import type { BranchTimelineState } from "../types";
 import { dateKey, logicalToday } from "../vault/format";
 import { startOfWeek } from "./navigation";
+import { projectGoalOn } from "./project-goals";
 
 export type ProjectTimeScope = "day" | "week" | "total";
 
@@ -18,8 +19,7 @@ export interface ProjectTimeSummary {
 }
 
 export function projectPlanOn(state: BranchTimelineState, path: string, date: string): number {
-  const value = state.projects[path]?.dailyPlans?.[date];
-  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+  return projectGoalOn(state, path, date, "day");
 }
 
 export function projectMinutesOn(state: BranchTimelineState, path: string, date: string, nowMinute?: number): number {
@@ -58,7 +58,7 @@ export function projectTimeSummary(
   });
   return {
     actual: days.reduce((sum, day) => sum + day.actual, 0),
-    planned: days.reduce((sum, day) => sum + day.planned, 0),
+    planned: projectGoalOn(state, path, dateKey(focusDate), scope),
     days
   };
 }

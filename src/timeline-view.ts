@@ -18,7 +18,7 @@ import {
 import { pageDateTitle, shiftPageDate } from "./pages/navigation";
 import { lifeDateAt } from "./pages/life-model";
 import { absoluteMinute } from "./pages/project-model";
-import { projectPlanOn } from "./pages/project-time";
+import { projectGoalOn, setProjectGoal } from "./pages/project-goals";
 import { openProjectPlanPopover } from "./project-plan-popover";
 import { rhythmProgress, rhythmProgressLabel } from "./rhythm";
 import { openRhythmSchedulePopover } from "./rhythm-popover";
@@ -284,28 +284,14 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     await this.app.workspace.revealLeaf(leaf);
   }
 
-  protected openProjectDailyPlan(path: string, anchor: HTMLElement): void {
+  protected openProjectPlan(path: string, scope: "day" | "week", anchor: HTMLElement): void {
     const key = dateKey(this.date);
     void this.plugin.store.load().then(state => {
-      openProjectPlanPopover(anchor, projectPlanOn(state, path, key), async minutes => {
-        await this.plugin.store.update(next => {
-          const project = next.projects[path] ||= { branches: [] };
-          const plans = project.dailyPlans ||= {};
-          if (minutes > 0) plans[key] = minutes;
-          else delete plans[key];
-          if (!Object.keys(plans).length) delete project.dailyPlans;
-        });
+      openProjectPlanPopover(anchor, projectGoalOn(state, path, key, scope), async minutes => {
+        await this.plugin.store.update(next => setProjectGoal(next, path, key, scope, minutes));
         await this.render(true);
-      });
-    });
-  }
-
-  protected async toggleProjectGroup(label: string): Promise<void> {
-    const collapsed = new Set(this.plugin.settings.collapsedProjectGroups);
-    if (collapsed.has(label)) collapsed.delete(label);
-    else collapsed.add(label);
-    this.plugin.settings.collapsedProjectGroups = [...collapsed];
-    await this.plugin.saveSettings();
+      }, { scope });
+    }).catch(error => new Notice(error instanceof Error ? error.message : "读取计划失败"));
   }
 
   protected async reorderProjects(paths: string[]): Promise<void> {

@@ -174,33 +174,8 @@
 .btl-zoom-controls { position: absolute; z-index: 70; bottom: 10px; left: 10px; display: flex; gap: 4px; border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 3px; background: color-mix(in srgb, var(--background-primary) 90%, transparent); box-shadow: 0 3px 12px rgba(0,0,0,.14); backdrop-filter: blur(8px); }
 .btl-zoom-controls .btl-icon-button { width: 32px; height: 32px; }
 .btl-empty { display: grid; min-height: 180px; place-items: center; color: var(--text-faint); font-size: 12px; }
-.btl-project-section { flex: 0 0 auto; margin: 0 0 var(--btl-space-4); }
-.btl-project-scope { align-self: flex-end; margin-bottom: var(--btl-space-3); }
-.btl-project-section-head { display: flex; width: 100%; min-height: 30px; align-items: center; gap: 3px; border: 0; padding: 1px 0 var(--btl-space-2); background: transparent; color: var(--text-muted); text-align: left; }
-.btl-project-section-head:hover { color: var(--text-normal); }
-.btl-project-section-head > span { display: grid; width: 18px; height: 18px; place-items: center; }
-.btl-project-section-head svg { width: 13px; height: 13px; }
-.btl-project-section-head h3 { margin: 0; color: inherit; font-size: 12px; font-weight: 750; }
-.btl-project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--btl-space-3); }
-.btl-project-card { position: relative; display: flex; min-width: 0; min-height: 84px; flex-direction: column; align-items: flex-start; justify-content: space-between; border: 1px solid var(--background-modifier-border); border-radius: var(--btl-radius-card); padding: 10px; background: var(--background-secondary); color: var(--text-normal); text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y; }
-.btl-project-card:hover { border-color: var(--interactive-accent); background: var(--background-modifier-hover); }
-.btl-project-card.has-goal::before { content: ""; position: absolute; inset: auto 0 0; height: calc(var(--btl-progress) * 100%); border-radius: inherit; background: color-mix(in srgb, var(--btl-project-color, var(--interactive-accent)) 19%, transparent); pointer-events: none; transition: height .3s ease; }
-.btl-project-card.has-goal > * { position: relative; z-index: 1; }
-.btl-project-card.has-goal > .btl-project-card-menu { position: absolute; }
-.btl-project-card.is-pinned { border-color: color-mix(in srgb, var(--btl-project-color, var(--interactive-accent)) 48%, var(--background-modifier-border)); }
 .btl-sort-placeholder { opacity: .18 !important; }
 .btl-sort-ghost { position: fixed !important; z-index: 10020 !important; margin: 0 !important; opacity: .94; transform: rotate(.7deg) scale(1.025); box-shadow: 0 14px 34px rgba(0,0,0,.26) !important; pointer-events: none !important; transition: none !important; }
-.btl-project-card-title { display: flex; max-width: calc(100% - 30px); align-items: center; gap: 4px; overflow: hidden; font-size: 13px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
-.btl-project-pin { display: inline-grid; width: 12px; height: 12px; flex: 0 0 auto; color: var(--btl-project-color, var(--interactive-accent)); }
-.btl-project-pin svg { width: 11px; height: 11px; }
-.btl-project-card-duration { position: absolute; right: 10px; bottom: 7px; color: var(--btl-project-color, var(--interactive-accent)); font-size: 22px; font-weight: 820; font-variant-numeric: tabular-nums; line-height: 1; }
-.btl-project-card-menu { position: absolute; top: 0; right: 0; display: grid; width: 38px; height: 38px; place-items: center; border: 0; border-radius: 9px; padding: 0; background: transparent; color: var(--text-faint); font-size: 19px; }
-.btl-project-card-menu:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
-.btl-project-time { display: flex; width: 100%; min-width: 0; flex-direction: column; gap: 5px; border: 0; padding: 13px 0 0; background: transparent !important; box-shadow: none !important; color: var(--text-faint); text-align: left; }
-.btl-project-time-row { display: flex; min-width: 0; align-items: baseline; gap: 4px; font-size: 9px; font-variant-numeric: tabular-nums; }
-.btl-project-time-row strong { color: var(--btl-project-color, var(--interactive-accent)); font-size: 18px; font-weight: 820; line-height: 1; }
-.btl-project-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; height: 13px; align-items: end; }
-.btl-project-week span { height: max(2px, calc(var(--btl-project-day-level) * 100%)); border-radius: 2px 2px 1px 1px; background: color-mix(in srgb, var(--btl-project-color, var(--interactive-accent)) 72%, var(--background-primary)); }
 .btl-achievement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: var(--btl-space-2); padding-bottom: var(--btl-space-4); }
 .btl-achievement-card { position: relative; min-width: 0; min-height: 92px; border: 1px solid color-mix(in srgb, var(--btl-achievement-color) 42%, var(--background-modifier-border)); border-radius: var(--btl-radius-card); padding: 10px; background: color-mix(in srgb, var(--btl-achievement-color) 8%, var(--background-secondary)); cursor: pointer; touch-action: manipulation; }
 .btl-achievement-card:hover, .btl-achievement-card:focus-visible { border-color: var(--btl-achievement-color); background: color-mix(in srgb, var(--btl-achievement-color) 12%, var(--background-secondary)); outline: 0; }
@@ -288,11 +263,11 @@
 .btl-policy-hand-card > span { overflow: hidden; color: var(--text-normal); font-size: 9px; font-weight: 680; line-height: 1.2; text-overflow: ellipsis; }
 .btl-policy-hand-card > button { position: absolute; top: 6px; right: 0; width: 28px; height: 32px; border: 0; padding: 0; background: transparent !important; box-shadow: none !important; color: var(--text-faint); font-size: 17px; }
 .btl-policy-count { position: absolute; right: 6px; bottom: 3px; color: var(--btl-policy-tone); font-size: 8px; font-weight: 800; font-variant-numeric: tabular-nums; pointer-events: none; }
-.btl-project-card-menu, .btl-item-menu, .btl-branch-menu,
+.btl-item-menu, .btl-branch-menu,
 .btl-project-item-menu, .btl-project-branch-menu,
 .btl-achievement-head button, .btl-policy-node-menu,
 .btl-policy-hand-card > button { background: transparent !important; box-shadow: none !important; }
-.btl-project-card-menu:hover, .btl-item-menu:hover, .btl-branch-menu:hover,
+.btl-item-menu:hover, .btl-branch-menu:hover,
 .btl-project-item-menu:hover, .btl-project-branch-menu:hover,
 .btl-achievement-head button:hover, .btl-policy-node-menu:hover,
 .btl-policy-hand-card > button:hover { background: transparent !important; box-shadow: none !important; }
@@ -379,15 +354,4 @@
 .btl-anchor-stat-row small { color: var(--text-faint); font-size: 9px; font-variant-numeric: tabular-nums; }
 .btl-anchor-stat-row strong { color: var(--interactive-accent); font-size: 13px; text-align: right; }
 .btl-stats-empty { padding: 18px 4px; color: var(--text-faint); font-size: 10px; text-align: center; }
-.btl-focus-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 6px; }
-.btl-focus-switch { display: flex; width: min(260px,100%); margin: 5px 0 7px; }
-.btl-focus-bars { display: grid; height: 156px; grid-template-columns: repeat(var(--focus-columns,7),minmax(0,1fr)); align-items: end; gap: 5px; }
-.btl-focus-bar-item { display: flex; min-width: 0; height: 100%; flex-direction: column; align-items: center; justify-content: end; gap: 3px; border: 0; padding: 0; background: transparent; color: var(--text-muted); }
-.btl-focus-bar-item strong { max-width: 100%; overflow: hidden; color: var(--text-normal); font-size: 9px; font-variant-numeric: tabular-nums; text-overflow: clip; white-space: nowrap; }
-.btl-focus-bar-item small { font-size: 9px; white-space: nowrap; }.btl-focus-bar-item .btl-focus-bar-count { height: 11px; color: var(--text-faint); font-size: 8px; }
-.btl-focus-bar-track { position: relative; width: min(28px,80%); height: 95px; border-radius: 6px; background: var(--background-primary); }
-.btl-focus-bar-fill { position: absolute; inset: auto 0 0; border-radius: 5px; background: color-mix(in srgb, var(--color-red) 76%, var(--background-primary)); }
-.btl-focus-project-bars { display: grid; gap: 4px; }.btl-focus-project-bar { display: grid; grid-template-columns: minmax(48px,1fr) minmax(30px,2fr) auto 22px; align-items: center; gap: 6px; width: 100%; min-height: 30px; border: 0; padding: 2px 4px; background: transparent; text-align: left; }
-.btl-focus-project-bar > span:first-child { overflow: hidden; color: var(--text-normal); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.btl-focus-project-bar strong { color: var(--text-normal); font-size: 10px; white-space: nowrap; }.btl-focus-project-bar small { color: var(--text-faint); font-size: 8px; white-space: nowrap; }
-.btl-focus-project-track { display: block; height: 11px; overflow: hidden; border-radius: 6px; background: var(--background-primary); }.btl-focus-project-track span { display: block; height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--color-red) 76%, var(--background-primary)); }
 .btl-modal h3 { margin: 0 0 12px; }

@@ -1,0 +1,57 @@
+.btl-project-goal-popover {
+  position: fixed;
+  z-index: 10000;
+  box-sizing: border-box;
+  width: 228px;
+  max-width: calc(100vw - 16px);
+  padding: 13px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 13px;
+  background: var(--background-primary);
+  box-shadow: 0 9px 28px rgb(0 0 0 / 15%);
+  color: var(--text-normal);
+  font-family: var(--font-interface);
+}
+.btl-project-goal-label { margin-bottom: 10px; color: var(--text-muted); font-size: 11px; }
+.btl-project-goal-editor { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; gap: 8px; }
+.btl-project-goal-editor > button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 9px;
+  padding: 0;
+  background: var(--background-primary);
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 21px;
+  touch-action: manipulation;
+}
+.btl-project-goal-editor > button:hover { color: var(--text-normal); background: var(--background-modifier-hover); }
+.btl-project-goal-amount { display: flex; min-width: 0; align-items: baseline; justify-content: center; gap: 3px; }
+.btl-project-goal-amount > input[type="text"] {
+  box-sizing: border-box;
+  width: 68px;
+  min-width: 0;
+  height: 40px;
+  border: 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  border-radius: 0;
+  padding: 0 2px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+  font-size: 25px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.btl-project-goal-amount > input[aria-invalid="true"] { border-bottom-color: var(--text-error); }
+.btl-project-goal-amount > span { color: var(--text-muted); font-size: 12px; }
+.btl-project-goal-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 12px; }
+.btl-project-goal-actions > button { min-height: 30px; border: 0; border-radius: 7px; padding: 4px 10px; box-shadow: none; font-size: 11px; }
+.btl-project-goal-actions > button:not(.mod-cta) { background: transparent; color: var(--text-muted); }
+.btl-project-goal-actions > button.mod-cta { background: var(--interactive-accent); color: var(--text-on-accent); }
+@media (pointer: coarse) {
+  .btl-project-goal-editor > button { height: 40px; }
+  .btl-project-goal-actions > button { min-height: 36px; }
+}

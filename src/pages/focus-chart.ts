@@ -1,13 +1,17 @@
+import { Menu, setIcon } from "obsidian";
 import type { BranchTimelineState, ProjectRef } from "../types";
-import { distractionWeight } from "../focus-events";
+import { focusRhythmColor } from "../focus-rhythm-color";
 import { dateKey, logicalToday } from "../vault/format";
-import { burdenLabel, burdenRate, nowOnAxis, periodAtMinute, periodMinutes, projectFocusTotal, recordedMinutes, type DayPeriod, type FocusTotal } from "./focus-stats";
+import { nowOnAxis } from "./focus-stats";
+import { compareFocus, focusHours, focusSample, interruptionInterval, type FocusSample } from "./focus-comparison";
 
-type Mode = "day" | "period" | "project";
-type Row = { label: string; total: FocusTotal; color?: string; open?: () => void };
+type SortField = "minutes" | "focus";
+type Row = { label: string; total: FocusSample; open: () => void };
 
 export interface FocusChartOptions {
   container: HTMLElement;
+  controls?: HTMLElement;
+  mode?: "project" | "day";
   dates: readonly Date[];
   state: BranchTimelineState;
   projects: readonly ProjectRef[];
@@ -16,148 +20,124 @@ export interface FocusChartOptions {
 }
 
 export function renderFocusChart(options: FocusChartOptions): void {
-  const card = options.container.createDiv({ cls: "btl-stats-card" });
-  const head = card.createDiv({ cls: "btl-stats-card-head" });
-  head.createEl("strong", { text: "走神负担" });
-  const scope = head.createEl("small");
-  const control = card.createDiv({ cls: "btl-focus-switch btl-setting-segments" });
-  const plot = card.createDiv();
-  let mode = readMode();
-  const buttons: HTMLButtonElement[] = [];
-  for (const [id, label] of [["day", "每日"], ["period", "时段"], ["project", "项目"]] as const) {
-    const button = control.createEl("button", { text: label, attr: { type: "button" } });
-    buttons.push(button);
-    button.onclick = () => {
-      mode = id;
-      localStorage.setItem("branch-timeline-hz-focus-mode", id);
-      update();
+  const start = dateKey(options.dates[0]);
+  const end = dateKey(options.dates[options.dates.length - 1]);
+  const today = dateKey(logicalToday());
+  const now = nowOnAxis();
+  const baseline = focusSample(options.state.days, key => key < start, today, now);
+  const controls = options.controls || options.container.createDiv({ cls: "btl-summary-tools" });
+  const plot = options.container.createDiv({ cls: "btl-focus-summary" });
+  let field: SortField = localStorage.getItem("branch-timeline-hz-focus-sort") === "focus" ? "focus" : "minutes";
+  let descending = localStorage.getItem("branch-timeline-hz-focus-descending") !== "false";
+  let sort: HTMLButtonElement | null = null;
+  if (options.mode !== "day") {
+    sort = controls.createEl("button", { cls: "btl-summary-select btl-focus-sort", attr: { type: "button", "aria-label": "项目排行排序" } });
+    sort.onclick = event => {
+      event.stopPropagation();
+      const menu = new Menu();
+      for (const [key, label] of [["minutes", "记录时长"], ["focus", "相对顺畅程度"]] as const) {
+        menu.addItem(item => item.setTitle(label).setChecked(field === key).onClick(() => { field = key; save(); }));
+      }
+      menu.addSeparator();
+      for (const [value, label] of [[true, "从高到低"], [false, "从低到高"]] as const) {
+        menu.addItem(item => item.setTitle(label).setChecked(descending === value).onClick(() => { descending = value; save(); }));
+      }
+      const rect = sort!.getBoundingClientRect();
+      menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
     };
   }
-  update();
+  const rows = options.mode === "day" ? options.dates.map(date => ({
+    label: ["日", "一", "二", "三", "四", "五", "六"][date.getDay()],
+    total: focusSample(options.state.days, key => key === dateKey(date), today, now),
+    open: () => options.onOpenDate(date)
+  })) : options.projects.map(project => ({
+    label: project.name,
+    total: focusSample(options.state.days, key => key >= start && key <= end, today, now, project.path),
+    open: () => options.onOpenProject(project.path)
+  })).filter(row => row.total.minutes > 0);
+  draw();
 
-  function update(): void {
-    buttons.forEach((button, index) => {
-      const selected = ["day", "period", "project"][index] === mode;
-      button.toggleClass("is-active", selected);
-      button.setAttr("aria-pressed", String(selected));
-    });
-    scope.setText(mode === "project" ? "累计" : rangeLabel(options.dates));
+  function save(): void {
+    localStorage.setItem("branch-timeline-hz-focus-sort", field);
+    localStorage.setItem("branch-timeline-hz-focus-descending", String(descending));
+    draw();
+  }
+
+  function draw(): void {
     plot.empty();
-    const rows = mode === "project" ? projectRows(options) : mode === "period" ? periodRows(options) : dayRows(options);
-    if (!rows.some(row => row.total.minutes || row.total.load || row.total.good)) {
-      plot.createDiv({ cls: "btl-stats-empty", text: "暂无记录" });
+    if (sort) {
+      sort.empty();
+      sort.createSpan({ text: field === "minutes" ? "时长" : "顺畅" });
+      setIcon(sort.createSpan(), descending ? "arrow-down-wide-narrow" : "arrow-up-narrow-wide");
+    }
+    if (!rows.some(row => row.total.minutes > 0)) {
+      plot.createDiv({ cls: "btl-stats-empty", text: "本周暂无记录" });
       return;
     }
-    const max = Math.max(1, ...rows.map(row => burdenRate(row.total)));
-    if (mode === "project") drawProjectBars(plot, rows, max);
-    else drawVerticalBars(plot, rows, max);
-  }
-}
-
-function dayRows(options: FocusChartOptions): Row[] {
-  const today = dateKey(logicalToday());
-  const now = nowOnAxis();
-  return options.dates.map(date => {
-    const key = dateKey(date);
-    const day = options.state.days[key];
-    return {
-      label: `${["日", "一", "二", "三", "四", "五", "六"][date.getDay()]}${date.getDate()}`,
-      total: {
-        minutes: day ? recordedMinutes(day, key === today ? now : undefined) : 0,
-        distractions: day?.distractions?.length || 0,
-        load: day?.distractions?.reduce((sum, event) => sum + distractionWeight(event), 0) || 0,
-        good: day?.goodStates?.length || 0
-      },
-      open: () => options.onOpenDate(date)
-    };
-  });
-}
-
-function periodRows(options: FocusChartOptions): Row[] {
-  const today = dateKey(logicalToday());
-  const now = nowOnAxis();
-  const totals: Record<DayPeriod, FocusTotal> = {
-    morning: { minutes: 0, distractions: 0, load: 0, good: 0 },
-    afternoon: { minutes: 0, distractions: 0, load: 0, good: 0 },
-    evening: { minutes: 0, distractions: 0, load: 0, good: 0 }
-  };
-  for (const date of options.dates) {
-    const key = dateKey(date);
-    const day = options.state.days[key];
-    if (!day) continue;
-    const minutes = periodMinutes(day, key === today ? now : undefined);
-    for (const period of Object.keys(totals) as DayPeriod[]) totals[period].minutes += minutes[period];
-    for (const event of day.distractions || []) {
-      const total = totals[periodAtMinute(event.minute)];
-      total.distractions++;
-      total.load += distractionWeight(event);
+    if (options.mode === "day") drawDaily(plot, rows, baseline);
+    else {
+      const ordered = [...rows].sort((a, b) => {
+        const difference = field === "minutes" ? a.total.minutes - b.total.minutes
+          : compareFocus(a.total, baseline).score - compareFocus(b.total, baseline).score;
+        return difference * (descending ? -1 : 1) || a.label.localeCompare(b.label);
+      });
+      drawProjects(plot, ordered, baseline);
     }
-    for (const event of day.goodStates || []) totals[periodAtMinute(event.minute)].good++;
-  }
-  return [["morning", "上午"], ["afternoon", "下午"], ["evening", "晚上"]].map(([period, label]) => ({ label, total: totals[period as DayPeriod] }));
-}
-
-function projectRows(options: FocusChartOptions): Row[] {
-  const today = dateKey(logicalToday());
-  const now = nowOnAxis();
-  return options.projects.map(project => ({
-    label: project.name,
-    total: projectFocusTotal(options.state, project.path, today, now),
-    color: project.color,
-    open: () => options.onOpenProject(project.path)
-  })).filter(row => row.total.minutes || row.total.load || row.total.good)
-    .sort((a, b) => b.total.minutes - a.total.minutes);
-}
-
-function drawVerticalBars(plot: HTMLElement, rows: readonly Row[], max: number): void {
-  const chart = plot.createDiv({ cls: "btl-focus-bars" });
-  chart.style.setProperty("--focus-columns", String(rows.length));
-  for (const row of rows) {
-    const value = burdenRate(row.total);
-    const item = row.open
-      ? chart.createEl("button", { cls: "btl-focus-bar-item", attr: { type: "button", "aria-label": description(row) } })
-      : chart.createDiv({ cls: "btl-focus-bar-item" });
-    item.setAttr("title", description(row));
-    if (row.open) item.onclick = row.open;
-    item.createEl("strong", { text: burdenLabel(row.total) });
-    const track = item.createSpan({ cls: "btl-focus-bar-track" });
-    const fill = track.createSpan({ cls: "btl-focus-bar-fill" });
-    fill.style.height = `${row.total.load ? Math.max(3, Math.min(100, value / max * 100)) : 0}%`;
-    item.createEl("small", { text: row.label });
-    item.createEl("small", { cls: "btl-focus-bar-count", text: markerSummary(row.total) });
+    drawLegend(plot, baseline);
   }
 }
 
-function drawProjectBars(plot: HTMLElement, rows: readonly Row[], max: number): void {
-  const chart = plot.createDiv({ cls: "btl-focus-project-bars" });
+function drawProjects(parent: HTMLElement, rows: readonly Row[], baseline: FocusSample): void {
+  const list = parent.createDiv({ cls: "btl-focus-ranking" });
+  const maximum = Math.max(1, ...rows.map(row => row.total.minutes));
   for (const row of rows) {
-    const value = burdenRate(row.total);
-    const button = chart.createEl("button", { cls: "btl-focus-project-bar", attr: { type: "button", "aria-label": description(row) } });
-    button.setAttr("title", description(row));
-    button.onclick = row.open || (() => {});
-    const label = button.createSpan({ text: row.label });
-    if (row.color) label.style.color = row.color;
-    const track = button.createSpan({ cls: "btl-focus-project-track" });
+    const button = list.createEl("button", { cls: "btl-focus-rank-row", attr: { type: "button", title: description(row, baseline) } });
+    button.onclick = event => { event.stopPropagation(); row.open(); };
+    const heading = button.createSpan({ cls: "btl-focus-rank-heading" });
+    heading.createSpan({ cls: "btl-focus-rank-name", text: row.label });
+    heading.createEl("strong", { text: focusHours(row.total.minutes) });
+    const detail = button.createSpan({ cls: "btl-focus-rank-detail" });
+    const track = detail.createSpan({ cls: "btl-focus-rank-track" });
     const fill = track.createSpan();
-    fill.style.width = `${row.total.load ? Math.max(3, Math.min(100, value / max * 100)) : 0}%`;
-    button.createEl("strong", { text: burdenLabel(row.total) });
-    button.createEl("small", { text: markerSummary(row.total) });
+    fill.style.width = `${row.total.minutes / maximum * 100}%`;
+    fill.style.background = focusRhythmColor(compareFocus(row.total, baseline).score);
+    detail.createSpan({ cls: "btl-focus-rank-interval", text: intervalLabel(row.total) });
+    button.setAttr("aria-label", description(row, baseline));
   }
 }
 
-function description(row: Row): string {
-  return `${row.label} · 记录 ${Math.round(row.total.minutes)} 分钟 · 走神 ${row.total.distractions} 次 · 负担 ${row.total.load} · 顺畅 ${row.total.good} 次`;
+function drawDaily(parent: HTMLElement, rows: readonly Row[], baseline: FocusSample): void {
+  const chart = parent.createDiv({ cls: "btl-focus-daily" });
+  const maximum = Math.max(1, ...rows.map(row => row.total.minutes));
+  for (const row of rows) {
+    const button = chart.createEl("button", { cls: "btl-focus-daily-column", attr: { type: "button", title: description(row, baseline), "aria-label": description(row, baseline) } });
+    button.onclick = event => { event.stopPropagation(); row.open(); };
+    button.createEl("strong", { text: row.total.minutes ? focusHours(row.total.minutes) : "–" });
+    const track = button.createSpan({ cls: "btl-focus-daily-track" });
+    const fill = track.createSpan();
+    fill.style.height = `${row.total.minutes / maximum * 100}%`;
+    fill.style.background = focusRhythmColor(compareFocus(row.total, baseline).score);
+    button.createSpan({ text: row.label });
+  }
 }
 
-function markerSummary(total: FocusTotal): string {
-  return [total.distractions ? `${total.distractions}红` : "", total.good ? `${total.good}蓝` : ""].filter(Boolean).join(" · ");
+function drawLegend(parent: HTMLElement, baseline: FocusSample): void {
+  const legend = parent.createDiv({ cls: "btl-focus-relative-key" });
+  legend.setAttr("title", baseline.minutes
+    ? `颜色比较所选周之前全部 ${focusHours(baseline.minutes)} 记录的每小时加权中断负担；样本越少颜色越淡。条长表示记录时长。`
+    : "尚无更早的记录，颜色暂为中性。条长表示记录时长。");
+  legend.createSpan({ text: "较分散" });
+  legend.createSpan({ cls: "btl-focus-relative-gradient" });
+  legend.createSpan({ text: "较顺畅" });
 }
 
-function rangeLabel(dates: readonly Date[]): string {
-  return `${dates[0].getMonth() + 1}/${dates[0].getDate()}–${dates[6].getMonth() + 1}/${dates[6].getDate()}`;
+function intervalLabel(total: FocusSample): string {
+  const interval = interruptionInterval(total);
+  return interval === null ? "未记走神" : `${Math.round(interval)} min/次`;
 }
 
-function readMode(): Mode {
-  const saved = localStorage.getItem("branch-timeline-hz-focus-mode");
-  return saved === "period" || saved === "project" ? saved : "day";
+function description(row: Row, baseline: FocusSample): string {
+  const comparison = compareFocus(row.total, baseline);
+  const relative = !comparison.confidence ? "颜色中性" : comparison.score > .52 ? "较平常顺畅" : comparison.score < .48 ? "较平常分散" : "接近平常";
+  return `${row.label} · ${focusHours(row.total.minutes)} · ${intervalLabel(row.total)} · ${relative}`;
 }

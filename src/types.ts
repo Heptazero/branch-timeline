@@ -284,7 +284,12 @@ export interface ProjectTimelineBranch {
 
 export interface ProjectTimelineState {
   branches: ProjectTimelineBranch[];
+  /** 旧版按日期保存的计划，只对该日生效。 */
   dailyPlans?: Record<string, number>;
+  /** 从日期起沿用；0 是明确取消目标的断点。 */
+  dailyGoalChanges?: Record<string, number>;
+  /** 以周一日期为键，从该周起沿用；不回写旧周。 */
+  weeklyGoalChanges?: Record<string, number>;
 }
 
 export interface ProjectRef {

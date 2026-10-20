@@ -1,5 +1,6 @@
 import { App, normalizePath } from "obsidian";
 import { normalizeAchievement } from "../pages/achievement-model";
+import { normalizeProjectGoals } from "../pages/project-goals";
 import { normalizeTimelineDay } from "../rhythm";
 import { normalizeFixedReminder, normalizeFixedReminderResult } from "../fixed-reminders/model";
 import type { BranchTimelineState, PolicyNode, PolicyPeriod, ProjectTimelineState, RhythmSchedule, TimelineDayState } from "../types";
@@ -124,14 +125,9 @@ function normalizePolicyNode(node: PolicyNode): PolicyNode {
 }
 
 function normalizeProject(project: ProjectTimelineState): ProjectTimelineState {
-  const plans = project?.dailyPlans && typeof project.dailyPlans === "object"
-    ? Object.fromEntries(Object.entries(project.dailyPlans)
-      .filter(([, minutes]) => typeof minutes === "number" && Number.isFinite(minutes) && minutes > 0)
-      .map(([date, minutes]) => [date, Math.round(minutes)]))
-    : undefined;
   return {
     branches: Array.isArray(project?.branches) ? project.branches : [],
-    ...(plans && Object.keys(plans).length ? { dailyPlans: plans } : {})
+    ...normalizeProjectGoals(project)
   };
 }
 
