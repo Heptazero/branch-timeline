@@ -20,7 +20,7 @@ const external = [
 
 if (mode === "test") {
   await esbuild.build({
-    entryPoints: ["tests/format.test.ts", "tests/comment-markers.test.ts", "tests/focus-state.test.ts", "tests/focus-prediction.test.ts", "tests/project-time-sync.test.ts", "tests/project-tasks.test.ts", "tests/life-model.test.ts", "tests/life-diary.test.ts", "tests/diary-bracket-model.test.ts", "tests/fixed-reminders.test.ts", "tests/state-store.test.ts", "tests/repository-transaction.test.ts", "tests/project-reassignment.test.ts", "tests/revert-text-change.test.ts", "tests/view-width.test.ts"],
+    entryPoints: ["tests/format.test.ts", "tests/comment-markers.test.ts", "tests/focus-state.test.ts", "tests/focus-prediction.test.ts", "tests/project-time-sync.test.ts", "tests/project-tasks.test.ts", "tests/life-model.test.ts", "tests/life-diary.test.ts", "tests/diary-bracket-model.test.ts", "tests/fixed-reminders.test.ts", "tests/state-store.test.ts", "tests/repository-transaction.test.ts", "tests/project-reassignment.test.ts", "tests/revert-text-change.test.ts", "tests/view-width.test.ts", "tests/reminder-cache.test.ts"],
     alias: { obsidian: "./tests/obsidian-mock.ts" },
     bundle: true,
     platform: "node",

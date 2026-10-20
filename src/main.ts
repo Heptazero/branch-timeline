@@ -21,6 +21,7 @@ import type { ProjectTaskIndex } from "./vault/project-tasks";
 import { DiaryBracketSuggest } from "./diary-bracket-suggest";
 import { reminderOn } from "./fixed-reminders/model";
 import { hiddenPluginCommentsExtension } from "./editor/plugin-comment-visibility";
+import { DailyReminderCache } from "./reminder-cache";
 
 export default class BranchTimelinePlugin extends Plugin {
   settings: BranchTimelineSettings = DEFAULT_SETTINGS;
@@ -30,8 +31,7 @@ export default class BranchTimelinePlugin extends Plugin {
   readonly undoManager = new UndoManager();
   private timerStatusItem: HTMLElement | null = null;
   private timerStatusItemId: string | null = null;
-  private readonly deliveredTimerReminders = new Set<string>();
-  private readonly deliveredFixedReminders = new Set<string>();
+  private readonly reminderCache = new DailyReminderCache();
   private lifeDiaryRefreshTimer: number | null = null;
   private lastStateError: string | null = null;
   private readonly commentEditorExtensions: Extension[] = [];
@@ -332,7 +332,9 @@ export default class BranchTimelinePlugin extends Plugin {
       }
       return;
     }
-    const day = state.days[dateKey(logicalToday())];
+    const todayKey = dateKey(logicalToday());
+    this.reminderCache.selectDate(todayKey);
+    const day = state.days[todayKey];
     const now = this.logicalMinuteNow();
     const active = day ? runningItems(day) : [];
     const primary = active[0];
@@ -345,8 +347,8 @@ export default class BranchTimelinePlugin extends Plugin {
         this.timerStatusItem.createEl("strong", { text: compactDuration(elapsedMinutes(primary, day, now)) });
       }
     }
-    if (day) this.maybeRemindTimers(day, active, now);
-    this.maybeRemindFixed(state, dateKey(logicalToday()), now);
+    if (day) this.maybeRemindTimers(day, active, now, todayKey);
+    this.maybeRemindFixed(state, todayKey, now);
   }
 
   private maybeRemindFixed(state: import("./types").BranchTimelineState, date: string, now: number): void {
@@ -355,8 +357,7 @@ export default class BranchTimelinePlugin extends Plugin {
       if (!rule || now < rule.minute || now > rule.minute + 3) continue;
       if (state.fixedReminderResults.some(item => item.reminderId === reminder.id && item.date === date)) continue;
       const key = `${date}:${reminder.id}`;
-      if (this.deliveredFixedReminders.has(key)) continue;
-      this.deliveredFixedReminders.add(key);
+      if (!this.reminderCache.markFixed(key)) continue;
       new Notice(`${reminder.title} · 定点提醒`, 8000);
     }
   }
@@ -369,16 +370,15 @@ export default class BranchTimelinePlugin extends Plugin {
     if (leaf?.view instanceof BranchTimelineView) await leaf.view.focusRunningItem(itemId);
   }
 
-  private maybeRemindTimers(day: import("./types").TimelineDayState, active: import("./types").TimelineItem[], now: number): void {
+  private maybeRemindTimers(day: import("./types").TimelineDayState, active: import("./types").TimelineItem[], now: number, date: string): void {
     const interval = this.settings.timerReminderMinutes;
     if (interval <= 0) return;
     for (const item of active) {
       const elapsed = elapsedMinutes(item, day, now);
       const bucket = Math.floor(elapsed / interval);
       if (bucket < 1) continue;
-      const key = `${dateKey(logicalToday())}:${item.id}:${bucket}`;
-      if (this.deliveredTimerReminders.has(key)) continue;
-      this.deliveredTimerReminders.add(key);
+      const key = `${date}:${item.id}:${bucket}`;
+      if (!this.reminderCache.markTimer(key)) continue;
       new Notice(`${item.title} · 已计时 ${compactDuration(elapsed)}`);
     }
   }

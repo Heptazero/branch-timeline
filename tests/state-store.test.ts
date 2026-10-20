@@ -60,3 +60,13 @@ test("undo refuses to overwrite state modified elsewhere", async () => {
   await assert.rejects(async () => { await undo?.(); }, /已在别处改变/);
   assert.ok(subject.content.endsWith(" "));
 });
+
+test("undo restores the previous state from its compact snapshot", async () => {
+  const subject = fixture('{"version":1,"days":{},"lifeEvents":[]}');
+  let undo: UndoAction | undefined;
+  subject.store.setUndoRecorder(action => { undo = action; });
+  const updated = await subject.store.update(state => { state.lifeEvents.push({ id: "a", title: "测试", date: "2026-10-20", kind: "milestone" }); });
+  updated.lifeEvents[0].title = "后来改动的对象";
+  await undo?.();
+  assert.deepEqual(JSON.parse(subject.content).lifeEvents, []);
+});

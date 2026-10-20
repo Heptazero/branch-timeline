@@ -82,12 +82,15 @@ export class StateStore {
       const before = structuredClone(result);
       mutator(result);
       const written = await this.write(result, path);
-      this.recordUndo?.(async () => {
-        if (await this.app.vault.adapter.read(path) !== written) {
-          throw new Error("时间线状态已在别处改变，撤回已停止以免覆盖新数据");
-        }
-        await this.write(before, path);
-      });
+      if (this.recordUndo) {
+        const snapshot = JSON.stringify(before);
+        this.recordUndo(async () => {
+          if (await this.app.vault.adapter.read(path) !== written) {
+            throw new Error("时间线状态已在别处改变，撤回已停止以免覆盖新数据");
+          }
+          await this.write(JSON.parse(snapshot) as BranchTimelineState, path);
+        });
+      }
       this.onChange?.(before, result);
     });
     this.queue = operation.then(() => undefined, () => undefined);
