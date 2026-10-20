@@ -27,7 +27,11 @@ export function renderProjectProgressRow(parent: HTMLElement, entry: ProjectList
   name.createSpan({ text: project.name });
   if (options.pinned) setIcon(name.createSpan({ cls: "btl-progress-pin" }), "pin");
   name.onclick = () => { if (row.dataset.suppressClick !== "true") options.open(project.path); };
-  const amount = head.createDiv({ cls: "btl-progress-amount" });
+  const line = row.createDiv({ cls: "btl-progress-line" });
+  const meter = line.createDiv({ cls: "btl-progress-meter" });
+  const track = meter.createEl("button", { cls: "btl-progress-track", attr: { type: "button", "aria-label": `打开${project.name}时间线` } });
+  track.onclick = () => { if (row.dataset.suppressClick !== "true") options.open(project.path); };
+  const amount = meter.createDiv({ cls: "btl-progress-amount" });
   amount.createEl("strong", { text: projectHours(summary.actual) });
   if (options.scope !== "total") {
     const target = amount.createEl("button", {
@@ -37,10 +41,8 @@ export function renderProjectProgressRow(parent: HTMLElement, entry: ProjectList
     });
     target.onclick = () => options.setPlan(project.path, options.scope as "day" | "week", target);
   }
-  const menu = head.createEl("button", { cls: "btl-progress-menu", text: "⋮", attr: { type: "button", "aria-label": `${project.name}菜单` } });
+  const menu = line.createEl("button", { cls: "btl-progress-menu", text: "⋮", attr: { type: "button", "aria-label": `${project.name}菜单` } });
   menu.onclick = () => openMenu(menu, project, options);
-  const track = row.createEl("button", { cls: "btl-progress-track", attr: { type: "button", "aria-label": `打开${project.name}时间线` } });
-  track.onclick = () => { if (row.dataset.suppressClick !== "true") options.open(project.path); };
   const hasScale = summary.planned > 0 || options.scope === "total";
   const fraction = summary.planned ? summary.actual / summary.planned : summary.actual / Math.max(1, options.maximum);
   if (hasScale) {
@@ -54,7 +56,7 @@ export function renderProjectProgressRow(parent: HTMLElement, entry: ProjectList
     track.title = `已完成 ${projectHours(summary.actual)} / 计划 ${projectHours(summary.planned)}；按均匀计划应到 ${projectHours(summary.planned * options.expected)}`;
   } else track.title = summary.actual ? `已记录 ${projectHours(summary.actual)}` : "尚无记录";
   if (options.manual) {
-    const handle = row.createEl("button", { cls: "btl-progress-drag", attr: { type: "button", "aria-label": options.pinned ? "调整置顶项目顺序" : "拖动排序", title: options.pinned ? "调整置顶项目顺序" : "拖动排序" } });
+    const handle = line.createEl("button", { cls: "btl-progress-drag", attr: { type: "button", "aria-label": options.pinned ? "调整置顶项目顺序" : "拖动排序", title: options.pinned ? "调整置顶项目顺序" : "拖动排序" } });
     setIcon(handle, "grip-vertical");
   }
 }
