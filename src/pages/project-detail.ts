@@ -55,6 +55,7 @@ export interface ProjectDetailOptions {
 
 export interface ProjectDetailRenderResult {
   scroller: HTMLElement;
+  renderedWidth: number;
   getAnchor: () => ProjectScaleAnchor;
   destroy: () => void;
 }
@@ -139,6 +140,7 @@ export function renderProjectDetail(options: ProjectDetailOptions): ProjectDetai
 
   return {
     scroller,
+    renderedWidth: baseWidth,
     getAnchor: () => ({
       abs: range.start + (scroller.scrollTop + scroller.clientHeight / 2 - PROJECT_TOP) / pxPerMinute,
       offset: scroller.clientHeight / 2

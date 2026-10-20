@@ -29,6 +29,7 @@ import { RunningBar } from "./timeline/running-bar";
 import { effectiveEnergyPhases } from "./timeline/energy-phases";
 import { minuteToY } from "./timeline/model";
 import { renderTimeline } from "./timeline/renderer";
+import { observeRenderedWidth } from "./timeline/view-width";
 import { renderViewHeader } from "./timeline/view-header";
 import type { DistractionLevel, ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
@@ -53,6 +54,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected pendingScaleAnchor: ScrollAnchor | null = null;
   protected scaleButtonTimer: number | null = null;
   protected viewResizeTimer: number | null = null;
+  protected stopLayoutWatch: (() => void) | null = null;
   protected clockTimer: number | null = null;
   protected followsToday = true;
   protected selectedProjectPath: string | null = null;
@@ -112,6 +114,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     }, 60_000);
   }
   async onClose(): Promise<void> {
+    this.stopLayoutWatch?.();
     this.gestures?.destroy();
     this.destroyProjectDetail?.();
     if (this.clockTimer != null) window.clearInterval(this.clockTimer);
@@ -119,6 +122,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     if (this.viewResizeTimer != null) window.clearTimeout(this.viewResizeTimer);
   }
   onResize(): void {
+    if (this.selectedProjectPath) this.projectAnchor = this.getProjectAnchor?.();
     if (this.viewResizeTimer != null) window.clearTimeout(this.viewResizeTimer);
     this.viewResizeTimer = window.setTimeout(() => {
       this.viewResizeTimer = null;
@@ -127,6 +131,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   }
   async refresh(): Promise<void> { await this.render(true); }
   protected async render(preserveScroll: boolean, anchor?: ScrollAnchor): Promise<void> {
+    this.stopLayoutWatch?.();
     const requestId = ++this.renderId;
     const previousScroll = preserveScroll ? this.scroller?.scrollTop || 0 : 0;
     this.gestures?.destroy();
@@ -241,6 +246,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
           });
           this.destroyProjectDetail = detail.destroy;
           this.getProjectAnchor = detail.getAnchor;
+          this.stopLayoutWatch = observeRenderedWidth(detail.scroller, detail.renderedWidth, 300, () => this.onResize());
           this.projectAnchor = undefined;
         } else {
           this.selectedProjectPath = null;
@@ -373,6 +379,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
       onMentalStateMenu: (id, event) => this.openMentalStateMenu(id, event),
       projectColors: new Map(this.plugin.repository.listProjects().map(project => [project.path, project.color || "var(--text-faint)"]))
     });
+    this.stopLayoutWatch = observeRenderedWidth(scroller, width, 280, () => this.onResize());
     renderFixedReminderMarkers(rendered.canvas, day, this.scale, key, state.fixedReminders, state.fixedReminderResults,
       (id, event) => void this.fixedReminderActions.openOccurrenceMenu(id, event));
     this.gestures = new TimelineGestures(scroller, rendered.canvas, day, rendered.layout, this.energyPhases, this.plugin.settings.rhythmMarkers, {
