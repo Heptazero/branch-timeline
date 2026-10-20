@@ -8,6 +8,7 @@ import { renderSleepSummary } from "./sleep-summary";
 import { policyProgress } from "./policy-progress";
 import { dateKey, logicalToday } from "../vault/format";
 import { startOfWeek } from "./navigation";
+import { restoreStatsNavigation, selectStatsView, STATS_VIEWS, toggleStatsTimeMap } from "./stats-navigation";
 
 export interface StatsPageOptions {
   container: HTMLElement;
@@ -18,12 +19,6 @@ export interface StatsPageOptions {
   onOpenProject: (path: string) => void;
   onOpenPolicy: () => void;
 }
-
-type StatsView = "project" | "day" | "time" | "anchor";
-const VIEWS: readonly { id: StatsView; label: string }[] = [
-  { id: "project", label: "项目排行" }, { id: "day", label: "每日趋势" },
-  { id: "time", label: "一周时间" }, { id: "anchor", label: "锚点" }
-];
 
 export function renderStatsPage(options: StatsPageOptions): void {
   const start = startOfWeek(options.date);
@@ -39,29 +34,36 @@ export function renderStatsPage(options: StatsPageOptions): void {
   const weekly = focusSample(options.state.days, key => key >= first && key <= last, today, nowOnAxis());
   summary.createSpan({ text: "本周总计" });
   summary.createEl("strong", { text: focusHours(weekly.minutes) });
-  let view = readView();
-  renderSleepSummary(dashboard, dates, options.state, () => {
-    view = "time";
-    localStorage.setItem("branch-timeline-hz-stats-view", view);
-    draw();
+  let navigation = restoreStatsNavigation(localStorage.getItem("branch-timeline-hz-stats-view"),
+    localStorage.getItem("branch-timeline-hz-stats-return-view"));
+  const sleepSummary = renderSleepSummary(dashboard, dates, options.state, () => {
+    navigation = toggleStatsTimeMap(navigation);
+    saveAndDraw();
   });
   const content = dashboard.createDiv({ cls: "btl-summary-content" });
   choose.onclick = event => {
     event.stopPropagation();
     const menu = new Menu();
-    for (const option of VIEWS) menu.addItem(item => item.setTitle(option.label).setChecked(view === option.id).onClick(() => {
-      view = option.id;
-      localStorage.setItem("branch-timeline-hz-stats-view", view);
-      draw();
+    for (const option of STATS_VIEWS) menu.addItem(item => item.setTitle(option.label).setChecked(navigation.view === option.id).onClick(() => {
+      navigation = selectStatsView(navigation, option.id);
+      saveAndDraw();
     }));
     const rect = choose.getBoundingClientRect();
     menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
   };
   draw();
 
+  function saveAndDraw(): void {
+    localStorage.setItem("branch-timeline-hz-stats-view", navigation.view);
+    localStorage.setItem("branch-timeline-hz-stats-return-view", navigation.returnView);
+    draw();
+  }
+
   function draw(): void {
+    const view = navigation.view;
+    sleepSummary.setTimeMapExpanded(view === "time");
     choose.empty();
-    choose.createSpan({ text: VIEWS.find(option => option.id === view)!.label });
+    choose.createSpan({ text: STATS_VIEWS.find(option => option.id === view)!.label });
     setIcon(choose.createSpan(), "chevron-down");
     content.empty();
     tools.empty();
@@ -97,9 +99,4 @@ function renderAnchorCard(dashboard: HTMLElement, dates: readonly Date[], state:
     row.createEl("small", { text: "✓ " + success + "  × " + violations });
     row.createEl("strong", { text: progress.count ? String(progress.count) : "–" });
   }
-}
-
-function readView(): StatsView {
-  const saved = localStorage.getItem("branch-timeline-hz-stats-view");
-  return VIEWS.find(option => option.id === saved)?.id || "project";
 }

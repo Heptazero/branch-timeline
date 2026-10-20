@@ -34,9 +34,9 @@ export function renderProjectProgressRow(parent: HTMLElement, entry: ProjectList
   const amount = meter.createDiv({ cls: "btl-progress-amount" });
   amount.createEl("strong", { text: projectHours(summary.actual) });
   if (options.scope !== "total") {
-    const target = amount.createEl("button", {
+    const target = head.createEl("button", {
       cls: "btl-progress-goal",
-      text: summary.planned ? `/ ${projectHours(summary.planned)}` : "设目标",
+      text: summary.planned ? `目标 ${projectHours(summary.planned)}` : "设目标",
       attr: { type: "button", "aria-label": `设置${project.name}${options.scope === "week" ? "本周" : "今日"}目标` }
     });
     target.onclick = () => options.setPlan(project.path, options.scope as "day" | "week", target);
