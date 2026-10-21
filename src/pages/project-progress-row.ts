@@ -1,6 +1,6 @@
 import { Menu, setIcon } from "obsidian";
 import type { ProjectRef } from "../types";
-import { projectHours, type ProjectListEntry } from "./project-list-model";
+import { projectHours, projectProgressPercent, type ProjectListEntry } from "./project-list-model";
 import type { ProjectTimeScope } from "./project-time";
 
 export interface ProjectProgressOptions {
@@ -27,6 +27,10 @@ export function renderProjectProgressRow(parent: HTMLElement, entry: ProjectList
   name.createSpan({ text: project.name });
   if (options.pinned) setIcon(name.createSpan({ cls: "btl-progress-pin" }), "pin");
   name.onclick = () => { if (row.dataset.suppressClick !== "true") options.open(project.path); };
+  const percent = options.scope === "total" ? "无" : projectProgressPercent(summary.actual, summary.planned);
+  head.createSpan({ cls: "btl-progress-percent", text: percent, attr: {
+    "aria-label": percent === "无" ? "未设目标，无完成比例" : `完成比例 ${percent}`
+  } });
   const line = row.createDiv({ cls: "btl-progress-line" });
   const meter = line.createDiv({ cls: "btl-progress-meter" });
   const track = meter.createEl("button", { cls: "btl-progress-track", attr: { type: "button", "aria-label": `打开${project.name}时间线` } });
@@ -34,13 +38,13 @@ export function renderProjectProgressRow(parent: HTMLElement, entry: ProjectList
   const amount = meter.createDiv({ cls: "btl-progress-amount" });
   amount.createEl("strong", { text: projectHours(summary.actual) });
   if (options.scope !== "total") {
-    const target = head.createEl("button", {
+    const target = amount.createEl("button", {
       cls: "btl-progress-goal",
-      text: summary.planned ? `目标 ${projectHours(summary.planned)}` : "设目标",
+      text: summary.planned ? projectHours(summary.planned) : "无",
       attr: { type: "button", "aria-label": `设置${project.name}${options.scope === "week" ? "本周" : "今日"}目标` }
     });
     target.onclick = () => options.setPlan(project.path, options.scope as "day" | "week", target);
-  }
+  } else amount.createSpan({ cls: "btl-progress-goal-empty", text: "无", attr: { title: "累计视图不设目标" } });
   const menu = line.createEl("button", { cls: "btl-progress-menu", text: "⋮", attr: { type: "button", "aria-label": `${project.name}菜单` } });
   menu.onclick = () => openMenu(menu, project, options);
   const hasScale = summary.planned > 0 || options.scope === "total";

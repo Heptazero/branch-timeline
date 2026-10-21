@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { projectHours, sortProjectEntries, type ProjectListEntry } from "../src/pages/project-list-model";
+import { projectHours, projectProgressPercent, sortProjectEntries, type ProjectListEntry } from "../src/pages/project-list-model";
 
 function entry(path: string, type: string, actual = 60, planned = 120): ProjectListEntry {
   return { project: { path, name: path, type, status: "active" }, summary: { actual, planned, days: [] } };
@@ -11,6 +11,21 @@ test("small nonzero project hours and targets remain visible", () => {
   assert.equal(projectHours(1), "0.02 h");
   assert.equal(projectHours(2), "0.03 h");
   assert.equal(projectHours(90), "1.5 h");
+});
+
+test("completion percentages reflect actual time and allow exceeding the target", () => {
+  assert.equal(projectProgressPercent(0, 120), "0%");
+  assert.equal(projectProgressPercent(60, 120), "50%");
+  assert.equal(projectProgressPercent(120, 120), "100%");
+  assert.equal(projectProgressPercent(144, 120), "120%");
+});
+
+test("missing targets have no invented completion percentage", () => {
+  assert.equal(projectProgressPercent(60, 0), "无");
+  assert.equal(projectProgressPercent(0, 0), "无");
+  assert.equal(projectProgressPercent(60, -1), "无");
+  assert.equal(projectProgressPercent(NaN, 120), "无");
+  assert.equal(projectProgressPercent(60, Infinity), "无");
 });
 
 test("explicit manual ordering crosses types while pinned projects remain separate", () => {

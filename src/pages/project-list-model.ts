@@ -53,3 +53,9 @@ export function sortProjectEntries(entries: ProjectListEntry[], sort: ProjectSor
 export function projectHours(minutes: number): string {
   return `${hoursValue(minutes)} h`;
 }
+
+export function projectProgressPercent(actual: number, planned: number): string {
+  if (!Number.isFinite(actual) || !Number.isFinite(planned) || planned <= 0) return "无";
+  const percent = Math.max(0, actual) / planned * 100;
+  return Number.isFinite(percent) ? `${Math.round(percent)}%` : "无";
+}

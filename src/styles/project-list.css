@@ -22,9 +22,11 @@
 .btl-progress-pin svg { width: 10px; height: 10px; }
 .btl-progress-line { display: flex; min-width: 0; align-items: center; gap: 4px; }
 .btl-progress-meter { position: relative; min-width: 0; height: 30px; flex: 1; }
-.btl-progress-amount { position: absolute; inset: 0 7px; z-index: 2; display: flex; min-width: 0; align-items: center; justify-content: flex-end; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.btl-progress-amount { position: absolute; inset: 0 7px; z-index: 2; display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 6px; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .btl-progress-amount > strong { color: var(--text-normal); font-size: 14px; font-weight: 750; letter-spacing: -.3px; }
-.branch-timeline-hz .btl-progress-goal { min-height: 26px; height: 26px; border: 0; border-radius: 4px; padding: 1px 0 1px 3px; background: transparent; box-shadow: none; color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.btl-progress-percent { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; line-height: 26px; white-space: nowrap; text-align: right; }
+.branch-timeline-hz .btl-progress-goal { min-width: 34px; min-height: 28px; height: 28px; border: 0; border-radius: 4px; padding: 1px 0 1px 3px; background: transparent; box-shadow: none; color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; pointer-events: auto; }
+.btl-progress-goal-empty { color: var(--text-muted); font-size: 12px; }
 .branch-timeline-hz .btl-progress-goal:hover { color: var(--text-normal); text-decoration: underline; text-underline-offset: 3px; background: transparent; }
 .branch-timeline-hz .btl-progress-menu { position: relative; display: grid; flex: none; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 7px; padding: 0; background: transparent; box-shadow: none; color: var(--text-muted); font-size: 22px; }
 .btl-progress-menu::before { position: absolute; inset: -3px 0; content: ""; }
@@ -43,6 +45,6 @@
   .btl-project-controls { gap: 4px; }
   .branch-timeline-hz .btl-overview-control { padding-inline: 7px; font-size: 10px; }
   .btl-progress-amount > strong { font-size: 13px; }
-  .branch-timeline-hz .btl-progress-goal { font-size: 10px; }
+  .branch-timeline-hz .btl-progress-goal { font-size: 11px; }
 }
 @media (prefers-reduced-motion: reduce) { .btl-progress-fill { transition: none; } }
