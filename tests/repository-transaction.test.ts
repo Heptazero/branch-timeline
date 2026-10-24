@@ -31,6 +31,28 @@ test("project edit rolls back when the paired timeline update fails", async () =
   assert.equal(undoCount, 0);
 });
 
+test("native import rolls back its project log when timeline persistence fails", async () => {
+  const subject = fixture();
+  const original = subject.content;
+  await assert.rejects(subject.repo.importDesktopWork("project.md", "2026-10-24", 600, 30,
+    "编译器 — 识别标识符", "desktop-session-0", async () => { throw new Error("timeline failed"); }), /timeline failed/);
+  assert.equal(subject.content, original);
+});
+
+test("native retry reuses its existing work log without touching manual content", async () => {
+  const subject = fixture();
+  let commits = 0;
+  const write = () => subject.repo.importDesktopWork("project.md", "2026-10-24", 600, 30,
+    "编译器 — 识别标识符", "desktop-session-0", async () => { commits++; });
+  await write();
+  subject.content += "\n手写保留";
+  const saved = subject.content;
+  await write();
+  assert.equal(subject.content, saved);
+  assert.equal(commits, 2);
+  assert.equal((saved.match(/desktop-session-0/g) || []).length, 1);
+});
+
 test("project undo removes only its task and preserves intervening manual edits", async () => {
   const subject = fixture();
   let undo: UndoAction | undefined;

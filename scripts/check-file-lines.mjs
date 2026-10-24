@@ -2,8 +2,8 @@ import { readdir, readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 
 const MAX_LINES = 500;
-const SOURCE_EXTENSIONS = new Set([".ts", ".mjs", ".css"]);
-const roots = ["src", "tests", "scripts"];
+const SOURCE_EXTENSIONS = new Set([".ts", ".mjs", ".css", ".swift"]);
+const roots = ["src", "tests", "scripts", "mac-app/Sources", "mac-app/Tests", "mac-app/scripts"];
 const files = ["styles.css", "esbuild.config.mjs"];
 
 for (const root of roots) await collect(root);

@@ -21,6 +21,7 @@ import {
 } from "./format";
 import { indexProjectTasks, linkProjectTask, upsertProjectTaskTotals } from "./project-tasks";
 import { revertTextChange } from "./revert-text-change";
+import { desktopWorkLog } from "../desktop/session-log";
 import type { ProjectTaskIndex, ProjectWorkTask } from "./project-tasks";
 import { convertPluginComments } from "./comment-markers";
 import type { PluginCommentStyle } from "./comment-markers";
@@ -131,6 +132,11 @@ export class VaultRepository {
     const file = this.projectFile(projectPath);
     const time = `${String(Math.floor(endMinute / 60) % 24).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
     await this.process(file, content => appendProjectLog(content, dateKey(date), time, minutes / 60, note, workId, this.settings.pluginCommentStyle), commit);
+  }
+
+  async importDesktopWork(projectPath: string, date: string, end: number, minutes: number, note: string, id: string, commit: () => Promise<void>): Promise<void> {
+    const time = `${String(Math.floor(end / 60) % 24).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+    await this.process(this.projectFile(projectPath), content => desktopWorkLog(content, date, time, minutes, note, id, this.settings.pluginCommentStyle), commit);
   }
 
   async updateProjectWorkLogNote(projectPath: string, workId: string, taskTitle: string | undefined, note: string, commit?: () => Promise<void>): Promise<void> {

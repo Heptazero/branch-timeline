@@ -22,6 +22,7 @@ import { DiaryBracketSuggest } from "./diary-bracket-suggest";
 import { reminderOn } from "./fixed-reminders/model";
 import { hiddenPluginCommentsExtension } from "./editor/plugin-comment-visibility";
 import { DailyReminderCache } from "./reminder-cache";
+import { installDesktopInbox } from "./desktop/inbox";
 
 export default class BranchTimelinePlugin extends Plugin {
   settings: BranchTimelineSettings = DEFAULT_SETTINGS;
@@ -51,6 +52,7 @@ export default class BranchTimelinePlugin extends Plugin {
     });
     this.repository.setUndoRecorder(action => this.undoManager.record(action));
     await this.store.ensure();
+    installDesktopInbox(this);
     new DiaryBracketSuggest(this.app, () => this.settings.diaryFolder).start(this);
     this.registerEvent(this.app.vault.on("modify", file => {
       const folder = this.settings.diaryFolder.replace(/\/$/, "");

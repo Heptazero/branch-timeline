@@ -28,7 +28,7 @@ if (mode === "test") {
       "tests/project-reassignment.test.ts", "tests/revert-text-change.test.ts", "tests/view-width.test.ts",
       "tests/reminder-cache.test.ts", "tests/project-goals.test.ts", "tests/focus-comparison.test.ts",
       "tests/project-list.test.ts", "tests/sleep-summary.test.ts", "tests/project-donut.test.ts",
-      "tests/stats-navigation.test.ts"
+      "tests/stats-navigation.test.ts", "tests/desktop-session.test.ts"
     ],
     alias: { obsidian: "./tests/obsidian-mock.ts" },
     bundle: true,
