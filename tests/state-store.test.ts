@@ -70,3 +70,19 @@ test("undo restores the previous state from its compact snapshot", async () => {
   await undo?.();
   assert.deepEqual(JSON.parse(subject.content).lifeEvents, []);
 });
+
+test("plugin mutations retain the native timer and unknown top-level data", async () => {
+  const native = { version: 1, active: { id: "native-session" }, checkpoint: "2026-10-24T02:00:00Z" };
+  const subject = fixture(JSON.stringify({ version: 1, days: {}, macTimer: native, desktopReceipts: { done: { status: "imported" } }, future: [1, 2] }));
+  await subject.store.update(state => { state.lifeEvents = []; });
+  const saved = JSON.parse(subject.content);
+  assert.deepEqual(saved.macTimer, native); assert.deepEqual(saved.future, [1, 2]);
+  assert.deepEqual(saved.desktopReceipts, { done: { status: "imported" } });
+});
+
+test("external writes during mutation are rejected rather than overwritten", async () => {
+  const subject = fixture('{"version":1,"days":{}}');
+  const external = '{"version":1,"days":{},"external":true}';
+  await assert.rejects(subject.store.update(() => { subject.content = external; }), /已在别处改变/);
+  assert.equal(subject.content, external); assert.equal(subject.writes, 0);
+});

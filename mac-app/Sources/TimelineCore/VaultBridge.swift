@@ -37,6 +37,17 @@ public struct VaultBridge {
         return try safeURL((parent.isEmpty ? "" : parent + "/") + "desktop-inbox")
     }
 
+    public func stateURL() throws -> URL {
+        let config = try safeURL(".obsidian/plugins/branch-timeline-hz/data.json")
+        if FileManager.default.fileExists(atPath: config.path) {
+            let data = try Data(contentsOf: config)
+            guard let value = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  value["statePath"] == nil || value["statePath"] is String else { throw SharedStateError.invalid }
+            return try safeURL(value["statePath"] as? String ?? "99_assets/branch-timeline/state.json")
+        }
+        return try safeURL("99_assets/branch-timeline/state.json")
+    }
+
     public func export(_ session: DesktopSession) throws {
         guard session.endedAt != nil, UUID(uuidString: session.id) != nil else { throw StorageError.invalid }
         guard session.vaultPath == root.path else { throw StorageError.unsafePath }

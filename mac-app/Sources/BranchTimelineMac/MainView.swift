@@ -11,9 +11,9 @@ struct MainView: View {
                 Spacer()
                 Button { AppWindows.shared.togglePanel() } label: { Image(systemName: "pin") }.help("显示或隐藏悬浮条")
                 Menu {
-                    Button("选择笔记库") { model.chooseVault() }.disabled(model.active != nil)
+                    Button("更换数据文件") { model.chooseDataFile() }.disabled(model.active != nil)
                     Button("刷新项目") { model.refreshProjects() }
-                    Button("退出") { NSApp.terminate(nil) }
+                    Button("退出") { ApplicationLifecycle.requestQuit() }
                 } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).fixedSize()
             }
             if let error = model.error {
@@ -28,7 +28,7 @@ struct MainView: View {
                 Spacer()
                 VStack(spacing: 12) {
                     Image(systemName: "folder.badge.plus").font(.largeTitle).foregroundStyle(.secondary)
-                    Button("选择 Obsidian 笔记库") { model.chooseVault() }.buttonStyle(.borderedProminent)
+                    Button("选择原时间线数据文件") { model.chooseDataFile() }.buttonStyle(.borderedProminent)
                 }.frame(maxWidth: .infinity)
                 Spacer()
             } else {
@@ -81,25 +81,21 @@ struct MainView: View {
             HStack {
                 Text("最近记录").font(.headline)
                 Spacer()
-                Button { model.refreshSync() } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(.plain).help("检查项目写回状态")
+                Button { model.refreshShared() } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(.plain).help("重新读取时间线")
             }
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(model.archive.history.prefix(20)) { session in
+                    ForEach(model.records.prefix(30)) { session in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
                                 Text(session.title).lineLimit(2)
                                 Spacer()
-                                Text(clockLabel(session.elapsed(at: session.endedAt ?? model.now))).monospacedDigit().fontWeight(.medium)
+                                Text(clockLabel(session.minutes * 60)).monospacedDigit().fontWeight(.medium)
                             }
                             HStack {
                                 Text(session.projectName).lineLimit(1)
-                                Text(session.startedAt, style: .date)
+                                Text(session.date, style: .date)
                                 Spacer()
-                                Menu(model.syncStates[session.id] ?? "待检查写回状态") {
-                                    Button("重试导出") { model.export(session) }
-                                    Button("检查状态") { model.refreshSync() }
-                                }.menuStyle(.borderlessButton).fixedSize()
                             }.font(.caption2).foregroundStyle(.secondary)
                             if !session.note.isEmpty { Text(session.note).font(.caption).foregroundStyle(.secondary).lineLimit(3) }
                         }.padding(.vertical, 9)
@@ -122,7 +118,6 @@ struct FinishView: View {
             if let session = model.active { Text(clockLabel(session.elapsed(at: model.now))).font(.title).monospacedDigit() }
             TextField("标题", text: $title).textFieldStyle(.roundedBorder)
             TextEditor(text: $note).font(.body).frame(height: 100).padding(6).background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-            Text("记录先保存在本机；Obsidian 插件运行时写回项目和时间线。").font(.caption).foregroundStyle(.secondary)
             HStack {
                 Button("返回") { dismiss() }
                 Spacer()

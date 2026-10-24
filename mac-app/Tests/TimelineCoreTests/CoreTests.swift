@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import TimelineCore
 
 final class CoreTests {
@@ -103,6 +104,15 @@ private func expectFalse(_ actual: Bool, line: UInt = #line) { precondition(!act
 private func expectThrows<T>(_ action: @autoclosure () throws -> T, line: UInt = #line) { do { _ = try action(); preconditionFailure("Expected error at \(line)") } catch {} }
 @main struct CoreChecks {
     static func main() throws {
+        if let option = CommandLine.arguments.firstIndex(of: "--hold-lock"), CommandLine.arguments.count > option + 1 {
+            let file = URL(fileURLWithPath: CommandLine.arguments[option + 1])
+            try SharedFileLock.withLock(file: file) {
+                try Data("native-held".utf8).write(to: file, options: .atomic)
+                print("LOCKED \(SharedFileLock.folder(for: file).path) resolved=\(file.resolvingSymlinksInPath().path)"); fflush(stdout); Thread.sleep(forTimeInterval: 0.4)
+                try Data("native-released".utf8).write(to: file, options: .atomic)
+            }
+            return
+        }
         let tests = CoreTests()
         defer { tests.cleanups.reversed().forEach { $0() } }
         tests.testPauseResumeExcludesBreaks()
@@ -114,6 +124,12 @@ private func expectThrows<T>(_ action: @autoclosure () throws -> T, line: UInt =
         tests.testFrontmatterAndFuzzySearch()
         try tests.testFractionalSecondsKeepMarksBeforeFinish()
         try tests.testCatalogUsesConfiguredTypesAndDataDirectory()
-        print("9 native core checks passed")
+        try tests.testDirectFinishPreservesStateAndIsIdempotent()
+        try tests.testExistingTimelineRecordsAndConcurrentFieldsStayVisible()
+        try tests.testInvalidSharedDataAndWrongTimerOwnerNeverOverwrite()
+        try tests.testLegacyReceiptCannotRestoreDeletedFacts()
+        try tests.testDiscoveryUsesConfiguredStateFileWithoutAChooser()
+        try tests.testFailedStateWriteRollsProjectBack()
+        print("15 native core checks passed")
     }
 }

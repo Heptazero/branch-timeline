@@ -2,7 +2,7 @@
 
 ## Mac App 预览
 
-[原生 Mac 计时 App](mac-app/README.md) 提供菜单栏与置顶悬浮条。首版用于独立计时、暂停、结束备注；完成记录由本插件 0.3.57+ 导入。完整时间线和统计仍在 Obsidian。App 构建与下载说明见上述文档。
+[原生 Mac 计时 App](mac-app/README.md) 提供菜单栏与置顶悬浮条。0.2.0直接共用插件原有的state.json和项目Markdown，无需Obsidian运行；同时使用时须先重载本插件0.3.58+。完整时间线和统计仍在Obsidian。
 
 ## 使用
 

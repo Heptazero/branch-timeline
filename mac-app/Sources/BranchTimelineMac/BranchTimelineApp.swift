@@ -8,13 +8,23 @@ import TimelineCore
         MenuBarExtra {
             MenuContent(model: .shared)
         } label: { MenuLabel(model: .shared) }
-        .menuBarExtraStyle(.window)
+        .menuBarExtraStyle(.menu)
+        .commands {
+            CommandGroup(replacing: .appTermination) {
+                Button("退出 Branch Timeline") { ApplicationLifecycle.requestQuit() }.keyboardShortcut("q")
+            }
+        }
     }
 }
 @MainActor final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     private var sleepObserver: NSObjectProtocol?
     func applicationDidFinishLaunching(_ notification: Notification) {
         if CommandLine.arguments.contains("--render-preview") { PreviewRenderer.run(); return }
+        if CommandLine.arguments.contains("--check-quit") {
+            do { try SharedStateStore.verifyRuntime(); print("Shared runtime resource OK") }
+            catch { fputs("Shared runtime failed: \(error)\n", stderr); exit(1) }
+            ApplicationLifecycle.requestQuit(); return
+        }
         if let id = Bundle.main.bundleIdentifier,
            NSRunningApplication.runningApplications(withBundleIdentifier: id).count > 1 { NSApp.terminate(nil); return }
         AppModel.shared.launch()
@@ -24,11 +34,14 @@ import TimelineCore
         }
     }
     func applicationWillTerminate(_ notification: Notification) {
+        if CommandLine.arguments.contains("--check-quit") { print("Native termination delegate OK"); return }
         AppModel.shared.shutdown()
         if let sleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver) }
     }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { ApplicationLifecycle.shouldTerminate() }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if ApplicationLifecycle.quitting { return false }
         AppWindows.shared.showMain(); return true
     }
 }
@@ -37,6 +50,7 @@ import TimelineCore
     static let shared = AppWindows()
     private var main: NSWindow?
     private var panel: NSPanel?
+    func hideForQuit() { panel?.orderOut(nil); main?.orderOut(nil) }
     func showMain() {
         if main == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 580, height: 640), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)

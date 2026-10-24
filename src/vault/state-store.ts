@@ -5,6 +5,7 @@ import { normalizeTimelineDay } from "../rhythm";
 import { normalizeFixedReminder, normalizeFixedReminderResult } from "../fixed-reminders/model";
 import type { BranchTimelineState, PolicyNode, PolicyPeriod, ProjectTimelineState, RhythmSchedule, TimelineDayState } from "../types";
 import type { UndoAction } from "../undo-manager";
+import { atomicStateWrite, withDesktopStateLock } from "./shared-file-lock";
 
 const EMPTY_STATE: BranchTimelineState = {
   version: 1,
@@ -48,6 +49,7 @@ export class StateStore {
         if (parsed[field] != null && !Array.isArray(parsed[field])) throw new Error(`${field} 格式无效`);
       }
       return {
+        ...parsed,
         version: 1,
         days: parsed.days && typeof parsed.days === "object"
           ? Object.fromEntries(Object.entries(parsed.days).map(([date, day]) => [date, normalizeTimelineDay(day)]))
@@ -79,23 +81,29 @@ export class StateStore {
     let result = structuredClone(EMPTY_STATE);
     const operation = this.queue.then(async () => {
       const path = normalizePath(this.path);
-      result = await this.loadAt(path);
-      const before = structuredClone(result);
-      mutator(result);
-      const written = await this.write(result, path);
-      if (this.recordUndo) {
-        const snapshot = JSON.stringify(before);
-        this.recordUndo(async () => {
-          if (await this.app.vault.adapter.read(path) !== written) {
-            throw new Error("时间线状态已在别处改变，撤回已停止以免覆盖新数据");
-          }
-          await this.write(JSON.parse(snapshot) as BranchTimelineState, path);
-        });
-      }
-      this.onChange?.(before, result);
+      result = await withDesktopStateLock(this.app, path, absolute => this.mutateAt(path, mutator, absolute));
     });
     this.queue = operation.then(() => undefined, () => undefined);
     await operation;
+    return result;
+  }
+
+  private async mutateAt(path: string, mutator: (state: BranchTimelineState) => void, absolute?: string): Promise<BranchTimelineState> {
+    const original = await this.app.vault.adapter.exists(path) ? await this.app.vault.adapter.read(path) : null;
+    const result = await this.loadAt(path);
+    const before = structuredClone(result);
+    mutator(result);
+    const written = await this.write(result, path, original, absolute);
+    if (this.recordUndo) {
+      const snapshot = JSON.stringify(before);
+      this.recordUndo(async () => withDesktopStateLock(this.app, path, async undoPath => {
+        if (await this.app.vault.adapter.read(path) !== written) {
+          throw new Error("时间线状态已在别处改变，撤回已停止以免覆盖新数据");
+        }
+        await this.write(JSON.parse(snapshot) as BranchTimelineState, path, written, undoPath);
+      }));
+    }
+    this.onChange?.(before, result);
     return result;
   }
 
@@ -103,11 +111,16 @@ export class StateStore {
     if (!(await this.app.vault.adapter.exists(normalizePath(this.path)))) await this.write(EMPTY_STATE);
   }
 
-  private async write(state: BranchTimelineState, path = normalizePath(this.path)): Promise<string> {
+  private async write(state: BranchTimelineState, path = normalizePath(this.path), expected?: string | null, absolute?: string): Promise<string> {
     const parent = path.split("/").slice(0, -1).join("/");
     if (parent && !(await this.app.vault.adapter.exists(parent))) await this.mkdirRecursive(parent);
     const content = `${JSON.stringify(state, null, 2)}\n`;
-    await this.app.vault.adapter.write(path, content);
+    if (expected !== undefined) {
+      const current = await this.app.vault.adapter.exists(path) ? await this.app.vault.adapter.read(path) : null;
+      if (current !== expected) throw new Error("时间线状态已在别处改变，请重试，未覆盖新数据");
+    }
+    if (absolute) await atomicStateWrite(absolute, content);
+    else await this.app.vault.adapter.write(path, content);
     return content;
   }
 

@@ -13,6 +13,12 @@ export async function importDesktopSession(session: DesktopSession, io: DesktopI
   const receipt = await io.receipt();
   if (receipt?.id === session.id && ["imported", "too-short"].includes(receipt.status)) return receipt;
   const state = await io.state();
+  const shared = (state as unknown as { desktopReceipts?: Record<string, DesktopReceipt> }).desktopReceipts?.[session.id];
+  if (shared && ["imported", "too-short"].includes(shared.status)) {
+    const result = { id: session.id, status: shared.status };
+    await io.acknowledge(result);
+    return result;
+  }
   const known = new Set(Object.values(state.days).flatMap(day => day.items.map(item => item.id)));
   const entries = desktopEntries(session);
   for (const entry of entries) if (!known.has(entry.item.id)) { await io.commit(entry); known.add(entry.item.id); }

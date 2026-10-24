@@ -71,12 +71,18 @@ struct FloatingTimerView: View {
 struct MenuContent: View {
     @ObservedObject var model: AppModel
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if model.active != nil { TimerReadout(model: model); TimerControls(model: model); Divider() }
+        Group {
+            if let active = model.active {
+                Text(active.projectName)
+                Text(clockLabel(model.elapsed))
+                Button(active.isPaused ? "继续计时" : "暂停计时") { if active.isPaused { model.resume() } else { model.pause() } }
+                Button("结束并记录") { AppWindows.shared.finish() }
+                Divider()
+            }
             Button("打开主窗口") { AppWindows.shared.showMain() }
             Button("显示 / 隐藏悬浮条") { AppWindows.shared.togglePanel() }
             Divider()
-            Button("退出") { NSApp.terminate(nil) }
-        }.buttonStyle(.plain).padding(15).frame(width: 320)
+            Button("退出 Branch Timeline") { ApplicationLifecycle.requestQuit() }.keyboardShortcut("q")
+        }
     }
 }

@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v13)],
     products: [.executable(name: "BranchTimelineMac", targets: ["BranchTimelineMac"])],
     targets: [
-        .target(name: "TimelineCore"),
+        .target(name: "TimelineCore", resources: [.process("Resources")]),
         .executableTarget(name: "BranchTimelineMac", dependencies: ["TimelineCore"]),
         .executableTarget(name: "CoreChecks", dependencies: ["TimelineCore"], path: "Tests/TimelineCoreTests")
     ]

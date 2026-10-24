@@ -89,7 +89,12 @@ class DesktopInbox {
       [item.title, item.note].filter(Boolean).join(" — "), item.id, async () => {
         await this.plugin.store.update(state => {
           if (this.stopped) throw new Error("插件已关闭，已停止导入");
-          if (Object.values(state.days).some(day => day.items.some(existing => existing.id === item.id))) throw new Error("Mac 记录已被并发导入，请重试");
+          const existing = Object.values(state.days).flatMap(day => day.items).find(existing => existing.id === item.id);
+          if (existing) {
+            if (existing.projectPath !== item.projectPath || existing.title !== item.title || existing.startMin !== item.startMin || existing.endMin !== item.endMin
+              || (existing.note || "") !== (item.note || "")) throw new Error("同编号事实内容冲突，未重复导入");
+            return; // Another writer finished the same work; do not roll its project log back.
+          }
           const day = state.days[entry.date] ||= defaultDay(this.plugin.settings.rhythm);
           day.items.push(item);
           (day.distractions ||= []).push(...entry.distractions);

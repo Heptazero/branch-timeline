@@ -67,3 +67,12 @@ test("work-log crash recovery is idempotent and refuses to overwrite edited time
   assert.equal(desktopWorkLog(edited, "2026-10-24", "10:00", 60, "实验", id, "html"), edited);
   assert.throws(() => desktopWorkLog(first, "2026-10-24", "10:00", 120, "实验", id, "html"), /已被修改/);
 });
+
+test("legacy inbox honors receipts written directly to the shared state", async () => {
+  let commits = 0;
+  const state = { days: {}, desktopReceipts: { [id]: { status: "imported" } } } as unknown as BranchTimelineState;
+  const result = await importDesktopSession(session(), {
+    receipt: async () => null, state: async () => state, commit: async () => { commits++; }, acknowledge: async () => {}
+  });
+  assert.equal(result.status, "imported"); assert.equal(commits, 0);
+});

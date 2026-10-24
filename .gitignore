@@ -4,3 +4,4 @@ main.js
 *.map
 mac-app/.build/
 mac-app/dist/
+mac-app/Sources/TimelineCore/Resources/shared-session.js
