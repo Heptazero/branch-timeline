@@ -130,6 +130,8 @@ private func expectThrows<T>(_ action: @autoclosure () throws -> T, line: UInt =
         try tests.testLegacyReceiptCannotRestoreDeletedFacts()
         try tests.testDiscoveryUsesConfiguredStateFileWithoutAChooser()
         try tests.testFailedStateWriteRollsProjectBack()
-        print("15 native core checks passed")
+        tests.testDialSelectionAndCountdown()
+        try tests.testNativeDashboardAndGoalWritesUseOriginalFile()
+        print("17 native core checks passed")
     }
 }

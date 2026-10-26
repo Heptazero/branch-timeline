@@ -10,14 +10,14 @@ public final class SharedStateStore {
     public static func verifyRuntime() throws { try SharedScript().validate("{\"version\":1,\"days\":{}}") }
     public let bridge: VaultBridge
     public let url: URL
-    private let script: SharedScript
+    let script: SharedScript
     public init(bridge: VaultBridge) throws {
         self.bridge = bridge; self.url = try bridge.stateURL()
         guard FileManager.default.fileExists(atPath: url.path) else { throw SharedStateError.missing }
         script = try SharedScript()
         _ = try read()
     }
-    private func read() throws -> (Data, [String: Any]) {
+    func read() throws -> (Data, [String: Any]) {
         guard try bridge.stateURL() == url else { throw SharedStateError.script("插件的数据路径已更改，请重新选择数据文件；旧文件未覆盖。") }
         let data = try Data(contentsOf: url)
         guard let text = String(data: data, encoding: .utf8) else { throw SharedStateError.invalid }
@@ -86,7 +86,7 @@ public final class SharedStateStore {
         active?.pause(at: min(archive.checkpoint, Date()))
         try saveTimer(active, expectedID: nil)
     }
-    private func write(_ state: [String: Any], expected: Data) throws {
+    func write(_ state: [String: Any], expected: Data) throws {
         guard try Data(contentsOf: url) == expected else { throw SharedStateError.conflict }
         let data = try JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         try data.write(to: url, options: .atomic)

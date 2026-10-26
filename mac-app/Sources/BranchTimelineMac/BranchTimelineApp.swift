@@ -53,9 +53,9 @@ import TimelineCore
     func hideForQuit() { panel?.orderOut(nil); main?.orderOut(nil) }
     func showMain() {
         if main == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 580, height: 640), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            window.title = "Branch Timeline"; window.minSize = NSSize(width: 440, height: 460)
-            window.isReleasedWhenClosed = false; window.setFrameAutosaveName("BranchTimelineMain")
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 810), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+            window.title = "Branch Timeline"; window.minSize = NSSize(width: 380, height: 680)
+            window.isReleasedWhenClosed = false; window.setFrameAutosaveName("BranchTimelineMainDial")
             window.contentView = NSHostingView(rootView: MainView(model: .shared)); window.center(); main = window
         }
         NSApp.activate(ignoringOtherApps: true); main?.makeKeyAndOrderFront(nil)
@@ -64,11 +64,11 @@ import TimelineCore
     func togglePanel() {
         if let panel, panel.isVisible { panel.orderOut(nil); return }
         if panel == nil {
-            let window = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 350, height: 140), styleMask: [.titled, .nonactivatingPanel, .fullSizeContentView], backing: .buffered, defer: false)
+            let window = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 580, height: 95), styleMask: [.titled, .nonactivatingPanel, .fullSizeContentView], backing: .buffered, defer: false)
             window.titleVisibility = .hidden; window.titlebarAppearsTransparent = true
             window.isMovableByWindowBackground = true; window.hidesOnDeactivate = false
             window.level = .floating; window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            window.isReleasedWhenClosed = false; window.setFrameAutosaveName("BranchTimelineFloating")
+            window.isReleasedWhenClosed = false; window.setFrameAutosaveName("BranchTimelineFloatingDial")
             window.contentView = NSHostingView(rootView: FloatingTimerView(model: .shared)); window.center(); panel = window
         }
         panel?.orderFrontRegardless()
@@ -82,7 +82,7 @@ struct MenuLabel: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: "timer")
-            if model.active != nil { Text(TimelineCore.clockLabel(model.elapsed)).monospacedDigit() }
+            if model.active != nil { Text(TimelineCore.clockLabel(model.timerSeconds)).monospacedDigit() }
         }
     }
 }

@@ -29,5 +29,5 @@ run("swift", ["-module-cache-path", join(scratch, "modules"), join(root, "script
 run("iconutil", ["-c", "icns", iconset, "-o", join(contents, "Resources", "AppIcon.icns")]);
 run("codesign", ["--force", "--sign", "-", "--timestamp=none", join(dist, "Branch Timeline.app")]);
 run("codesign", ["--verify", "--strict", join(dist, "Branch Timeline.app")]);
-run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", join(dist, "Branch Timeline.app"), join(dist, "BranchTimelineMac-0.2.0.zip")]);
+run("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", join(dist, "Branch Timeline.app"), join(dist, "BranchTimelineMac-0.3.0.zip")]);
 console.log(join(dist, "Branch Timeline.app"));

@@ -16,16 +16,16 @@ final class SharedScript {
         if let error = context.exception { throw SharedStateError.script(error.toString()) }
     }
     func validate(_ text: String) throws {
-        _ = try call("readSharedState", arguments: [text])
+        _ = try invoke("readSharedState", arguments: [text])
     }
     func finish(state: String, session: DesktopSession, settings: [String: Any], project: String, alreadyImported: Bool) throws -> [String: Any] {
         let sessionText = String(decoding: try ArchiveStore.encoder().encode(session), as: UTF8.self)
         let settingsText = String(decoding: try JSONSerialization.data(withJSONObject: settings), as: UTF8.self)
-        let result = try call("finishSharedSession", arguments: [state, sessionText, settingsText, project, alreadyImported])
+        let result = try invoke("finishSharedSession", arguments: [state, sessionText, settingsText, project, alreadyImported])
         guard let text = result.toString(), let value = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any] else { throw SharedStateError.invalid }
         return value
     }
-    private func call(_ name: String, arguments: [Any]) throws -> JSValue {
+    func invoke(_ name: String, arguments: [Any]) throws -> JSValue {
         context.exception = nil
         guard let result = context.objectForKeyedSubscript("BTLShared")?.invokeMethod(name, withArguments: arguments), context.exception == nil else {
             throw SharedStateError.script(context.exception?.toString() ?? "共享数据逻辑执行失败")

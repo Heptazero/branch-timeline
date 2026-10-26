@@ -10,8 +10,15 @@ import TimelineCore
         Task { @MainActor in
             do {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-                try await capture(MainView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 580, height: 620), to: directory.appendingPathComponent("Mac-main.png"))
-                try await capture(FloatingTimerView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 350, height: 140), to: directory.appendingPathComponent("Mac-floating.png"))
+                try await capture(MainView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 540, height: 810), to: directory.appendingPathComponent("Mac-main.png"))
+                try await capture(MainView(model: AppModel(preview: true, runningPreview: false)).environment(\.colorScheme, .light), size: NSSize(width: 540, height: 810), to: directory.appendingPathComponent("Mac-setup.png"))
+                try await capture(MainView(model: model).environment(\.colorScheme, .dark), size: NSSize(width: 380, height: 680), to: directory.appendingPathComponent("Mac-narrow-dark.png"))
+                try await capture(FloatingTimerView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 580, height: 100), to: directory.appendingPathComponent("Mac-floating.png"))
+                for page in [AppPage.projects, .stats, .timeline] {
+                    let fixture = AppModel(preview: true); fixture.page = page
+                    try await capture(MainView(model: fixture).environment(\.colorScheme, .light), size: NSSize(width: 540, height: 810), to: directory.appendingPathComponent("Mac-\(page.icon).png"))
+                }
+                try await capture(SleepChart(dashboard: model.dashboard).padding(24).environment(\.colorScheme, .light), size: NSSize(width: 420, height: 420), to: directory.appendingPathComponent("Mac-sleep.png"))
                 print("Rendered isolated fixture previews")
             } catch { fputs("Preview failed: \(error.localizedDescription)\n", stderr) }
             NSApp.terminate(nil)

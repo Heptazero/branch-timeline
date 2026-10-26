@@ -12,7 +12,12 @@ import TimelineCore
     @Published private(set) var projects: [Project] = []
     @Published var selectedPath: String?
     @Published var title = ""
-    @Published var targetMinutes = 60
+    @Published var targetMinutes = 25
+    @Published var page: AppPage = .timer
+    @Published var focusDate = logicalDate()
+    @Published private(set) var focusRequest = UUID()
+    @Published var scope = "week"
+    @Published private(set) var dashboard: Dashboard?
     @Published var query = ""
     @Published var now = Date()
     @Published var error: String?
@@ -31,15 +36,20 @@ import TimelineCore
     var elapsed: TimeInterval { active?.elapsed(at: now) ?? 0 }
     var remaining: TimeInterval { max(0, Double((active?.targetMinutes ?? 0) * 60) - elapsed) }
     var ratio: Double { guard let active, active.targetMinutes > 0 else { return 0 }; return elapsed / Double(active.targetMinutes * 60) }
+    var timerSeconds: TimeInterval { TimerDial.displaySeconds(target: active?.targetMinutes ?? targetMinutes, elapsed: elapsed) }
 
-    private init(preview: Bool = false) {
+    init(preview: Bool = false, runningPreview: Bool = true) {
         if preview {
-            let project = Project(path: "preview.md", name: "编译器 · 词法分析")
-            projects = [project]; selectedPath = project.path; archive.vaultPath = "/Preview"
-            archive.active = DesktopSession(project: project, title: "完成标识符识别", targetMinutes: 60, now: now.addingTimeInterval(-1472))
+            let project = Project(path: "preview.md", name: "编译器", color: "#3159e2")
+            projects = [project, Project(path: "research.md", name: "科研", color: "#9072c6"), Project(path: "english.md", name: "英语", color: "#54a089")]
+            selectedPath = project.path; archive.vaultPath = "/Preview"; title = "完成标识符识别"
+            if runningPreview { archive.active = DesktopSession(project: project, title: title, targetMinutes: 25, now: now.addingTimeInterval(-428)) }
+            dashboard = PreviewFixture.dashboard()
             return
         }
         if let id = Bundle.main.bundleIdentifier, NSRunningApplication.runningApplications(withBundleIdentifier: id).count > 1 { return }
+        if UserDefaults.standard.object(forKey: "timerTargetMinutes") != nil { targetMinutes = max(0, min(1440, UserDefaults.standard.integer(forKey: "timerTargetMinutes"))) }
+        selectedPath = UserDefaults.standard.string(forKey: "timerProjectPath")
         let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/BranchTimelineMac/archive.json")
         if FileManager.default.fileExists(atPath: url.path) {
             do { legacy = try ArchiveStore(url: url).load() }
@@ -64,6 +74,7 @@ import TimelineCore
         UserDefaults.standard.set(bridge.root.path, forKey: "dataVaultPath")
     }
     func launch() {
+        guard ticker == nil else { return }
         refreshProjects()
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in Task { @MainActor in self?.tick() } }
     }
@@ -92,6 +103,7 @@ import TimelineCore
             case .success(let projects):
                 self.projects = projects
                 if !projects.contains(where: { $0.path == self.selectedPath }) { self.selectedPath = nil }
+                self.refreshDashboard()
             case .failure(let error): self.error = error.localizedDescription
             }
         }
@@ -101,13 +113,18 @@ import TimelineCore
         do {
             let snapshot = try storage.load()
             archive.active = snapshot.active; archive.checkpoint = snapshot.checkpoint; records = snapshot.records
+            if page != .timer { refreshDashboard() }
         } catch { self.error = error.localizedDescription }
     }
     func start() {
         guard canStart, let project = selected, let path = archive.vaultPath else { return }
         var next = archive
         next.active = DesktopSession(project: project, title: title, targetMinutes: min(1440, max(0, targetMinutes)), vaultPath: path)
-        if persist(next) { alertedID = nil; now = Date() }
+        if persist(next) {
+            alertedID = nil; now = Date()
+            UserDefaults.standard.set(targetMinutes, forKey: "timerTargetMinutes")
+            UserDefaults.standard.set(project.path, forKey: "timerProjectPath")
+        }
     }
     @discardableResult func pause() -> Bool {
         guard var session = active, !session.isPaused else { return true }
@@ -137,7 +154,9 @@ import TimelineCore
     }
     private func tick() {
         now = Date()
-        if let session = active, session.targetMinutes > 0, ratio >= 1, alertedID != session.id { NSSound.beep(); alertedID = session.id }
+        if let session = active, !session.isPaused, session.targetMinutes > 0, ratio >= 1, alertedID != session.id {
+            alertedID = session.id; NSSound.beep(); AppWindows.shared.finish()
+        }
         if active != nil && active?.isPaused == false && now.timeIntervalSince(archive.checkpoint) >= 15 { _ = persist(archive) }
         if now.timeIntervalSince(lastRefresh) >= 5 { refreshShared(); lastRefresh = now }
     }
@@ -148,5 +167,30 @@ import TimelineCore
             try storage.saveTimer(value.active, expectedID: archive.active?.id, checkpoint: checkpoint)
             archive = value; archive.checkpoint = checkpoint; return true
         } catch { self.error = error.localizedDescription; return false }
+    }
+    func selectPage(_ next: AppPage) {
+        page = next
+        if next == .timeline { goToday() }
+        else if next != .timer { refreshDashboard() }
+    }
+    func goToday() { focusDate = logicalDate(); focusRequest = UUID(); refreshDashboard() }
+    func shiftDate(_ amount: Int) {
+        let step = page == .stats || (page == .projects && scope == "week") ? 7 : 1
+        focusDate = Calendar.current.date(byAdding: .day, value: step * amount, to: focusDate) ?? focusDate
+        refreshDashboard()
+    }
+    func refreshDashboard() {
+        guard let storage else { return }
+        do { dashboard = try storage.dashboard(date: focusDate, scope: page == .timeline ? "day" : page == .stats ? "week" : scope, projects: projects, now: Date()) }
+        catch { self.error = error.localizedDescription }
+    }
+    func setGoal(_ path: String, hours: Double) {
+        guard let storage, hours.isFinite, hours >= 0, hours <= 168, scope != "total" else { return }
+        do { try storage.setGoal(path: path, date: focusDate, scope: scope, minutes: hours * 60); refreshDashboard(); error = nil }
+        catch { self.error = error.localizedDescription }
+    }
+    func openProject(_ path: String) {
+        guard let storage else { return }
+        do { NSWorkspace.shared.open(try storage.bridge.safeURL(path)) } catch { self.error = error.localizedDescription }
     }
 }
