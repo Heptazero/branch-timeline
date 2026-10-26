@@ -19,8 +19,8 @@ struct ProjectPage: View {
                     Button("今日") { changeScope("day") }; Button("本周") { changeScope("week") }; Button("累计") { changeScope("total") }
                 }.fixedSize()
                 Button { descending.toggle() } label: { Image(systemName: descending ? "arrow.down" : "arrow.up") }.help(descending ? "按时长从多到少" : "按时长从少到多")
-            }.menuStyle(.borderlessButton).buttonStyle(.plain)
-            if model.scope != "total" { HStack { Spacer(); DateNavigation(model: model) } }
+            }.menuStyle(.borderlessButton).buttonStyle(.plain).padding(.horizontal, 30)
+            if model.scope != "total" { HStack { Spacer(); DateNavigation(model: model) }.padding(.horizontal, 30) }
             ScrollView {
                 LazyVStack(spacing: 26) {
                     ForEach(rows) { row in
@@ -28,9 +28,9 @@ struct ProjectPage: View {
                             onOpen: { model.openProject(row.path) }, model: model)
                     }
                     if rows.isEmpty { Text("暂无项目").foregroundStyle(.secondary).padding(.top, 80) }
-                }.padding(.vertical, 6)
+                }.padding(.horizontal, 30).padding(.vertical, 6)
             }
-        }.padding(.horizontal, 30).padding(.top, 12).padding(.bottom, 20)
+        }.padding(.top, 12).padding(.bottom, 20)
 
     }
     private func changeScope(_ value: String) { model.scope = value; model.refreshDashboard() }

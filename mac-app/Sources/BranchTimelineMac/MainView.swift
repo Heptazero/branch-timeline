@@ -9,8 +9,6 @@ struct MainView: View {
             HStack {
                 Button { AppWindows.shared.togglePanel() } label: { Image(systemName: "arrow.down.right.and.arrow.up.left") }.help("显示 / 隐藏悬浮条")
                 Spacer()
-                if model.page != .timer { Text(model.page.rawValue).font(.headline) }
-                Spacer()
                 Button { AppWindows.shared.showSettings() } label: { Image(systemName: "gearshape") }.help("设置")
                 Menu {
                     Button("更换数据文件") { model.chooseDataFile() }.disabled(model.active != nil)
