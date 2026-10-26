@@ -40,13 +40,14 @@ struct BottomNavigation: View {
 
 struct DateNavigation: View {
     @ObservedObject var model: AppModel
+    @State private var showCalendar = false
     var body: some View {
         HStack(spacing: 8) {
             Button { model.shiftDate(-1) } label: { Image(systemName: "chevron.left") }.help("上一个日期范围")
-            Button { model.goToday() } label: {
+            Button { showCalendar.toggle() } label: {
                 Text(model.page == .stats || (model.page == .projects && model.scope == "week") ? weekTitle : model.focusDate.formatted(.dateTime.locale(Locale(identifier: "zh_CN")).month().day()))
                     .monospacedDigit().font(.callout)
-            }.help("回到今天")
+            }.help("选择日期").popover(isPresented: $showCalendar, arrowEdge: .bottom) { CalendarPicker(model: model) }
             Button { model.shiftDate(1) } label: { Image(systemName: "chevron.right") }.help("下一个日期范围")
         }.buttonStyle(.plain)
     }

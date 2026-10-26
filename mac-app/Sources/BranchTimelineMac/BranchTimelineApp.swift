@@ -10,6 +10,7 @@ import TimelineCore
         } label: { MenuLabel(model: .shared) }
         .menuBarExtraStyle(.menu)
         .commands {
+            CommandGroup(replacing: .appSettings) { Button("设置…") { AppWindows.shared.showSettings() }.keyboardShortcut(",") }
             CommandGroup(replacing: .appTermination) {
                 Button("退出 Branch Timeline") { ApplicationLifecycle.requestQuit() }.keyboardShortcut("q")
             }
@@ -20,6 +21,7 @@ import TimelineCore
     private var sleepObserver: NSObjectProtocol?
     func applicationDidFinishLaunching(_ notification: Notification) {
         if CommandLine.arguments.contains("--render-preview") { PreviewRenderer.run(); return }
+        if CommandLine.arguments.contains("--check-interface") { InterfaceChecks.run(); NSApp.terminate(nil); return }
         if CommandLine.arguments.contains("--check-quit") {
             do { try SharedStateStore.verifyRuntime(); print("Shared runtime resource OK") }
             catch { fputs("Shared runtime failed: \(error)\n", stderr); exit(1) }
@@ -50,7 +52,16 @@ import TimelineCore
     static let shared = AppWindows()
     private var main: NSWindow?
     private var panel: NSPanel?
-    func hideForQuit() { panel?.orderOut(nil); main?.orderOut(nil) }
+    private var settings: NSWindow?
+    func hideForQuit() { panel?.orderOut(nil); main?.orderOut(nil); settings?.orderOut(nil) }
+    func showSettings() {
+        if settings == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 610), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+            window.title = "设置"; window.minSize = NSSize(width: 480, height: 540); window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(rootView: DataSettingsView(model: .shared)); window.center(); settings = window
+        }
+        AppModel.shared.refreshConnection(); NSApp.activate(ignoringOtherApps: true); settings?.makeKeyAndOrderFront(nil)
+    }
     func showMain() {
         if main == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 810), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
@@ -62,16 +73,23 @@ import TimelineCore
     }
     func finish() { showMain(); AppModel.shared.beginFinish() }
     func togglePanel() {
+        if let panel, panel.isMiniaturized { panel.deminiaturize(nil); return }
         if let panel, panel.isVisible { panel.orderOut(nil); return }
         if panel == nil {
-            let window = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 580, height: 95), styleMask: [.titled, .nonactivatingPanel, .fullSizeContentView], backing: .buffered, defer: false)
-            window.titleVisibility = .hidden; window.titlebarAppearsTransparent = true
-            window.isMovableByWindowBackground = true; window.hidesOnDeactivate = false
-            window.level = .floating; window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            window.isReleasedWhenClosed = false; window.setFrameAutosaveName("BranchTimelineFloatingDial")
-            window.contentView = NSHostingView(rootView: FloatingTimerView(model: .shared)); window.center(); panel = window
+            let window = Self.floatingWindow(model: .shared, remember: true); window.center(); panel = window
         }
         panel?.orderFrontRegardless()
+    }
+    static func floatingWindow(model: AppModel, remember: Bool) -> NSPanel {
+        let window = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 580, height: 100), styleMask: [.titled, .closable, .miniaturizable, .resizable, .nonactivatingPanel], backing: .buffered, defer: false)
+        window.title = "计时"; window.minSize = NSSize(width: 500, height: 120)
+        window.titleVisibility = .hidden; window.titlebarAppearsTransparent = true
+        window.isMovableByWindowBackground = true; window.hidesOnDeactivate = false
+        window.level = .floating; window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.isReleasedWhenClosed = false
+        if remember { window.setFrameAutosaveName("BranchTimelineFloatingStandard") }
+        window.contentView = NSHostingView(rootView: FloatingTimerView(model: model))
+        return window
     }
 }
 

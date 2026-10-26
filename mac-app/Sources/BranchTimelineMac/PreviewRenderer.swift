@@ -19,6 +19,15 @@ import TimelineCore
                     try await capture(MainView(model: fixture).environment(\.colorScheme, .light), size: NSSize(width: 540, height: 810), to: directory.appendingPathComponent("Mac-\(page.icon).png"))
                 }
                 try await capture(SleepChart(dashboard: model.dashboard).padding(24).environment(\.colorScheme, .light), size: NSSize(width: 420, height: 420), to: directory.appendingPathComponent("Mac-sleep.png"))
+                try await capture(DataSettingsView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 560, height: 610), to: directory.appendingPathComponent("Mac-settings.png"))
+                try await capture(CalendarPicker(model: model).environment(\.colorScheme, .light), size: NSSize(width: 310, height: 340), to: directory.appendingPathComponent("Mac-calendar-picker.png"))
+                let floating = AppWindows.floatingWindow(model: model, remember: false)
+                floating.displayIfNeeded()
+                if let frame = floating.contentView?.superview, let bitmap = frame.bitmapImageRepForCachingDisplay(in: frame.bounds) {
+                    frame.cacheDisplay(in: frame.bounds, to: bitmap)
+                    if let data = bitmap.representation(using: .png, properties: [:]) { try data.write(to: directory.appendingPathComponent("Mac-window-controls.png")) }
+                }
+                floating.close()
                 print("Rendered isolated fixture previews")
             } catch { fputs("Preview failed: \(error.localizedDescription)\n", stderr) }
             NSApp.terminate(nil)

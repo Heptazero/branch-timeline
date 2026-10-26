@@ -1,0 +1,27 @@
+import AppKit
+import SwiftUI
+import TimelineCore
+
+/// Isolated, offscreen AppKit contracts; never drive the user's windows.
+@MainActor enum InterfaceChecks {
+    static func run() {
+        let model = AppModel(preview: true)
+        let panel = AppWindows.floatingWindow(model: model, remember: false)
+        for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            precondition(panel.standardWindowButton(kind) != nil, "Missing standard window control")
+        }
+        precondition(panel.styleMask.contains(.closable) && panel.styleMask.contains(.miniaturizable) && panel.styleMask.contains(.resizable))
+        precondition(!panel.styleMask.contains(.fullSizeContentView))
+        let scroll = TimelineScrollView(frame: NSRect(x: 0, y: 0, width: 500, height: 500))
+        let document = TimelineDocument(items: model.dashboard?.items ?? [], projects: model.projects, branches: [], scale: 0.65, now: nil, onOpen: { _ in })
+        let host = NSHostingView(rootView: document); scroll.documentView = host
+        let coordinator = TimelineViewport.Coordinator(); coordinator.height = document.height; coordinator.needsFocus = false
+        coordinator.layout(scroll)
+        let original = host.frame.height
+        coordinator.height = 1440 * 0.08 + 60; coordinator.layout(scroll)
+        precondition(host.frame.height < original, "Timeline document did not shrink")
+        precondition(host.isFlipped, "Timeline document must use top-origin coordinates")
+        panel.close()
+        print("Native window controls and timeline shrinking contracts OK")
+    }
+}

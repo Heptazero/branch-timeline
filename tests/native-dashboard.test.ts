@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { nativeDashboard, nativeSetGoal } from "../src/desktop/dashboard";
+import { nativeDashboard, nativeSetGoal, nativeCalendar } from "../src/desktop/dashboard";
 import { DEFAULT_RHYTHM } from "../src/rhythm";
 const catalog = JSON.stringify([{ path: "p.md", name: "项目", color: "#3159e2", status: "active" }]);
 const day = (extra = {}) => ({ ...DEFAULT_RHYTHM, branches: [], items: [], ...extra });
@@ -48,4 +48,21 @@ test("native sleep summary requires paired real markers and keeps incomplete day
   const value = report(state);
   assert.equal(value.sleep[0].value, "01:00"); assert.equal(value.sleep[1].value, "08:00"); assert.equal(value.sleep[2].value, "7h");
   assert.equal(value.days.filter((d: { bed: number | null }) => d.bed !== null).length, 1);
+});
+
+
+test("native calendar is a Monday-first 42-day heatmap and only counts recorded exposure", () => {
+  const state = { version: 1, days: { "2024-02-29": day({ items: [
+    { id: "a", kind: "fact", title: "工作", startMin: 540, endMin: 660 },
+    { id: "overlap", kind: "fact", title: "并行", startMin: 600, endMin: 660 },
+    { id: "todo", kind: "todo", title: "计划", plannedMin: 700 }
+  ] }) }, personal: "keep" };
+  const text = JSON.stringify(state), values = JSON.parse(nativeCalendar(text, "2024-02-21", "2024-03-01T10:00:00+08:00"));
+  assert.equal(values.length, 42); assert.equal(values[0].date, "2024-01-29");
+  assert.equal(values.find((value: {date: string}) => value.date === "2024-02-29").minutes, 120);
+  assert.equal(values.filter((value: {minutes: number}) => value.minutes > 0).length, 1);
+  assert.equal(JSON.stringify(state), text);
+});
+test("native calendar refuses malformed dates instead of choosing another month", () => {
+  assert.throws(() => nativeCalendar('{"version":1,"days":{}}', "2026-02-30", now));
 });

@@ -83,7 +83,7 @@ struct FloatingTimerView: View {
                 }
             }.padding(.horizontal, 20).padding(.vertical, 20)
             if model.error != nil { Button("查看保存提示") { AppWindows.shared.showMain() }.font(.caption).foregroundStyle(.red).padding(.bottom, 8) }
-        }.frame(width: 580).background(AppPalette.surface)
+        }.frame(minWidth: 480, maxWidth: .infinity).background(AppPalette.surface)
     }
 }
 
@@ -100,6 +100,7 @@ struct MenuContent: View {
             }
             Button("打开主窗口") { AppWindows.shared.showMain() }
             Button("显示 / 隐藏悬浮条") { AppWindows.shared.togglePanel() }
+            Button("设置…") { AppWindows.shared.showSettings() }.keyboardShortcut(",")
             Divider()
             Button("退出 Branch Timeline") { ApplicationLifecycle.requestQuit() }.keyboardShortcut("q")
         }

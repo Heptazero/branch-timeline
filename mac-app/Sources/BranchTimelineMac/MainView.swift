@@ -11,6 +11,7 @@ struct MainView: View {
                 Spacer()
                 if model.page != .timer { Text(model.page.rawValue).font(.headline) }
                 Spacer()
+                Button { AppWindows.shared.showSettings() } label: { Image(systemName: "gearshape") }.help("设置")
                 Menu {
                     Button("更换数据文件") { model.chooseDataFile() }.disabled(model.active != nil)
                     Button("刷新项目和记录") { model.refreshProjects(); model.refreshShared() }

@@ -38,7 +38,7 @@ struct StatisticsPage: View {
                         ForEach(rows) { row in
                             if mode == "项目" {
                                 ProjectProgressRow(row: row, expected: model.dashboard?.expected ?? 0, showGoal: false, maximum: rows.map(\.actual).max() ?? 1,
-                                    onOpen: { model.openProject(row.path) }, onGoal: {})
+                                    onOpen: { model.openProject(row.path) })
                             } else { interruptionRow(row) }
                         }
                         if rows.isEmpty { Text("本周暂无记录").foregroundStyle(.secondary).padding(.top, 30) }

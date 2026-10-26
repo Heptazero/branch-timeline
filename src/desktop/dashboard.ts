@@ -9,6 +9,7 @@ import { scopeExpectedFraction, setProjectGoal } from "../pages/project-goals";
 import { focusSample, interruptionInterval } from "../pages/focus-comparison";
 import { startOfWeek } from "../pages/navigation";
 import { sleepSpan } from "../pages/time-map";
+import { recordedMinutes } from "../pages/focus-stats";
 import { sleepWeekMetrics } from "../pages/sleep-summary-model";
 
 /** Read-only projection: reuse the plugin's time, goal and sleep semantics. */
@@ -71,4 +72,19 @@ function includeActive(state: BranchTimelineState, now: Date): void {
     (day.distractions ||= []).push(...entry.distractions);
     (day.goodStates ||= []).push(...entry.goodStates);
   }
+}
+
+/** Compact heatmap projection: no data writes, including the active timer only once. */
+export function nativeCalendar(text: string, monthKey: string, nowText: string): string {
+  const state = readSharedState(text) as unknown as BranchTimelineState;
+  const month = parseDate(monthKey), now = new Date(nowText);
+  if (!Number.isFinite(now.getTime())) throw new Error("日期无效");
+  includeActive(state, now);
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const offset = ((first.getDay() || 7) - 1), today = dateKey(logicalToday(now));
+  const minute = now.getHours() * 60 + now.getMinutes() + (now.getHours() < 2 ? 1440 : 0);
+  return JSON.stringify(Array.from({ length: 42 }, (_, i) => {
+    const date = new Date(first.getFullYear(), first.getMonth(), 1 - offset + i), key = dateKey(date);
+    return { date: key, minutes: state.days[key] ? recordedMinutes(state.days[key], key === today ? minute : undefined) : 0 };
+  }));
 }

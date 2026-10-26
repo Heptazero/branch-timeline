@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 import TimelineCore
 
 @MainActor final class AppModel: ObservableObject {
-    static var diagnostic: Bool { CommandLine.arguments.contains("--render-preview") || CommandLine.arguments.contains("--check-quit") }
+    static var diagnostic: Bool { ["--render-preview", "--check-quit", "--check-interface"].contains(where: CommandLine.arguments.contains) }
     static let shared = AppModel(preview: diagnostic)
     // View state only. The authoritative timer and records live in the original state.json.
     @Published private(set) var archive = AppArchive()
@@ -18,6 +18,7 @@ import TimelineCore
     @Published private(set) var focusRequest = UUID()
     @Published var scope = "week"
     @Published private(set) var dashboard: Dashboard?
+    @Published private(set) var connection: ConnectionInfo?
     @Published var query = ""
     @Published var now = Date()
     @Published var error: String?
@@ -29,10 +30,11 @@ import TimelineCore
     private var alertedID: String?
     private var scan: Task<Void, Never>?
     private var lastRefresh = Date.distantPast
+    private var catalogSignature = ""
     var active: DesktopSession? { archive.active }
     var selected: Project? { projects.first { $0.path == selectedPath } }
-    var canStart: Bool { storage != nil && selected != nil && active == nil && !loading }
-    var filtered: [Project] { projects.filter { matchesProject(query, project: $0) } }
+    var canStart: Bool { storage != nil && selected?.isActive == true && active == nil && !loading }
+    var filtered: [Project] { projects.filter { $0.isActive && matchesProject(query, project: $0) } }
     var elapsed: TimeInterval { active?.elapsed(at: now) ?? 0 }
     var remaining: TimeInterval { max(0, Double((active?.targetMinutes ?? 0) * 60) - elapsed) }
     var ratio: Double { guard let active, active.targetMinutes > 0 else { return 0 }; return elapsed / Double(active.targetMinutes * 60) }
@@ -45,6 +47,7 @@ import TimelineCore
             selectedPath = project.path; archive.vaultPath = "/Preview"; title = "完成标识符识别"
             if runningPreview { archive.active = DesktopSession(project: project, title: title, targetMinutes: 25, now: now.addingTimeInterval(-428)) }
             dashboard = PreviewFixture.dashboard()
+            connection = ConnectionInfo(vaultPath: "/示例库", appPath: "/示例库/时间线/state.json", configuredPath: "/示例库/时间线/state.json", pluginVersion: "0.3.60", projectTypes: "project", comments: "HTML 注释", sameFile: true, compatiblePlugin: true, catalogMatches: true)
             return
         }
         if let id = Bundle.main.bundleIdentifier, NSRunningApplication.runningApplications(withBundleIdentifier: id).count > 1 { return }
@@ -96,14 +99,20 @@ import TimelineCore
         guard let path = archive.vaultPath else { projects = []; return }
         loading = true
         scan = Task { [weak self] in
-            let result = await Task.detached(priority: .userInitiated) { Result { try VaultBridge(root: URL(fileURLWithPath: path)).projects() } }.value
+            let result = await Task.detached(priority: .userInitiated) { Result {
+                let bridge = VaultBridge(root: URL(fileURLWithPath: path))
+                let signature = bridge.catalogSignature(), projects = try bridge.projects()
+                guard signature == bridge.catalogSignature() else { throw SharedStateError.script("项目配置已变化，请重新刷新。") }
+                return (projects, signature)
+            } }.value
             guard !Task.isCancelled, let self, self.archive.vaultPath == path else { return }
             self.loading = false
             switch result {
-            case .success(let projects):
-                self.projects = projects
-                if !projects.contains(where: { $0.path == self.selectedPath }) { self.selectedPath = nil }
+            case .success(let catalog):
+                self.projects = catalog.0; self.catalogSignature = catalog.1
+                if !self.projects.contains(where: { $0.path == self.selectedPath && $0.isActive }) { self.selectedPath = nil }
                 self.refreshDashboard()
+                self.refreshConnection()
             case .failure(let error): self.error = error.localizedDescription
             }
         }
@@ -184,13 +193,31 @@ import TimelineCore
         do { dashboard = try storage.dashboard(date: focusDate, scope: page == .timeline ? "day" : page == .stats ? "week" : scope, projects: projects, now: Date()) }
         catch { self.error = error.localizedDescription }
     }
-    func setGoal(_ path: String, hours: Double) {
-        guard let storage, hours.isFinite, hours >= 0, hours <= 168, scope != "total" else { return }
-        do { try storage.setGoal(path: path, date: focusDate, scope: scope, minutes: hours * 60); refreshDashboard(); error = nil }
-        catch { self.error = error.localizedDescription }
+    @discardableResult func setGoal(_ path: String, hours: Double, date: Date, scope: String) -> Bool {
+        guard let storage, hours.isFinite, hours >= 0, hours <= 168, ["day", "week"].contains(scope) else { error = "目标时长无效"; return false }
+        do { try storage.setGoal(path: path, date: date, scope: scope, minutes: hours * 60); refreshDashboard(); error = nil; return true }
+        catch { self.error = error.localizedDescription; return false }
     }
     func openProject(_ path: String) {
         guard let storage else { return }
-        do { NSWorkspace.shared.open(try storage.bridge.safeURL(path)) } catch { self.error = error.localizedDescription }
+        do {
+            let file = try storage.bridge.safeURL(path)
+            guard let application = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "md.obsidian") else { error = "未找到 Obsidian，请先安装。"; return }
+            let configuration = NSWorkspace.OpenConfiguration(); configuration.activates = true
+            NSWorkspace.shared.open([file], withApplicationAt: application, configuration: configuration) { [weak self] _, error in
+                if let error { Task { @MainActor in self?.error = error.localizedDescription } }
+            }
+        } catch { self.error = error.localizedDescription }
     }
+    func selectDate(_ date: Date) { focusDate = Calendar.current.startOfDay(for: date); refreshDashboard() }
+    func calendar(_ month: Date) -> [CalendarActivity] {
+        guard let storage else { return Self.diagnostic ? (dashboard?.days ?? []).map { CalendarActivity(date: $0.date, minutes: $0.minutes) } : [] }
+        do { return try storage.calendar(month: month) } catch { self.error = error.localizedDescription; return [] }
+    }
+    func refreshConnection() {
+        guard let storage else { return }
+        do { connection = try storage.connectionInfo(catalogSignature: catalogSignature) }
+        catch { connection = nil; self.error = error.localizedDescription }
+    }
+    func revealDataFile() { if let storage { NSWorkspace.shared.activateFileViewerSelecting([storage.url]) } }
 }
