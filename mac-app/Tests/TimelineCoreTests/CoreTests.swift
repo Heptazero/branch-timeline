@@ -137,6 +137,9 @@ private func expectThrows<T>(_ action: @autoclosure () throws -> T, line: UInt =
         tests.testZoomActuallyShrinksDurationsAndPreservesTheCenter()
         tests.testCalendarHandlesLeapDaysAndWeeksAcrossYears()
         try tests.testConnectionStatusDetectsChangedPathsAndCatalogSettings()
-        print("22 native core checks passed")
+        tests.testBlockCoordinatesAndEdges()
+        try tests.testBlockCreateAndResizeUseSharedFiles()
+        try tests.testBlockFailedStateWriteRollsBackProject()
+        print("25 native core checks passed")
     }
 }

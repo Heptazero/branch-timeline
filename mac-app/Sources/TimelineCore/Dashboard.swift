@@ -19,6 +19,8 @@ public struct ProjectSummary: Decodable, Identifiable {
 public struct DashboardItem: Decodable, Identifiable {
     public let id, title, kind, note, projectPath, branchId: String
     public let start, end: Double
+    public let editable: Bool?
+    public let revision: String?
 }
 public struct DashboardBranch: Decodable, Identifiable { public let id, name: String }
 public struct DashboardDay: Decodable, Identifiable {

@@ -16,8 +16,8 @@ enum PreviewFixture {
         ]
         let value: [String: Any] = ["date": dayKey(date), "weekStart": days[0]["date"]!, "weekEnd": days[6]["date"]!, "totalMinutes": 360, "expected": 0.5,
             "projects": projects, "items": [
-                ["id": "1", "title": "完成标识符识别", "kind": "fact", "note": "下次从关键字优先级继续。", "projectPath": "preview.md", "branchId": "", "start": 540, "end": 630],
-                ["id": "2", "title": "整理实验结果", "kind": "fact", "note": "补全对照组。", "projectPath": "research.md", "branchId": "", "start": 660, "end": 720]
+                ["id": "1", "title": "完成标识符识别", "kind": "fact", "editable": true, "note": "下次从关键字优先级继续。", "projectPath": "preview.md", "branchId": "", "start": 540, "end": 630],
+                ["id": "2", "title": "整理实验结果", "kind": "fact", "editable": true, "note": "补全对照组。", "projectPath": "research.md", "branchId": "", "start": 660, "end": 720]
             ], "branches": [], "days": days, "sleep": [
                 ["label": "平均入睡", "value": "00:20", "change": ["text": "−18m", "tone": "is-good"]],
                 ["label": "平均起床", "value": "07:45", "change": ["text": "+5m", "tone": "is-neutral"]],

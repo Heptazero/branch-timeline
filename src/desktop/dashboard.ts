@@ -31,7 +31,9 @@ export function nativeDashboard(stateText: string, catalogText: string, selected
     return { ...project, actual: summary.actual, planned: summary.planned, distractions: sample.distractions, interval: interruptionInterval(sample) };
   });
   const day = state.days[selected];
+  const activeId = (state as unknown as { macTimer?: { active?: { id: string } } }).macTimer?.active?.id;
   const items = (day?.items || []).map(item => ({ id: item.id, title: item.title, kind: item.kind, note: item.note || "",
+    editable: item.kind === "fact" && !item.factTiming && !item.id.startsWith(`desktop-${activeId}-`), revision: JSON.stringify(item),
     projectPath: item.projectPath || "", branchId: item.branchId || "", start: itemStart(item, day.wake), end: itemEnd(item, day.wake, selected === today ? minute : undefined) }));
   const days = dates.map(date => {
     const key = dateKey(date), sample = focusSample(state.days, value => value === key, today, minute), sleep = sleepSpan(date, state);

@@ -21,6 +21,11 @@ import TimelineCore
                 try await capture(SleepChart(dashboard: model.dashboard).padding(24).environment(\.colorScheme, .light), size: NSSize(width: 420, height: 420), to: directory.appendingPathComponent("Mac-sleep.png"))
                 try await capture(DataSettingsView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 560, height: 610), to: directory.appendingPathComponent("Mac-settings.png"))
                 try await capture(CalendarPicker(model: model).environment(\.colorScheme, .light), size: NSSize(width: 310, height: 340), to: directory.appendingPathComponent("Mac-calendar-picker.png"))
+                var block = BlockEdit(date: dayKey(logicalDate()), start: 600, end: 630)
+                block.title = "整理实验结果"; block.projectPath = "preview.md"
+                try await capture(BlockEditor(model: model, edit: block).environment(\.colorScheme, .light), size: NSSize(width: 390, height: 360), to: directory.appendingPathComponent("Mac-add-block.png"))
+                let timeline = TimelineDocument(items: model.dashboard?.items ?? [], projects: model.projects, branches: [], scale: 2, now: nil, onOpen: { _ in })
+                try await capture(timeline.environment(\.colorScheme, .light), size: NSSize(width: 380, height: timeline.height), to: directory.appendingPathComponent("Mac-block-handles.png"))
                 let floating = AppWindows.floatingWindow(model: model, remember: false)
                 floating.displayIfNeeded()
                 if let frame = floating.contentView?.superview, let bitmap = frame.bitmapImageRepForCachingDisplay(in: frame.bounds) {

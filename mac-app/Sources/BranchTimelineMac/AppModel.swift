@@ -24,7 +24,7 @@ import TimelineCore
     @Published var error: String?
     @Published var loading = false
     @Published var finishRequested = false
-    private var storage: SharedStateStore?
+    private(set) var storage: SharedStateStore?
     private var legacy: AppArchive?
     private var ticker: Timer?
     private var alertedID: String?
