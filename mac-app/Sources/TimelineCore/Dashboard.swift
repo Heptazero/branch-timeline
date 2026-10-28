@@ -21,6 +21,7 @@ public struct DashboardItem: Decodable, Identifiable {
     public let start, end: Double
     public let editable: Bool?
     public let revision: String?
+    public let plan: Bool?
 }
 public struct DashboardBranch: Decodable, Identifiable { public let id, name: String }
 public struct DashboardDay: Decodable, Identifiable {
@@ -29,6 +30,13 @@ public struct DashboardDay: Decodable, Identifiable {
     public let minutes: Double
     public let distractions: Int
     public let bed, wake: Double?
+    public let projects: [DayProject]?
+    public let items: [DashboardItem]?
+}
+public struct DayProject: Decodable, Identifiable {
+    public var id: String { path }
+    public let path, name, color: String
+    public let minutes: Double
 }
 public struct SleepMetric: Decodable {
     public let label, value: String

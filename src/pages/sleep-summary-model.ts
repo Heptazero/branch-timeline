@@ -5,8 +5,8 @@ import { sleepSpan, type SleepSpan } from "./time-map";
 type Change = { text: string; tone: "is-good" | "is-bad" | "is-neutral" };
 export type SleepMetric = { label: string; value: string; change: Change | null };
 
-export function sleepWeekMetrics(dates: readonly Date[], state: BranchTimelineState): SleepMetric[] {
-  const previous = dates.map(date => new Date(date.getFullYear(), date.getMonth(), date.getDate() - 7));
+export function sleepWeekMetrics(dates: readonly Date[], state: BranchTimelineState, previousDates?: readonly Date[]): SleepMetric[] {
+  const previous = previousDates ?? dates.map(date => new Date(date.getFullYear(), date.getMonth(), date.getDate() - 7));
   const spans = (range: readonly Date[]) => range.map(date => sleepSpan(date, state)).filter((span): span is SleepSpan => !!span);
   const current = spans(dates);
   const lastWeek = spans(previous);

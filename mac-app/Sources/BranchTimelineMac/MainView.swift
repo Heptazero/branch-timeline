@@ -4,11 +4,17 @@ import TimelineCore
 
 struct MainView: View {
     @ObservedObject var model: AppModel
+    @AppStorage("timelineShowPlans") private var showPlans = true
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Button { AppWindows.shared.togglePanel() } label: { Image(systemName: "arrow.down.right.and.arrow.up.left") }.help("显示 / 隐藏悬浮条")
                 Spacer()
+                if model.page == .timeline && model.scope != "month" {
+                    Button { showPlans.toggle() } label: { Image(systemName: "rectangle.split.2x1") }
+                        .foregroundStyle(showPlans ? AppPalette.blue : .secondary)
+                        .help(showPlans ? "隐藏计划" : "显示计划").accessibilityLabel(showPlans ? "隐藏计划" : "显示计划")
+                }
                 Button { AppWindows.shared.showSettings() } label: { Image(systemName: "gearshape") }.help("设置")
                 Menu {
                     Button("更换数据文件") { model.chooseDataFile() }.disabled(model.active != nil)
@@ -16,7 +22,9 @@ struct MainView: View {
                     Divider()
                     Button("退出") { ApplicationLifecycle.requestQuit() }
                 } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("设置与更多操作")
-            }.buttonStyle(.plain).font(.system(size: 16)).padding(.horizontal, 24).padding(.vertical, 10)
+            }.buttonStyle(.plain).font(.system(size: 15)).frame(height: model.page == .timer ? 28 : 64)
+                .overlay { if model.page != .timer { GlobalDateBar(model: model) } }
+                .padding(.horizontal, 20).padding(.vertical, 10)
             if let error = model.error {
                 HStack(alignment: .top) {
                     Image(systemName: "exclamationmark.triangle")

@@ -7,9 +7,11 @@ extension AppModel {
         do { try storage.editBlock(edit); refreshShared(); refreshDashboard(); error = nil; return true }
         catch { self.error = error.localizedDescription; return false }
     }
-    func resizeBlock(_ item: DashboardItem, date: String, start: Int, end: Int) {
+    func resizeBlock(_ item: DashboardItem, date: String, start: Int, end: Int, move: Bool = false) {
         guard item.editable == true, let revision = item.revision else { return }
-        _ = saveBlock(BlockEdit(date: date, start: start, end: end, id: item.id, expected: revision))
+        var edit = BlockEdit(date: date, start: start, end: end, id: item.id, expected: revision)
+        edit.move = move
+        _ = saveBlock(edit)
     }
 }
 
@@ -30,7 +32,7 @@ struct BlockEditor: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack { Text("添加时间块").font(.headline); Spacer(); Text(edit.date).font(.caption).foregroundStyle(.secondary) }
+            HStack { Text(edit.kind == "todo" ? "添加计划" : "添加时间块").font(.headline); Spacer(); Text(edit.date).font(.caption).foregroundStyle(.secondary) }
             TextField("标题", text: $edit.title).textFieldStyle(.roundedBorder).focused($titleFocused)
             HStack {
                 timeControl("开始", minute: $edit.start)

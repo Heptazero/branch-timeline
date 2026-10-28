@@ -25,7 +25,7 @@ export interface ProjectsPageOptions {
   onReorder: (paths: string[]) => void;
 }
 
-const SCOPE_LABELS = { day: "今日", week: "本周", total: "总计" };
+const SCOPE_LABELS = { day: "今日", week: "本周", month: "本月", total: "总计" };
 
 export function renderProjectsPage(options: ProjectsPageOptions): { destroy: () => void; update: () => void } {
   const root = options.container.createDiv({ cls: "btl-project-overview" });

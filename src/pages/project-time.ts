@@ -4,7 +4,7 @@ import { dateKey, logicalToday } from "../vault/format";
 import { startOfWeek } from "./navigation";
 import { projectGoalOn } from "./project-goals";
 
-export type ProjectTimeScope = "day" | "week" | "total";
+export type ProjectTimeScope = "day" | "week" | "month" | "total";
 
 export interface ProjectDayTime {
   date: string;
@@ -46,7 +46,7 @@ export function projectTimeSummary(
       total + projectMinutesOn(state, path, date, date === today ? nowMinute : undefined), 0);
     return { actual, planned: 0, days: [] };
   }
-  const dates = scope === "day" ? [focusDate] : weekDates(focusDate);
+  const dates = projectRangeDates(focusDate, scope);
   const today = dateKey(logicalToday());
   const days = dates.map(date => {
     const key = dateKey(date);
@@ -63,7 +63,9 @@ export function projectTimeSummary(
   };
 }
 
-function weekDates(date: Date): Date[] {
+export function projectRangeDates(date: Date, scope: ProjectTimeScope): Date[] {
+  if (scope === "day") return [date];
+  if (scope === "month") return Array.from({ length: new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate() }, (_, i) => new Date(date.getFullYear(), date.getMonth(), i + 1));
   const start = startOfWeek(date);
   return Array.from({ length: 7 }, (_, index) =>
     new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));

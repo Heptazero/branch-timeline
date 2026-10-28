@@ -4,9 +4,9 @@ public extension Project {
     var isActive: Bool { ["active", "doing", "进行中"].contains(status.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) }
 }
 public enum GoalInput {
-    public static func hours(_ text: String) -> Double? {
+    public static func hours(_ text: String, maximum: Double = 168) -> Double? {
         let value = text.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: ",", with: ".")
-        guard !value.isEmpty, let number = Double(value), number.isFinite, number >= 0, number <= 168 else { return nil }
+        guard !value.isEmpty, let number = Double(value), number.isFinite, number >= 0, number <= maximum else { return nil }
         return number
     }
 }
@@ -20,10 +20,11 @@ public enum TimelineZoom {
     }
 }
 public enum CalendarGrid {
-    public static func dates(in month: Date, calendar: Calendar = .current) -> [Date] {
+    public static func dates(in month: Date, calendar: Calendar = .current, fixedWeeks: Bool = true) -> [Date] {
         let start = calendar.date(from: calendar.dateComponents([.year, .month], from: month))!
         let offset = (calendar.component(.weekday, from: start) + 5) % 7
-        return (0..<42).compactMap { calendar.date(byAdding: .day, value: $0 - offset, to: start) }
+        let count = fixedWeeks ? 42 : ((offset + (calendar.range(of: .day, in: .month, for: start)?.count ?? 30) + 6) / 7) * 7
+        return (0..<count).compactMap { calendar.date(byAdding: .day, value: $0 - offset, to: start) }
     }
     public static func sameWeek(_ a: Date, _ b: Date, calendar: Calendar = .current) -> Bool {
         func monday(_ date: Date) -> Date {
@@ -58,7 +59,7 @@ extension SharedStateStore {
         let raw = (try? Data(contentsOf: manifest)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
         let version = raw?["version"] as? String ?? "未知"
         let parts = version.split(separator: ".").compactMap { Int($0) }
-        let compatible = parts.count >= 3 && (parts[0] > 0 || parts[1] > 3 || (parts[1] == 3 && parts[2] >= 58))
+        let compatible = parts.count >= 3 && (parts[0] > 0 || parts[1] > 3 || (parts[1] == 3 && parts[2] >= 63))
         let types = settings["projectTypes"] as? [[String: String]] ?? [["type": "project"]]
         return ConnectionInfo(vaultPath: bridge.root.path, appPath: url.path, configuredPath: configured.path, pluginVersion: version,
             projectTypes: types.compactMap { $0["type"] }.joined(separator: "、"), comments: settings["pluginCommentStyle"] as? String == "obsidian" ? "%% Obsidian 注释 %%" : "HTML 注释",

@@ -131,6 +131,8 @@ export interface TimelineItem {
   title: string;
   kind: "todo" | "fact";
   plannedMin?: number;
+  /** 预计时间块的结束时刻；不属于实际工时。 */
+  plannedEndMin?: number;
   startedMin?: number;
   startMin?: number;
   endMin?: number;
@@ -290,6 +292,7 @@ export interface ProjectTimelineState {
   dailyGoalChanges?: Record<string, number>;
   /** 以周一日期为键，从该周起沿用；不回写旧周。 */
   weeklyGoalChanges?: Record<string, number>;
+  monthlyGoalChanges?: Record<string, number>;
 }
 
 export interface ProjectRef {

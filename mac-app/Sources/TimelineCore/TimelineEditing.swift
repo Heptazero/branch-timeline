@@ -4,7 +4,8 @@ public struct BlockEdit: Encodable, Identifiable {
     public let id: String
     public let date: String
     public var start, end: Int
-    public var title = "", note = "", projectPath = "", tagId = ""
+    public var title = "", note = "", projectPath = "", tagId = "", kind = "fact"
+    public var move = false
     public let expected: String?
     public init(date: String, start: Int, end: Int, id: String = "block-" + UUID().uuidString.lowercased(), expected: String? = nil) {
         self.date = date; self.start = start; self.end = end; self.id = id; self.expected = expected
@@ -20,6 +21,11 @@ public struct BlockOptions {
 public enum BlockGeometry {
     public static func minute(y: Double, scale: Double) -> Int {
         max(120, min(1555, Int((((y - 18) / TimelineZoom.clamp(scale) + 120) / 5).rounded()) * 5))
+    }
+    public static func moved(start: Double, end: Double, delta: Double, scale: Double) -> (Int, Int) {
+        let duration = Int(max(1, end - start)), shift = Int((delta / TimelineZoom.clamp(scale) / 5).rounded()) * 5
+        let next = max(120, min(1560 - duration, Int(start) + shift))
+        return (next, next + duration)
     }
     public static func resized(start: Double, end: Double, delta: Double, scale: Double, top: Bool) -> (Int, Int) {
         let shift = Int((delta / TimelineZoom.clamp(scale) / 5).rounded()) * 5
@@ -40,10 +46,14 @@ extension SharedStateStore {
     public func editBlock(_ edit: BlockEdit) throws {
         try SharedFileLock.withLock(file: url) {
             let (before, original) = try read()
+            if edit.expected == nil && !edit.projectPath.isEmpty {
+                let project = try bridge.safeURL(edit.projectPath)
+                guard project.pathExtension.lowercased() == "md", FileManager.default.fileExists(atPath: project.path) else { throw StorageError.unsafePath }
+            }
             let days = original["days"] as? [String: [String: Any]] ?? [:]
             let items = days[edit.date]?["items"] as? [[String: Any]] ?? []
             let old = items.first { $0["id"] as? String == edit.id }
-            let path = edit.expected == nil ? edit.projectPath : (old?["projectLogId"] is String
+            let path = edit.expected == nil ? (edit.kind == "todo" ? "" : edit.projectPath) : (old?["projectLogId"] is String
                 ? (old?["projectLogPath"] as? String ?? old?["projectPath"] as? String ?? "") : "")
             let projectURL = try path.isEmpty ? nil : bridge.safeURL(path)
             let projectBefore = try projectURL.map { try Data(contentsOf: $0) }

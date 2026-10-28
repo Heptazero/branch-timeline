@@ -15,7 +15,11 @@ struct TimelineBlockCard: View {
     let showLabel: Bool
     let onOpen: (DashboardItem) -> Void
     let onResize: (DashboardItem, Int, Int) -> Void
-    @GestureState private var preview: EdgePreview?
+    var onMove: (DashboardItem, Int, Int) -> Void = { _, _, _ in }
+    @GestureState private var edgePreview: EdgePreview?
+    @GestureState private var movePreview: EdgePreview?
+    @State private var suppressOpenUntil = Date.distantPast
+    private var preview: EdgePreview? { movePreview ?? edgePreview }
     @State private var hovered = false
     private var start: Double { Double(preview?.start ?? Int(item.start)) }
     private var end: Double { Double(preview?.end ?? Int(item.end)) }
@@ -23,19 +27,39 @@ struct TimelineBlockCard: View {
     private var color: Color { Color(hex: project?.color ?? "#a4aab5") }
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Button { onOpen(item) } label: { contents }.buttonStyle(.plain)
+            Button { if Date() > suppressOpenUntil { onOpen(item) } } label: { contents }.buttonStyle(.plain)
+                .simultaneousGesture(moveGesture)
             if item.editable == true, item.end > item.start {
                 handle(top: true).offset(y: -6)
                 handle(top: false).offset(y: height - 6)
             }
+            if movePreview != nil { RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.8)).frame(height: height).allowsHitTesting(false) }
         }.frame(height: max(height, 14), alignment: .topLeading)
             .offset(y: (start - item.start) * scale)
             .onHover { hovered = $0 }
             .help("\(item.title) · \(minuteLabel(start))–\(minuteLabel(end))")
     }
+    private var moveGesture: some Gesture {
+        LongPressGesture(minimumDuration: 0.35, maximumDistance: 8)
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("timelineDocument")))
+            .updating($movePreview) { value, state, _ in
+                guard item.editable == true, case .second(true, let drag) = value else { return }
+                let base = state?.item ?? item, zoom = state?.scale ?? scale
+                let range = BlockGeometry.moved(start: base.start, end: base.end, delta: Double(drag?.translation.height ?? 0), scale: zoom)
+                state = EdgePreview(item: base, scale: zoom, start: range.0, end: range.1)
+            }.onChanged { value in if case .second(true, _) = value { suppressOpenUntil = Date().addingTimeInterval(0.6) } }
+            .onEnded { value in
+                suppressOpenUntil = Date().addingTimeInterval(0.6)
+                guard item.editable == true, case .second(true, let drag?) = value else { return }
+                let base = movePreview?.item ?? item
+                let range = BlockGeometry.moved(start: base.start, end: base.end, delta: drag.translation.height, scale: movePreview?.scale ?? scale)
+                if range.0 != Int(base.start) { onMove(base, range.0, range.1) }
+            }
+    }
     private var contents: some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: min(8, height / 3)).fill(color.opacity(item.kind == "todo" ? 0.06 : 0.13)).frame(height: height)
+            RoundedRectangle(cornerRadius: min(8, height / 3)).fill(color.opacity(item.plan == true ? 0.065 : 0.13)).frame(height: height)
+                .overlay { if item.plan == true { RoundedRectangle(cornerRadius: min(8, height / 3)).stroke(color.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [3, 3])).frame(height: height) } }
             Rectangle().fill(color.opacity(0.7)).frame(width: 3, height: height)
             if height >= 42 {
                 VStack(alignment: .leading, spacing: 4) {
@@ -57,8 +81,8 @@ struct TimelineBlockCard: View {
             if !top && (hovered || preview != nil) { timeLabel(end) }
             Capsule().fill(color.opacity(hovered || preview != nil ? 0.9 : 0.4)).frame(width: 26, height: 3)
                 .frame(width: 44, height: 12).contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .named("timelineDocument"))
-                    .updating($preview) { value, state, _ in
+                .highPriorityGesture(DragGesture(minimumDistance: 2, coordinateSpace: .named("timelineDocument"))
+                    .updating($edgePreview) { value, state, _ in
                         let base = state?.item ?? item, zoom = state?.scale ?? scale
                         let range = BlockGeometry.resized(start: base.start, end: base.end, delta: value.translation.height, scale: zoom, top: top)
                         state = EdgePreview(item: base, scale: zoom, start: range.0, end: range.1)

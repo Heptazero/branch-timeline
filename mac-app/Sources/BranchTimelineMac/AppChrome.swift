@@ -43,17 +43,21 @@ struct DateNavigation: View {
     @State private var showCalendar = false
     var body: some View {
         HStack(spacing: 8) {
-            Button { model.shiftDate(-1) } label: { Image(systemName: "chevron.left") }.help("上一个日期范围")
+            Button { model.shiftDate(-1) } label: { Image(systemName: "chevron.left") }.disabled(model.scope == "total").help("上一个日期范围")
             Button { showCalendar.toggle() } label: {
-                Text(model.page == .stats || (model.page == .projects && model.scope == "week") ? weekTitle : model.focusDate.formatted(.dateTime.locale(Locale(identifier: "zh_CN")).month().day()))
+                Text(title)
                     .monospacedDigit().font(.callout)
-            }.help("选择日期").popover(isPresented: $showCalendar, arrowEdge: .bottom) { CalendarPicker(model: model) }
-            Button { model.shiftDate(1) } label: { Image(systemName: "chevron.right") }.help("下一个日期范围")
+            }.disabled(model.scope == "total").help("选择日期").popover(isPresented: $showCalendar, arrowEdge: .bottom) { CalendarPicker(model: model) }
+            Button { model.shiftDate(1) } label: { Image(systemName: "chevron.right") }.disabled(model.scope == "total").help("下一个日期范围")
         }.buttonStyle(.plain)
     }
-    private var weekTitle: String {
-        guard let value = model.dashboard else { return "本周" }
-        return String(value.weekStart.suffix(5)).replacingOccurrences(of: "-", with: "/") + "–" + String(value.weekEnd.suffix(5)).replacingOccurrences(of: "-", with: "/")
+    private var title: String {
+        if model.scope == "total" { return "全部时间" }
+        if model.scope == "month" { return model.focusDate.formatted(.dateTime.locale(Locale(identifier: "zh_CN")).year().month()) }
+        if model.scope == "week", let first = PeriodNavigation.dates(model.focusDate, scope: "week").first, let last = PeriodNavigation.dates(model.focusDate, scope: "week").last {
+            return first.formatted(.dateTime.locale(Locale(identifier: "zh_CN")).month(.twoDigits).day(.twoDigits)) + "–" + last.formatted(.dateTime.locale(Locale(identifier: "zh_CN")).month(.twoDigits).day(.twoDigits))
+        }
+        return model.focusDate.formatted(.dateTime.locale(Locale(identifier: "zh_CN")).month().day())
     }
 }
 

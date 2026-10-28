@@ -5,6 +5,7 @@ struct StatisticsPage: View {
     @ObservedObject var model: AppModel
     @State private var mode = "项目"
     @State private var descending = true
+    @State private var selected: DashboardDay?
     private var rows: [ProjectSummary] {
         (model.dashboard?.projects ?? []).filter { $0.actual > 0 }.sorted {
             let a = mode == "走神" ? $0.interval ?? Double.greatestFiniteMagnitude : $0.actual
@@ -13,40 +14,35 @@ struct StatisticsPage: View {
         }
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            HStack { Text("本周").font(.title2.weight(.medium)); Spacer(); DateNavigation(model: model) }
-            HStack(alignment: .firstTextBaseline, spacing: 9) {
-                Text(hoursLabel(model.dashboard?.totalMinutes ?? 0)).font(.system(size: 38, weight: .medium, design: .rounded)).monospacedDigit()
-                Text("项目记录").foregroundStyle(.secondary).font(.caption)
-            }
-            HStack {
-                ForEach(["项目", "走神", "睡眠"], id: \.self) { value in
-                    Button { mode = value } label: {
-                        Text(value).font(.callout).padding(.horizontal, 14).padding(.vertical, 7)
-                            .foregroundStyle(mode == value ? AppPalette.blue : .secondary)
-                            .background(mode == value ? AppPalette.blue.opacity(0.07) : .clear, in: Capsule())
-                    }.buttonStyle(.plain).accessibilityAddTraits(mode == value ? .isSelected : [])
-                }
-                Spacer()
-                if mode != "睡眠" { Button { descending.toggle() } label: { Image(systemName: descending ? "arrow.down" : "arrow.up") }.buttonStyle(.plain).help("切换排序方向") }
-            }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 25) {
-                    if mode == "睡眠" {
-                        SleepChart(dashboard: model.dashboard)
-                    } else {
-                        ForEach(rows) { row in
-                            if mode == "项目" {
-                                ProjectProgressRow(row: row, expected: model.dashboard?.expected ?? 0, showGoal: false, maximum: rows.map(\.actual).max() ?? 1,
-                                    onOpen: { model.openProject(row.path) })
-                            } else { interruptionRow(row) }
-                        }
-                        if rows.isEmpty { Text("本周暂无记录").foregroundStyle(.secondary).padding(.top, 30) }
-                        if mode == "走神" { Text("计时分钟 ÷ 走神记录数；不是连续专注时长").font(.caption).foregroundStyle(.secondary) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                Text(hoursLabel(model.dashboard?.totalMinutes ?? 0)).font(.system(size: 36, weight: .medium, design: .rounded)).monospacedDigit()
+                HStack {
+                    ForEach(["项目", "走神", "睡眠"], id: \.self) { value in
+                        Button { mode = value } label: {
+                            Text(value).font(.callout).padding(.horizontal, 14).padding(.vertical, 7)
+                                .foregroundStyle(mode == value ? AppPalette.blue : .secondary)
+                                .background(mode == value ? AppPalette.blue.opacity(0.07) : .clear, in: Capsule())
+                        }.buttonStyle(.plain).accessibilityAddTraits(mode == value ? .isSelected : [])
                     }
-                }.padding(.vertical, 6)
-            }
-        }.padding(.horizontal, 30).padding(.top, 14).padding(.bottom, 20)
+                    Spacer()
+                    if mode != "睡眠" { Button { descending.toggle() } label: { Image(systemName: descending ? "arrow.down" : "arrow.up") }.buttonStyle(.plain).help("切换排序方向") }
+                }
+                if mode == "睡眠" { SleepChart(dashboard: model.dashboard) }
+                else {
+                    if mode == "项目" {
+                        DailyProjectChart(days: model.dashboard?.days ?? [], onSelect: { selected = $0 })
+                            .popover(item: $selected, arrowEdge: .bottom) { day in DayBreakdown(day: day, model: model) }
+                    }
+                    ForEach(rows) { row in
+                        if mode == "项目" {
+                            ProjectProgressRow(row: row, expected: 0, showGoal: false, maximum: rows.map(\.actual).max() ?? 1, onOpen: { model.openProject(row.path) })
+                        } else { interruptionRow(row) }
+                    }
+                    if rows.isEmpty { Text("暂无记录").foregroundStyle(.secondary).padding(.top, 20) }
+                }
+            }.padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 20)
+        }
     }
     private func interruptionRow(_ row: ProjectSummary) -> some View {
         VStack(spacing: 9) {
@@ -55,7 +51,7 @@ struct StatisticsPage: View {
                 let maximum = rows.compactMap(\.interval).max() ?? 1
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4).fill(.primary.opacity(0.05))
-                    if let interval = row.interval { RoundedRectangle(cornerRadius: 4).fill(AppPalette.blue.opacity(0.65)).frame(width: geometry.size.width * min(1, interval / max(1, maximum))) }
+                    if let interval = row.interval { RoundedRectangle(cornerRadius: 4).fill(Color(hex: row.color).opacity(0.65)).frame(width: geometry.size.width * min(1, interval / max(1, maximum))) }
                 }
             }.frame(height: 18)
         }
@@ -89,20 +85,20 @@ struct SleepChart: View {
                         context.stroke(line, with: .color(.primary.opacity(0.08)), lineWidth: 1)
                     }
                     for (index, day) in days.enumerated() {
-                        let x = left + plotWidth / 7 * (Double(index) + 0.5)
+                        let x = left + plotWidth / Double(max(1, days.count)) * (Double(index) + 0.5)
                         if let bed = day.bed, let wake = day.wake {
-                            let rect = CGRect(x: x - 9, y: y(bed), width: 18, height: max(2, y(wake) - y(bed)))
+                            let rect = CGRect(x: x - min(9, plotWidth / Double(max(1, days.count)) * 0.3), y: y(bed), width: min(18, plotWidth / Double(max(1, days.count)) * 0.6), height: max(2, y(wake) - y(bed)))
                             context.fill(Path(roundedRect: rect, cornerRadius: 5), with: .color(AppPalette.blue.opacity(0.5)))
                         }
-                        context.draw(Text(["一", "二", "三", "四", "五", "六", "日"][index]).font(.system(size: 11)).foregroundColor(.secondary), at: CGPoint(x: x, y: size.height - 8))
+                        if days.count <= 8 || index % 5 == 0 { context.draw(Text(String(day.date.suffix(2))).font(.system(size: 11)).foregroundColor(.secondary), at: CGPoint(x: x, y: size.height - 8)) }
                     }
                     for values in [days.compactMap(\.bed), days.compactMap(\.wake)] where !values.isEmpty {
                         let yy = y(values.reduce(0, +) / Double(values.count))
                         var line = Path(); line.move(to: CGPoint(x: left, y: yy)); line.addLine(to: CGPoint(x: size.width, y: yy))
                         context.stroke(line, with: .color(.primary.opacity(0.5)), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
                     }
-                }.frame(height: 270).accessibilityLabel("本周入睡到起床区间，虚线为平均时刻")
-                Text("虚线：本周平均入睡 / 起床").font(.caption).foregroundStyle(.secondary)
+                }.frame(height: 270).accessibilityLabel("所选范围入睡到起床区间，虚线为平均时刻")
+                Text("虚线：平均入睡 / 起床").font(.caption).foregroundStyle(.secondary)
             } else { Text("暂无完整睡眠记录").foregroundStyle(.secondary).padding(.vertical, 40) }
         }
     }

@@ -66,3 +66,27 @@ test("native calendar is a Monday-first 42-day heatmap and only counts recorded 
 test("native calendar refuses malformed dates instead of choosing another month", () => {
   assert.throws(() => nativeCalendar('{"version":1,"days":{}}', "2026-02-30", now));
 });
+
+test("month projection includes every actual calendar day, colored project stacks and plans without counting plans as work", () => {
+  const state = { version: 1, days: { "2024-02-29": day({ items: [
+    { id: "a", kind: "fact", title: "项目", startMin: 600, endMin: 660, projectPath: "p.md" },
+    { id: "b", kind: "fact", title: "未关联", startMin: 700, endMin: 730 },
+    { id: "c", kind: "todo", title: "计划", plannedMin: 800, plannedEndMin: 890, projectPath: "p.md" }
+  ] }) } };
+  const text = JSON.stringify(state), value = JSON.parse(nativeDashboard(text, catalog, "2024-02-29", "month", "2024-02-29T20:00:00+08:00"));
+  assert.equal(value.days.length, 29); assert.equal(value.days[0].date, "2024-02-01"); assert.equal(value.days.at(-1).date, "2024-02-29");
+  assert.equal(value.totalMinutes, 90); assert.equal(value.projects[0].actual, 60);
+  const stack = value.days.at(-1).projects;
+  assert.equal(stack.find((p: { path: string }) => p.path === "p.md").color, "#3159e2");
+  assert.equal(stack.reduce((sum: number, p: { minutes: number }) => sum + p.minutes, 0), 90);
+  assert.equal(value.items.find((item: { id: string }) => item.id === "c").end, 890);
+  assert.equal(JSON.stringify(state), text);
+});
+
+test("monthly goals are forward effective and do not rewrite previous months or weekly goals", () => {
+  const before = { version: 1, days: {}, projects: { "p.md": { branches: [], monthlyGoalChanges: { "2026-09-01": 600, "2026-12-01": 1800 }, weeklyGoalChanges: { "2026-10-26": 300 } } } };
+  const state = JSON.parse(nativeSetGoal(JSON.stringify(before), "p.md", "2026-10-28", "month", 1200));
+  const get = (date: string) => JSON.parse(nativeDashboard(JSON.stringify(state), catalog, date, "month", now)).projects[0].planned;
+  assert.equal(get("2026-09-20"), 600); assert.equal(get("2026-10-01"), 1200); assert.equal(get("2026-11-10"), 1200); assert.equal(get("2026-12-10"), 1800);
+  assert.deepEqual(state.projects["p.md"].weeklyGoalChanges, before.projects["p.md"].weeklyGoalChanges);
+});

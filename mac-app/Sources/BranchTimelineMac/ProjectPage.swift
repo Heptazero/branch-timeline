@@ -15,12 +15,8 @@ struct ProjectPage: View {
                 Menu(filter) { ForEach(["进行中", "计划", "搁置", "归档", "全部"], id: \.self) { value in Button(value) { filter = value } } }
                     .fixedSize()
                 Spacer()
-                Menu(model.scope == "day" ? "今日" : model.scope == "week" ? "本周" : "累计") {
-                    Button("今日") { changeScope("day") }; Button("本周") { changeScope("week") }; Button("累计") { changeScope("total") }
-                }.fixedSize()
                 Button { descending.toggle() } label: { Image(systemName: descending ? "arrow.down" : "arrow.up") }.help(descending ? "按时长从多到少" : "按时长从少到多")
             }.menuStyle(.borderlessButton).buttonStyle(.plain).padding(.horizontal, 30)
-            if model.scope != "total" { HStack { Spacer(); DateNavigation(model: model) }.padding(.horizontal, 30) }
             ScrollView {
                 LazyVStack(spacing: 26) {
                     ForEach(rows) { row in
@@ -48,7 +44,8 @@ struct ProjectProgressRow: View {
     var body: some View {
         VStack(spacing: 4) {
             HStack(spacing: 9) {
-                Circle().fill(Color(hex: row.color)).frame(width: 7, height: 7)
+                if let model { ProjectColorButton(project: row, model: model) }
+                else { Circle().fill(Color(hex: row.color)).frame(width: 7, height: 7) }
                 Button(action: onOpen) { Text(row.name).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain)
                 if showGoal { Text(row.planned > 0 ? "\(Int((row.actual / row.planned * 100).rounded()))%" : "无").foregroundStyle(.secondary).font(.caption).monospacedDigit() }
             }
@@ -100,7 +97,7 @@ struct GoalEditor: View {
     @State private var text = ""
     @State private var failure: String?
     @Environment(\.dismiss) private var dismiss
-    private var hours: Double? { GoalInput.hours(text) }
+    private var hours: Double? { GoalInput.hours(text, maximum: scope == "month" ? 744 : 168) }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(project.name).font(.headline).lineLimit(2)
@@ -111,12 +108,12 @@ struct GoalEditor: View {
                 Text("h").foregroundStyle(.secondary)
                 Button { adjust(0.5) } label: { Image(systemName: "plus") }.help("增加半小时")
             }.buttonStyle(.plain)
-            Text(scope == "week" ? "每周目标 · 从所选周起生效" : "每日目标 · 从所选日期起生效").font(.caption).foregroundStyle(.secondary)
+            Text(scope == "month" ? "每月目标 · 从所选月起生效" : scope == "week" ? "每周目标 · 从所选周起生效" : "每日目标 · 从所选日期起生效").font(.caption).foregroundStyle(.secondary)
             if let failure { Text(failure).font(.caption).foregroundStyle(.red) }
             HStack { Button("取消") { dismiss() }; Spacer(); Button("保存", action: save).buttonStyle(.borderedProminent).disabled(hours == nil) }
         }.padding(18).frame(width: 290).onAppear { text = String(format: "%g", project.planned / 60) }
     }
-    private func adjust(_ delta: Double) { text = String(format: "%g", min(168, max(0, (hours ?? 0) + delta))) }
+    private func adjust(_ delta: Double) { text = String(format: "%g", min(scope == "month" ? 744 : 168, max(0, (hours ?? 0) + delta))) }
     private func save() {
         guard let hours else { return }
         if model.setGoal(project.path, hours: hours, date: date, scope: scope) { dismiss() }

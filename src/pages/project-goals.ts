@@ -2,7 +2,7 @@ import type { BranchTimelineState, ProjectTimelineState } from "../types";
 import { dateKey, logicalToday } from "../vault/format";
 import { startOfWeek } from "./navigation";
 
-export type ProjectGoalScope = "day" | "week";
+export type ProjectGoalScope = "day" | "week" | "month";
 
 export function projectGoalOn(
   state: BranchTimelineState,
@@ -14,6 +14,13 @@ export function projectGoalOn(
   if (!project || !isGoalDateKey(date)) return 0;
   if (scope === "day") {
     return goalChangeOn(project.dailyGoalChanges, date) ?? validMinutes(project.dailyPlans?.[date]) ?? 0;
+  }
+  if (scope === "month") {
+    const focus = localDate(date), first = new Date(focus.getFullYear(), focus.getMonth(), 1);
+    const explicit = goalChangeOn(project.monthlyGoalChanges, dateKey(first));
+    if (explicit !== undefined) return explicit;
+    return Array.from({ length: new Date(focus.getFullYear(), focus.getMonth() + 1, 0).getDate() }, (_, i) =>
+      projectGoalOn(state, path, dateKey(new Date(focus.getFullYear(), focus.getMonth(), i + 1)), "day")).reduce((a, b) => a + b, 0);
   }
   const start = startOfWeek(localDate(date));
   const explicit = goalChangeOn(project.weeklyGoalChanges, dateKey(start));
@@ -36,16 +43,17 @@ export function setProjectGoal(
   const value = validMinutes(minutes);
   if (value === undefined) throw new Error("计划时长须为非负数字");
   const project = state.projects[path] ||= { branches: [] };
-  const field = scope === "week" ? "weeklyGoalChanges" : "dailyGoalChanges";
-  const key = scope === "week" ? dateKey(startOfWeek(localDate(date))) : date;
+  const field = scope === "month" ? "monthlyGoalChanges" : scope === "week" ? "weeklyGoalChanges" : "dailyGoalChanges";
+  const focus = localDate(date);
+  const key = scope === "month" ? dateKey(new Date(focus.getFullYear(), focus.getMonth(), 1)) : scope === "week" ? dateKey(startOfWeek(focus)) : date;
   (project[field] ||= {})[key] = value;
 }
 
 export function normalizeProjectGoals(project: Partial<ProjectTimelineState> | null | undefined): Pick<
-  ProjectTimelineState, "dailyPlans" | "dailyGoalChanges" | "weeklyGoalChanges"
+  ProjectTimelineState, "dailyPlans" | "dailyGoalChanges" | "weeklyGoalChanges" | "monthlyGoalChanges"
 > {
-  const result: Pick<ProjectTimelineState, "dailyPlans" | "dailyGoalChanges" | "weeklyGoalChanges"> = {};
-  for (const field of ["dailyPlans", "dailyGoalChanges", "weeklyGoalChanges"] as const) {
+  const result: Pick<ProjectTimelineState, "dailyPlans" | "dailyGoalChanges" | "weeklyGoalChanges" | "monthlyGoalChanges"> = {};
+  for (const field of ["dailyPlans", "dailyGoalChanges", "weeklyGoalChanges", "monthlyGoalChanges"] as const) {
     const source = project?.[field];
     if (!source || typeof source !== "object" || Array.isArray(source)) continue;
     const values = Object.fromEntries(Object.entries(source).flatMap(([date, minutes]) => {
@@ -60,12 +68,12 @@ export function normalizeProjectGoals(project: Partial<ProjectTimelineState> | n
 /** Progress through logical days (02:00–02:00), using calendar dates across DST. */
 export function scopeExpectedFraction(
   focusDate: Date,
-  scope: "day" | "week" | "total",
+  scope: "day" | "week" | "month" | "total",
   now = new Date()
 ): number {
   if (scope === "total") return 0;
-  const start = scope === "week" ? startOfWeek(focusDate) : focusDate;
-  const days = scope === "week" ? 7 : 1;
+  const start = scope === "month" ? new Date(focusDate.getFullYear(), focusDate.getMonth(), 1) : scope === "week" ? startOfWeek(focusDate) : focusDate;
+  const days = scope === "month" ? new Date(focusDate.getFullYear(), focusDate.getMonth() + 1, 0).getDate() : scope === "week" ? 7 : 1;
   const elapsedDays = calendarDayNumber(logicalToday(now)) - calendarDayNumber(start);
   const minute = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
   const fraction = ((minute - 120 + 1440) % 1440) / 1440;

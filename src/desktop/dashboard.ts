@@ -1,10 +1,10 @@
 import type { BranchTimelineState } from "../types";
 import { DEFAULT_RHYTHM } from "../rhythm";
 import { dateKey, logicalToday } from "../vault/format";
-import { itemStart, itemEnd } from "../timeline/model";
+import { nativeItems, nativeDayProjects, type NativeProject } from "./period-data";
 import { desktopEntries, parseDesktopSession } from "./session-model";
 import { readSharedState } from "./shared-session";
-import { projectTimeSummary, type ProjectTimeScope } from "../pages/project-time";
+import { projectTimeSummary, projectRangeDates, type ProjectTimeScope } from "../pages/project-time";
 import { scopeExpectedFraction, setProjectGoal } from "../pages/project-goals";
 import { focusSample, interruptionInterval } from "../pages/focus-comparison";
 import { startOfWeek } from "../pages/navigation";
@@ -17,11 +17,11 @@ export function nativeDashboard(stateText: string, catalogText: string, selected
   const state = readSharedState(stateText) as unknown as BranchTimelineState;
   state.projects ||= {};
   const now = new Date(nowText), date = parseDate(selected);
-  if (!Number.isFinite(now.getTime()) || !["day", "week", "total"].includes(scope)) throw new Error("统计范围无效");
+  if (!Number.isFinite(now.getTime()) || !["day", "week", "month", "total"].includes(scope)) throw new Error("统计范围无效");
   includeActive(state, now);
-  const catalog = JSON.parse(catalogText) as Array<{ path: string; name: string; color: string; status: string }>;
-  const week = startOfWeek(date), dates = Array.from({ length: 7 }, (_, i) => new Date(week.getFullYear(), week.getMonth(), week.getDate() + i));
-  const first = dateKey(dates[0]), last = dateKey(dates[6]), today = dateKey(logicalToday(now));
+  const catalog = JSON.parse(catalogText) as NativeProject[];
+  const week = startOfWeek(date), dates = projectRangeDates(date, scope);
+  const first = dateKey(dates[0]), last = dateKey(dates.at(-1)!), today = dateKey(logicalToday(now));
   const minute = now.getHours() * 60 + now.getMinutes() + (now.getHours() < 2 ? 1440 : 0);
   const include = (key: string) => scope === "total" || (scope === "day" ? key === selected : key >= first && key <= last);
   const totals = focusSample(state.days, include, today, minute);
@@ -32,22 +32,24 @@ export function nativeDashboard(stateText: string, catalogText: string, selected
   });
   const day = state.days[selected];
   const activeId = (state as unknown as { macTimer?: { active?: { id: string } } }).macTimer?.active?.id;
-  const items = (day?.items || []).map(item => ({ id: item.id, title: item.title, kind: item.kind, note: item.note || "",
-    editable: item.kind === "fact" && !item.factTiming && !item.id.startsWith(`desktop-${activeId}-`), revision: JSON.stringify(item),
-    projectPath: item.projectPath || "", branchId: item.branchId || "", start: itemStart(item, day.wake), end: itemEnd(item, day.wake, selected === today ? minute : undefined) }));
+  const items = nativeItems(day, activeId, selected === today ? minute : undefined);
   const days = dates.map(date => {
     const key = dateKey(date), sample = focusSample(state.days, value => value === key, today, minute), sleep = sleepSpan(date, state);
-    return { date: key, minutes: sample.minutes, distractions: sample.distractions, bed: sleep?.bed ?? null, wake: sleep?.wake ?? null };
+    return { date: key, minutes: sample.minutes, distractions: sample.distractions, bed: sleep?.bed ?? null, wake: sleep?.wake ?? null,
+      projects: nativeDayProjects(state.days[key], catalog, key === today ? minute : undefined),
+      items: nativeItems(state.days[key], activeId, key === today ? minute : undefined) };
   });
-  return JSON.stringify({ date: selected, weekStart: first, weekEnd: last, totalMinutes: totals.minutes,
+  const previous = scope === "month" ? projectRangeDates(new Date(date.getFullYear(), date.getMonth() - 1, 1), "month")
+    : dates.map(value => new Date(value.getFullYear(), value.getMonth(), value.getDate() - (scope === "day" ? 1 : 7)));
+  return JSON.stringify({ date: selected, weekStart: dateKey(week), weekEnd: dateKey(new Date(week.getFullYear(), week.getMonth(), week.getDate() + 6)), totalMinutes: totals.minutes,
     expected: scopeExpectedFraction(date, scope, now), projects, items, branches: (day?.branches || []).map(branch => ({ id: branch.id, name: branch.name })),
-    days, sleep: sleepWeekMetrics(dates, state) });
+    days, sleep: sleepWeekMetrics(dates, state, previous) });
 }
 
-export function nativeSetGoal(text: string, path: string, selected: string, scope: "day" | "week", minutes: number): string {
+export function nativeSetGoal(text: string, path: string, selected: string, scope: "day" | "week" | "month", minutes: number): string {
   const state = readSharedState(text) as unknown as BranchTimelineState;
   parseDate(selected);
-  if (!path || !["day", "week"].includes(scope) || !Number.isFinite(minutes) || minutes < 0 || minutes > 7 * 24 * 60) throw new Error("目标时长无效");
+  if (!path || !["day", "week", "month"].includes(scope) || !Number.isFinite(minutes) || minutes < 0 || minutes > (scope === "month" ? 31 : 7) * 24 * 60) throw new Error("目标时长无效");
   state.projects ||= {};
   setProjectGoal(state, path, selected, scope, minutes);
   return JSON.stringify(state);

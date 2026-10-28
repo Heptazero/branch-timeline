@@ -16,7 +16,7 @@ import TimelineCore
     @Published var page: AppPage = .timer
     @Published var focusDate = logicalDate()
     @Published private(set) var focusRequest = UUID()
-    @Published var scope = "week"
+    @Published var scope = "day"
     @Published private(set) var dashboard: Dashboard?
     @Published private(set) var connection: ConnectionInfo?
     @Published var query = ""
@@ -40,14 +40,15 @@ import TimelineCore
     var ratio: Double { guard let active, active.targetMinutes > 0 else { return 0 }; return elapsed / Double(active.targetMinutes * 60) }
     var timerSeconds: TimeInterval { TimerDial.displaySeconds(target: active?.targetMinutes ?? targetMinutes, elapsed: elapsed) }
 
-    init(preview: Bool = false, runningPreview: Bool = true) {
+    init(preview: Bool = false, runningPreview: Bool = true, previewScope: String = "day") {
         if preview {
+            now = Calendar.current.date(bySettingHour: 11, minute: 20, second: 0, of: Date()) ?? Date()
             let project = Project(path: "preview.md", name: "编译器", color: "#3159e2")
             projects = [project, Project(path: "research.md", name: "科研", color: "#9072c6"), Project(path: "english.md", name: "英语", color: "#54a089")]
             selectedPath = project.path; archive.vaultPath = "/Preview"; title = "完成标识符识别"
             if runningPreview { archive.active = DesktopSession(project: project, title: title, targetMinutes: 25, now: now.addingTimeInterval(-428)) }
-            dashboard = PreviewFixture.dashboard()
-            connection = ConnectionInfo(vaultPath: "/示例库", appPath: "/示例库/时间线/state.json", configuredPath: "/示例库/时间线/state.json", pluginVersion: "0.3.60", projectTypes: "project", comments: "HTML 注释", sameFile: true, compatiblePlugin: true, catalogMatches: true)
+            scope = previewScope; dashboard = PreviewFixture.dashboard(scope: previewScope)
+            connection = ConnectionInfo(vaultPath: "/示例库", appPath: "/示例库/时间线/state.json", configuredPath: "/示例库/时间线/state.json", pluginVersion: "0.3.63", projectTypes: "project", comments: "HTML 注释", sameFile: true, compatiblePlugin: true, catalogMatches: true)
             return
         }
         if let id = Bundle.main.bundleIdentifier, NSRunningApplication.runningApplications(withBundleIdentifier: id).count > 1 { return }
@@ -178,23 +179,25 @@ import TimelineCore
         } catch { self.error = error.localizedDescription; return false }
     }
     func selectPage(_ next: AppPage) {
+        let repeated = page == next
+        if scope == "total" && next != .projects { scope = "week" }
         page = next
-        if next == .timeline { goToday() }
+        if repeated && next != .timer { goToday() }
         else if next != .timer { refreshDashboard() }
     }
     func goToday() { focusDate = logicalDate(); focusRequest = UUID(); refreshDashboard() }
+    func requestDateFocus() { focusRequest = UUID(); refreshDashboard() }
     func shiftDate(_ amount: Int) {
-        let step = page == .stats || (page == .projects && scope == "week") ? 7 : 1
-        focusDate = Calendar.current.date(byAdding: .day, value: step * amount, to: focusDate) ?? focusDate
-        refreshDashboard()
+        focusDate = PeriodNavigation.shift(focusDate, scope: scope, amount: amount)
+        requestDateFocus()
     }
     func refreshDashboard() {
         guard let storage else { return }
-        do { dashboard = try storage.dashboard(date: focusDate, scope: page == .timeline ? "day" : page == .stats ? "week" : scope, projects: projects, now: Date()) }
+        do { dashboard = try storage.dashboard(date: focusDate, scope: scope, projects: projects, now: Date()) }
         catch { self.error = error.localizedDescription }
     }
     @discardableResult func setGoal(_ path: String, hours: Double, date: Date, scope: String) -> Bool {
-        guard let storage, hours.isFinite, hours >= 0, hours <= 168, ["day", "week"].contains(scope) else { error = "目标时长无效"; return false }
+        guard let storage, hours.isFinite, hours >= 0, hours <= (scope == "month" ? 744 : 168), ["day", "week", "month"].contains(scope) else { error = "目标时长无效"; return false }
         do { try storage.setGoal(path: path, date: date, scope: scope, minutes: hours * 60); refreshDashboard(); error = nil; return true }
         catch { self.error = error.localizedDescription; return false }
     }
@@ -209,7 +212,7 @@ import TimelineCore
             }
         } catch { self.error = error.localizedDescription }
     }
-    func selectDate(_ date: Date) { focusDate = Calendar.current.startOfDay(for: date); refreshDashboard() }
+    func selectDate(_ date: Date) { focusDate = Calendar.current.startOfDay(for: date); requestDateFocus() }
     func calendar(_ month: Date) -> [CalendarActivity] {
         guard let storage else { return Self.diagnostic ? (dashboard?.days ?? []).map { CalendarActivity(date: $0.date, minutes: $0.minutes) } : [] }
         do { return try storage.calendar(month: month) } catch { self.error = error.localizedDescription; return [] }

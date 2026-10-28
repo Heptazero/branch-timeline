@@ -15,8 +15,17 @@ import TimelineCore
                 try await capture(MainView(model: model).environment(\.colorScheme, .dark), size: NSSize(width: 380, height: 680), to: directory.appendingPathComponent("Mac-narrow-dark.png"))
                 try await capture(FloatingTimerView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 580, height: 100), to: directory.appendingPathComponent("Mac-floating.png"))
                 for page in [AppPage.projects, .stats, .timeline] {
-                    let fixture = AppModel(preview: true); fixture.page = page
+                    let fixture = AppModel(preview: true, previewScope: page == .timeline ? "day" : "week"); fixture.page = page
                     try await capture(MainView(model: fixture).environment(\.colorScheme, .light), size: NSSize(width: 540, height: 810), to: directory.appendingPathComponent("Mac-\(page.icon).png"))
+                }
+                for scope in ["week", "month"] {
+                    let fixture = AppModel(preview: true, previewScope: scope); fixture.page = .timeline
+                    try await capture(MainView(model: fixture).environment(\.colorScheme, .light), size: NSSize(width: scope == "week" ? 1100 : 380, height: 810), to: directory.appendingPathComponent("Mac-timeline-\(scope).png"))
+                    let statistics = AppModel(preview: true, previewScope: scope); statistics.page = .stats
+                    try await capture(MainView(model: statistics).environment(\.colorScheme, .light), size: NSSize(width: 380, height: 810), to: directory.appendingPathComponent("Mac-stats-\(scope).png"))
+                }
+                if let day = model.dashboard?.days.first {
+                    try await capture(DayBreakdown(day: day, model: model).environment(\.colorScheme, .light), size: NSSize(width: 340, height: 280), to: directory.appendingPathComponent("Mac-day-details.png"))
                 }
                 try await capture(SleepChart(dashboard: model.dashboard).padding(24).environment(\.colorScheme, .light), size: NSSize(width: 420, height: 420), to: directory.appendingPathComponent("Mac-sleep.png"))
                 try await capture(DataSettingsView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 560, height: 610), to: directory.appendingPathComponent("Mac-settings.png"))

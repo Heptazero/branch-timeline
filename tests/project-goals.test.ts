@@ -142,3 +142,12 @@ test("invalid goal dates and durations cannot mutate state", () => {
   assert.throws(() => setProjectGoal(value, PATH, "2026-10-20", "day", -1), /时长/);
   assert.deepEqual(value.projects, {});
 });
+
+test("monthly targets survive normalization and use actual calendar-month progress", () => {
+  const project = { branches: [], monthlyGoalChanges: { "2024-02-01": 1200, "bad": 5 } };
+  assert.deepEqual(normalizeProjectGoals(project).monthlyGoalChanges, { "2024-02-01": 1200 });
+  const value = state(); value.projects[PATH] = project;
+  const summary = projectTimeSummary(value, PATH, new Date(2024, 1, 29), "month");
+  assert.equal(summary.days.length, 29); assert.equal(summary.planned, 1200);
+  assert.equal(scopeExpectedFraction(new Date(2024, 1, 10), "month", new Date(2024, 1, 29, 2)), 28 / 29);
+});

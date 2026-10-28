@@ -40,7 +40,7 @@ test("native edits reject missing or corrupt marked logs and protect active time
   assert.throws(() => apply(first.state, resize, first.project + "\n" + first.project.split("\n").find((line: string) => line.includes("btl-work:"))), /标记重复/);
   item.factTiming = true;
   assert.throws(() => apply(first.state, { ...resize, expected: JSON.stringify(item) }, first.project), /先结束计时/);
-  item.kind = "todo"; item.factTiming = false;
+  item.kind = "todo"; item.factTiming = false; item.startedMin = 600;
   assert.throws(() => apply(first.state, { ...resize, expected: JSON.stringify(item) }, first.project), /先结束计时/);
 });
 
@@ -68,7 +68,7 @@ test("native projection exposes revision only for saved facts, never a running s
     { id: "running", kind: "fact", factTiming: true, title: "计时", startMin: 600 }
   ] } } };
   const report = JSON.parse(nativeDashboard(JSON.stringify(state), "[]", date, "day", "2026-10-28T14:00:00+08:00"));
-  assert.equal(report.items[0].editable, true); assert.equal(report.items[1].editable, false); assert.equal(report.items[2].editable, false);
+  assert.equal(report.items[0].editable, true); assert.equal(report.items[1].editable, true); assert.equal(report.items[1].plan, true); assert.equal(report.items[2].editable, false);
   assert.equal(JSON.parse(report.items[0].revision).id, "fact");
 });
 
@@ -78,4 +78,26 @@ test("multiline notes retain their original state text and stay editable as a si
   assert.equal(item.note, "第一行\n[[第二行]]");
   assert.match(projectWorkLogEntry(first.project, request.id)!.note, /第一行 \/ \[\[第二行\]\]/);
   assert.doesNotThrow(() => apply(first.state, { ...request, expected: JSON.stringify(item), end: 660 }, first.project));
+});
+
+test("plans persist as todos, resize and move independently without recording work or logs", () => {
+  const first = apply(base, { ...request, kind: "todo" });
+  const item = first.state.days[date].items[0];
+  assert.equal(first.project, project); assert.equal(item.kind, "todo"); assert.equal(item.plannedMin, 600);
+  assert.equal(item.plannedEndMin, 630); assert.equal(item.projectLogId, undefined); assert.equal(item.startMin, undefined);
+  const next = apply(first.state, { ...request, expected: JSON.stringify(item), move: true, start: 700, end: 730 });
+  assert.equal(next.state.days[date].items[0].plannedMin, 700); assert.equal(next.project, project);
+  const report = JSON.parse(nativeDashboard(JSON.stringify(next.state), JSON.stringify([{ path: "p.md", name: "项目", color: "#123456", status: "active" }]), date, "week", "2026-10-28T14:00:00+08:00"));
+  assert.equal(report.totalMinutes, 0); assert.equal(report.projects[0].actual, 0);
+  assert.equal(report.days.find((day: { date: string }) => day.date === date).projects.length, 0);
+});
+
+test("whole-block movement preserves duration, moves linked attention marks and refuses stale edits", () => {
+  const first = apply(base, request), day = first.state.days[date], item = day.items[0];
+  day.distractions = [{ id: "d", itemId: item.id, minute: 610 }, { id: "unrelated", minute: 612 }];
+  day.goodStates = [{ id: "g", itemId: item.id, minute: 620 }];
+  const next = apply(first.state, { ...request, expected: JSON.stringify(item), move: true, start: 660, end: 690 }, first.project);
+  assert.equal(next.state.days[date].distractions[0].minute, 670); assert.equal(next.state.days[date].distractions[1].minute, 612);
+  assert.equal(next.state.days[date].goodStates[0].minute, 680); assert.equal(projectWorkLogEntry(next.project, request.id)?.time, "11:30");
+  assert.throws(() => apply(first.state, { ...request, expected: JSON.stringify(item), move: true, start: 660, end: 700 }, first.project), /保留原时长/);
 });

@@ -31,6 +31,7 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       } else if (item.startedMin != null) {
         item.startedMin = startMin;
       } else {
+        if (item.plannedEndMin != null) item.plannedEndMin += startMin - (item.plannedMin ?? startMin);
         item.plannedMin = startMin;
       }
       item.branchId = branchId;

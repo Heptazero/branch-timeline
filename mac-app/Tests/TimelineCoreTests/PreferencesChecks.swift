@@ -30,7 +30,7 @@ extension CoreTests {
     func testConnectionStatusDetectsChangedPathsAndCatalogSettings() throws {
         let (bridge, store) = try sharedFixture()
         let manifest = try bridge.safeURL(".obsidian/plugins/branch-timeline-hz/manifest.json")
-        try Data("{\"version\":\"0.3.60\"}".utf8).write(to: manifest)
+        try Data("{\"version\":\"0.3.63\"}".utf8).write(to: manifest)
         let signature = bridge.catalogSignature()
         let initial = try store.connectionInfo(catalogSignature: signature); precondition(initial.consistent)
         let config = try bridge.safeURL(".obsidian/plugins/branch-timeline-hz/data.json")
