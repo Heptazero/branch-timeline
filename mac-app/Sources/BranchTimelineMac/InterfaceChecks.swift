@@ -32,6 +32,12 @@ import TimelineCore
         precondition(model.focusDate == historical && model.scope == "week", "Switching pages must retain the shared date")
         model.selectPage(.timeline)
         precondition(model.focusDate == logicalDate(), "Repeating the active tab must focus today")
+        model.navigate(.anchors)
+        precondition(model.isSelected(.anchors) && !model.isSelected(.stats))
+        model.focusDate = historical; model.navigate(.life)
+        precondition(model.isSelected(.life) && model.focusDate == historical)
+        model.navigate(.life)
+        precondition(model.focusDate == logicalDate() && model.featureCommand?.action == "today")
         panel.close()
         print("Native window controls and timeline shrinking contracts OK")
     }

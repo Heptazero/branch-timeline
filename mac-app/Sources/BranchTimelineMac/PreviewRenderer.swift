@@ -30,6 +30,11 @@ import TimelineCore
                 try await capture(SleepChart(dashboard: model.dashboard).padding(24).environment(\.colorScheme, .light), size: NSSize(width: 420, height: 420), to: directory.appendingPathComponent("Mac-sleep.png"))
                 try await capture(DataSettingsView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 560, height: 610), to: directory.appendingPathComponent("Mac-settings.png"))
                 try await capture(CalendarPicker(model: model).environment(\.colorScheme, .light), size: NSSize(width: 310, height: 340), to: directory.appendingPathComponent("Mac-calendar-picker.png"))
+                for width in [380, 540, 850] {
+                    try await capture(MainView(model: AppModel(preview: true)).environment(\.colorScheme, .light), size: NSSize(width: width, height: 810), to: directory.appendingPathComponent("Mac-navigation-\(width).png"))
+                }
+                let pie = AppModel(preview: true, previewScope: "week")
+                try await capture(StatisticsPage(model: pie, previewChart: "pie").environment(\.colorScheme, .light), size: NSSize(width: 380, height: 700), to: directory.appendingPathComponent("Mac-statistics-pie.png"))
                 var block = BlockEdit(date: dayKey(logicalDate()), start: 600, end: 630)
                 block.title = "整理实验结果"; block.projectPath = "preview.md"
                 try await capture(BlockEditor(model: model, edit: block).environment(\.colorScheme, .light), size: NSSize(width: 390, height: 360), to: directory.appendingPathComponent("Mac-add-block.png"))

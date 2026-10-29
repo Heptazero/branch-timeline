@@ -145,6 +145,8 @@ private func expectThrows<T>(_ action: @autoclosure () throws -> T, line: UInt =
         try tests.testNativePlansNeverWriteProjectLogsOrCountAsTime()
         try tests.testFeatureVaultPreservesNativeFieldsAndRejectsStaleWrites()
         try tests.testRhythmEditsShareTheOriginalDayAndKeepUncompletedPosition()
-        print("30 native core checks passed")
+        tests.testResponsiveNavigationPreservesOrderingAndManualHiding()
+        tests.testProjectChartsShareAggregationFractionsAndSort()
+        print("32 native core checks passed")
     }
 }

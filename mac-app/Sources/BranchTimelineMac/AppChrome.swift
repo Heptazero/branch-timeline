@@ -19,51 +19,6 @@ enum AppPalette {
     static let surface = Color(nsColor: .controlBackgroundColor)
 }
 
-struct BottomNavigation: View {
-    @ObservedObject var model: AppModel
-    @State private var showMore = false
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(AppPage.allCases.filter { $0 != .features && ($0 != .projects || model.visiblePages.contains("projects")) && ($0 != .stats || model.visiblePages.contains("habits")) }, id: \.self) { page in
-                Button { model.selectPage(page) } label: {
-                    VStack(spacing: 5) {
-                        Image(systemName: page.icon).font(.system(size: 21, weight: .regular))
-                        Text(page.rawValue).font(.system(size: 11, weight: model.page == page ? .semibold : .regular))
-                        Circle().fill(model.page == page ? AppPalette.blue : .clear).frame(width: 4, height: 4)
-                    }.frame(maxWidth: .infinity).frame(height: 56).contentShape(Rectangle())
-                }.buttonStyle(.plain).foregroundStyle(model.page == page ? AppPalette.blue : .secondary)
-                    .accessibilityLabel(page.rawValue).accessibilityAddTraits(model.page == page ? .isSelected : [])
-            }
-            Button { showMore.toggle() } label: {
-                VStack(spacing: 5) {
-                    Image(systemName: "ellipsis").font(.system(size: 21))
-                    Text(model.page == .features ? model.featureTitle : "更多").font(.system(size: 11))
-                    Circle().fill(model.page == .features ? AppPalette.blue : .clear).frame(width: 4, height: 4)
-                }.frame(maxWidth: .infinity).frame(height: 56).contentShape(Rectangle())
-            }.buttonStyle(.plain).foregroundStyle(model.page == .features ? AppPalette.blue : .secondary)
-                .popover(isPresented: $showMore, arrowEdge: .bottom) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        if model.visiblePages.contains("policy") { routeButton("锚点", "policy") }
-                        if model.visiblePages.contains("achievements") { routeButton("成就", "achievements") }
-                        if model.visiblePages.contains("life") { routeButton("人生", "life") }
-                        Divider().padding(.vertical, 4)
-                        Button("完整分支时间线") { showMore = false; model.page = .timeline; model.branchMode = true }
-                        routeButton("详细统计", "habits")
-                        routeButton("完整项目面板", "projects")
-                        routeButton("全部功能设置", "settings")
-                    }.buttonStyle(.plain).padding(14).frame(width: 190, alignment: .leading)
-                }
-
-        }.padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 4)
-            .background(AppPalette.surface)
-            .overlay(alignment: .top) { Divider() }
-    }
-    private func routeButton(_ title: String, _ route: String) -> some View {
-        Button { showMore = false; model.openFeature(route) } label: { Text(title).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 6) }
-    }
-
-}
-
 struct DateNavigation: View {
     @ObservedObject var model: AppModel
     @State private var showCalendar = false

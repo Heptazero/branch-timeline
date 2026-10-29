@@ -1,4 +1,5 @@
 import { installDOM } from "./dom";
+import { logicalToday } from "../../vault/format";
 import { normalizeSettings } from "../../settings-state";
 import { rpc, report } from "./rpc";
 import { makeApp, type FeatureCatalog } from "./app-adapter";
@@ -28,6 +29,7 @@ class DesktopFeatureView extends BranchTimelineView {
       const rect = element?.getBoundingClientRect(); this.openItemMenu(path, new MouseEvent("click", { clientX: rect?.right || innerWidth - 20, clientY: rect?.top || 20 }));
     }
   }
+  async focusToday(): Promise<void> { this.date = logicalToday(); this.followsToday = true; this.lifeAnchor = undefined; this.projectAnchor = undefined; await this.render(false); }
   startClock(): void {
     this.clockTimer = window.setInterval(() => { this.updateCountdown(); this.updateRunningBar(); this.updateTimelineClock(); this.projectView?.update?.(); }, 60_000);
   }
@@ -75,6 +77,7 @@ async function enter(nextRoute: string, date: string, project?: string, scope = 
 async function action(name: string): Promise<void> {
   await ready;
   if (name === "add" && route !== "settings" && route !== "rhythm") view.add();
+  if (name === "today") await view.focusToday();
   if (name === "refresh") {
     const catalog = await rpc<FeatureCatalog>("catalog"); (plugin.app as any).refreshCatalog(catalog);
     plugin.settings = normalizeSettings({ ...catalog.settings, statePath: catalog.statePath }); plugin.repository.updateSettings(plugin.settings);

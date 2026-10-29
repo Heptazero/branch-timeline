@@ -3,6 +3,10 @@ import TimelineCore
 
 struct StatisticsPage: View {
     @ObservedObject var model: AppModel
+    var previewChart: String? = nil
+    @AppStorage("statisticsProjectChartV1") private var chart = "bar"
+    private var pie: Bool { (previewChart ?? chart) == "pie" }
+    private var composition: ProjectComposition { ProjectComposition(values: (model.dashboard?.days ?? []).flatMap { $0.projects ?? [] }.map { ProjectTimeValue(id: $0.path, name: $0.name, color: $0.color, minutes: $0.minutes) }, descending: descending) }
     @State private var mode = "项目"
     @State private var descending = true
     @State private var selected: DashboardDay?
@@ -16,7 +20,7 @@ struct StatisticsPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                Text(hoursLabel(model.dashboard?.totalMinutes ?? 0)).font(.system(size: 36, weight: .medium, design: .rounded)).monospacedDigit()
+                if mode != "项目" || !pie { Text(hoursLabel(mode == "项目" ? composition.total : model.dashboard?.totalMinutes ?? 0)).font(.system(size: 36, weight: .medium, design: .rounded)).monospacedDigit() }
                 HStack {
                     ForEach(["项目", "走神", "睡眠"], id: \.self) { value in
                         Button { mode = value } label: {
@@ -26,20 +30,27 @@ struct StatisticsPage: View {
                         }.buttonStyle(.plain).accessibilityAddTraits(mode == value ? .isSelected : [])
                     }
                     Spacer()
+                    if mode == "项目" {
+                        Picker("图表", selection: Binding(get: { previewChart ?? chart }, set: { chart = $0 })) {
+                            Image(systemName: "chart.bar.xaxis").tag("bar").help("条形图")
+                            Image(systemName: "chart.pie").tag("pie").help("饼图")
+                        }.labelsHidden().pickerStyle(.segmented).controlSize(.small).frame(width: 62).accessibilityLabel("切换条形图与饼图")
+                    }
                     if mode != "睡眠" { Button { descending.toggle() } label: { Image(systemName: descending ? "arrow.down" : "arrow.up") }.buttonStyle(.plain).help("切换排序方向") }
                 }
                 if mode == "睡眠" { SleepChart(dashboard: model.dashboard) }
                 else {
                     if mode == "项目" {
-                        DailyProjectChart(days: model.dashboard?.days ?? [], onSelect: { selected = $0 })
-                            .popover(item: $selected, arrowEdge: .bottom) { day in DayBreakdown(day: day, model: model) }
+                        if !pie {
+                            DailyProjectChart(days: model.dashboard?.days ?? [], onSelect: { selected = $0 })
+                                .popover(item: $selected, arrowEdge: .bottom) { day in DayBreakdown(day: day, model: model) }
+                        }
+                        ProjectCompositionChart(composition: composition, pie: pie, model: model)
+                        if composition.slices.isEmpty { Text("暂无记录").foregroundStyle(.secondary).padding(.top, 20) }
+                    } else {
+                        ForEach(rows) { row in interruptionRow(row) }
+                        if rows.isEmpty { Text("暂无记录").foregroundStyle(.secondary).padding(.top, 20) }
                     }
-                    ForEach(rows) { row in
-                        if mode == "项目" {
-                            ProjectProgressRow(row: row, expected: 0, showGoal: false, maximum: rows.map(\.actual).max() ?? 1, onOpen: { model.openProject(row.path) })
-                        } else { interruptionRow(row) }
-                    }
-                    if rows.isEmpty { Text("暂无记录").foregroundStyle(.secondary).padding(.top, 20) }
                 }
             }.padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 20)
         }
