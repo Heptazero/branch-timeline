@@ -27,6 +27,8 @@ public struct FocusMark: Codable, Equatable, Identifiable {
     }
 }
 
+public struct PlanSource: Codable, Equatable { public let date, id, revision: String }
+
 public struct DesktopSession: Codable, Equatable, Identifiable {
     public let version: Int
     public let id: String
@@ -40,6 +42,7 @@ public struct DesktopSession: Codable, Equatable, Identifiable {
     public var note: String
     public var segments: [Segment]
     public var markers: [FocusMark]
+    public var sourcePlan: PlanSource?
 
     public init(project: Project, title: String, targetMinutes: Int, vaultPath: String = "", now: Date = Date()) {
         self.version = 1; self.id = UUID().uuidString.lowercased()

@@ -35,6 +35,7 @@ import TimelineCore
                 }
                 let pie = AppModel(preview: true, previewScope: "week")
                 try await capture(StatisticsPage(model: pie, previewChart: "pie").environment(\.colorScheme, .light), size: NSSize(width: 380, height: 700), to: directory.appendingPathComponent("Mac-statistics-pie.png"))
+                try await capture(StatisticsPage(model: pie, previewChart: "bar").environment(\.colorScheme, .light), size: NSSize(width: 380, height: 700), to: directory.appendingPathComponent("Mac-statistics-bar.png"))
                 var block = BlockEdit(date: dayKey(logicalDate()), start: 600, end: 630)
                 block.title = "整理实验结果"; block.projectPath = "preview.md"
                 try await capture(BlockEditor(model: model, edit: block).environment(\.colorScheme, .light), size: NSSize(width: 390, height: 360), to: directory.appendingPathComponent("Mac-add-block.png"))

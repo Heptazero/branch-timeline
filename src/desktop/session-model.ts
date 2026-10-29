@@ -1,9 +1,10 @@
+import { planSource, type PlanSource } from "./plan-source";
 import { dateKey } from "../vault/format";
 import type { DistractionLevel, TimelineDistraction, TimelineGoodState, TimelineItem } from "../types";
 
 export interface DesktopSession {
   version: 1; id: string; projectPath: string; title: string; note: string;
-  startedAt: string; endedAt: string;
+  startedAt: string; endedAt: string; sourcePlan?: PlanSource;
   segments: Array<{ start: string; end: string }>;
   markers: Array<{ id: string; at: string; kind: "good" | "distraction"; level: DistractionLevel }>;
 }
@@ -41,6 +42,7 @@ export function parseDesktopSession(text: string): DesktopSession {
       || !value.segments.some(segment => Date.parse(segment.start) <= Date.parse(marker.at as string) && Date.parse(marker.at as string) < Date.parse(segment.end))) throw new Error("状态点格式无效");
     ids.add(marker.id.toLowerCase());
   }
+  planSource(value.sourcePlan, value.projectPath);
   const session = value as unknown as DesktopSession;
   return { ...session, id: session.id.toLowerCase(), markers: session.markers.map(marker => ({ ...marker, id: marker.id.toLowerCase() })) };
 }
@@ -48,6 +50,7 @@ export function parseDesktopSession(text: string): DesktopSession {
 /** Native seconds stay in the inbox; the existing timeline is rounded to whole minutes. */
 export function desktopEntries(session: DesktopSession): DesktopEntry[] {
   const entries: DesktopEntry[] = [];
+  const source = planSource(session.sourcePlan, session.projectPath);
   let elapsed = 0, allocated = 0;
   session.segments.forEach((segment, segmentIndex) => {
     let cursor = new Date(segment.start); const end = new Date(segment.end); let part = 0;
@@ -62,7 +65,7 @@ export function desktopEntries(session: DesktopSession): DesktopEntry[] {
       if (minutes > 0) {
         const endMinute = until.getTime() === boundary.getTime() ? 1560 : Math.round(until.getHours() * 60 + until.getMinutes() + until.getSeconds() / 60) + (dateKey(until) !== dateKey(logical) ? 1440 : 0);
         const id = `desktop-${session.id}-${segmentIndex}-${part}`;
-        const entry: DesktopEntry = { date: dateKey(logical), item: { id, title: session.title.trim(), kind: "fact",
+        const entry: DesktopEntry = { date: dateKey(logical), item: { ...(source ? { ...source.item, branchId: source.source.date === dateKey(logical) ? source.item.branchId : undefined } : {}), id, title: session.title.trim(), kind: "fact",
           startMin: Math.max(120, endMinute - minutes), endMin: endMinute, projectPath: session.projectPath,
           projectLogPath: session.projectPath, projectLogId: id, note: session.note.trim() || undefined }, distractions: [], goodStates: [] };
         for (const mark of session.markers.filter(mark => new Date(mark.at) >= cursor && new Date(mark.at) < until)) {

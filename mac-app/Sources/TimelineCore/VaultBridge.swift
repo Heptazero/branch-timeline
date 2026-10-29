@@ -90,7 +90,9 @@ public struct VaultBridge {
         for case let url as URL in files where url.pathExtension.lowercased() == "md" {
             guard let values = try? url.resourceValues(forKeys: Set(keys)), values.isRegularFile == true,
                   (values.fileSize ?? 0) < 2_000_000 else { continue }
-            let path = String(url.path.dropFirst(root.path.count + 1))
+            let canonical = url.standardizedFileURL.resolvingSymlinksInPath()
+            guard canonical.path.hasPrefix(root.path + "/") else { continue }
+            let path = String(canonical.path.dropFirst(root.path.count + 1))
             guard (try? safeURL(path)) != nil, let source = try? String(contentsOf: url, encoding: .utf8) else { continue }
             let fields = frontmatterFields(source)
             guard let type = fields["type"]?.lowercased(), let color = colors[type] else { continue }

@@ -15,6 +15,8 @@ struct TimelineBlockCard: View {
     let showLabel: Bool
     let onOpen: (DashboardItem) -> Void
     let onResize: (DashboardItem, Int, Int) -> Void
+    var onStart: (DashboardItem) -> Void = { _ in }
+    var canStart = true
     var onMove: (DashboardItem, Int, Int) -> Void = { _, _, _ in }
     @GestureState private var edgePreview: EdgePreview?
     @GestureState private var movePreview: EdgePreview?
@@ -32,6 +34,13 @@ struct TimelineBlockCard: View {
             if item.editable == true, item.end > item.start {
                 handle(top: true).offset(y: -6)
                 handle(top: false).offset(y: height - 6)
+            }
+            if item.plan == true && (height >= 42 || showLabel) {
+                HStack { Spacer(minLength: 0); Button { onStart(item) } label: {
+                    Image(systemName: "timer").font(.system(size: 13)).frame(width: 26, height: 26).contentShape(Rectangle())
+                }.buttonStyle(.plain).foregroundStyle(color).disabled(!canStart || item.editable != true)
+                    .help(canStart ? "开始执行计划" : "请先结束或取消当前计时").accessibilityLabel("开始执行计划：\(item.title)")
+                }.padding(.trailing, 3).offset(y: height >= 42 ? 4 : max(0, height - 26) / 2)
             }
             if movePreview != nil { RoundedRectangle(cornerRadius: 6).stroke(color.opacity(0.8)).frame(height: height).allowsHitTesting(false) }
         }.frame(height: max(height, 14), alignment: .topLeading)
@@ -67,10 +76,10 @@ struct TimelineBlockCard: View {
                     if height >= 54, let project { Text("@" + project.name).font(.system(size: 11)).lineLimit(1) }
                     if height >= 85, let branch { Text(branch.name).font(.system(size: 11)).foregroundStyle(.secondary) }
                     if height >= 110 && !item.note.isEmpty { Text(item.note).font(.caption).lineLimit(3).foregroundStyle(.secondary) }
-                }.padding(10)
+                }.padding(.trailing, item.plan == true ? 27 : 0).padding(10)
             } else if showLabel {
                 HStack(spacing: 6) { Text(item.title).lineLimit(1); Spacer(minLength: 0); if end > start { Text(hoursLabel(end - start)).monospacedDigit() } }
-                    .font(.system(size: 11)).padding(.horizontal, 8).offset(y: height >= 14 ? 0 : height + 2)
+                    .font(.system(size: 11)).padding(.trailing, item.plan == true ? 27 : 0).padding(.horizontal, 8).offset(y: height >= 14 ? 0 : height + 2)
             }
         }.foregroundStyle(color).frame(maxWidth: .infinity, alignment: .topLeading)
             .frame(height: max(height, 14), alignment: .topLeading).contentShape(Rectangle())

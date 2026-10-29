@@ -43,7 +43,7 @@ struct TimelinePage: View {
     }
     private func document(_ days: [DashboardDay]) -> TimelineDocument {
         TimelineDocument(items: model.dashboard?.items ?? [], projects: model.projects, branches: model.dashboard?.branches ?? [], scale: TimelineZoom.clamp(scale), now: nowMinute,
-            onOpen: { detail = $0 }, onRhythm: { date, id, minute in model.changeRhythm(date: date, id: id, minute: minute) }, days: days, focusDate: dayKey(model.focusDate), showPlans: showPlans,
+            onOpen: { detail = $0 }, onStart: { item, date in model.executePlan(item, date: date) }, canStart: model.active == nil, onRhythm: { date, id, minute in model.changeRhythm(date: date, id: id, minute: minute) }, days: days, focusDate: dayKey(model.focusDate), showPlans: showPlans,
             onCreate: { date, minute, plan in
                 model.clearError()
                 var value = BlockEdit(date: date, start: minute, end: min(1560, minute + 30)); value.kind = plan ? "todo" : "fact"; draft = value
@@ -62,6 +62,8 @@ struct TimelineDocument: View {
     let scale: Double
     let now: Double?
     let onOpen: (DashboardItem) -> Void
+    var onStart: (DashboardItem, String) -> Void = { _, _ in }
+    var canStart = true
     var onRhythm: (String, String, Int?) -> Void = { _, _, _ in }
     var days: [DashboardDay] = []
     var focusDate = ""
@@ -122,6 +124,7 @@ struct TimelineDocument: View {
                 TimelineBlockCard(item: item, project: projects.first { $0.path == item.projectPath }, branch: branches.first { $0.id == item.branchId }, scale: scale,
                     showLabel: labels.contains(item.id), onOpen: onOpen,
                     onResize: { item, start, end in onResize(item, date, start, end, false) },
+                    onStart: { onStart($0, date) }, canStart: canStart,
                     onMove: { item, start, end in onResize(item, date, start, end, true) })
                     .padding(.leading, 6 + inset).padding(.trailing, 5).offset(y: y(item.start))
             }

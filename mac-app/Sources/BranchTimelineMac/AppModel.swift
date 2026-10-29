@@ -156,9 +156,10 @@ import TimelineCore
         session.mark(kind, at: Date(), level: level); var next = archive; next.active = session; _ = persist(next)
     }
     func beginFinish() { if pause(), active != nil { finishRequested = true } }
-    func finish(title: String, note: String) {
+    func finish(title: String, note: String, separateFromPlan: Bool = false) {
         guard var session = active, let storage else { return }
         guard title.count <= 400, note.count <= 20_000 else { error = "标题限400字，备注限20000字。"; return }
+        if separateFromPlan { session.sourcePlan = nil }
         session.finish(at: Date(), title: title, note: note)
         do {
             try storage.finish(session)

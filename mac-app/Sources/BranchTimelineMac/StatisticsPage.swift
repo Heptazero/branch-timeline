@@ -18,9 +18,9 @@ struct StatisticsPage: View {
         }
     }
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                if mode != "项目" || !pie { Text(hoursLabel(mode == "项目" ? composition.total : model.dashboard?.totalMinutes ?? 0)).font(.system(size: 36, weight: .medium, design: .rounded)).monospacedDigit() }
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(hoursLabel(mode == "项目" ? composition.total : model.dashboard?.totalMinutes ?? 0)).font(.system(size: 36, weight: .medium, design: .rounded)).monospacedDigit()
                 HStack {
                     ForEach(["项目", "走神", "睡眠"], id: \.self) { value in
                         Button { mode = value } label: {
@@ -38,21 +38,25 @@ struct StatisticsPage: View {
                     }
                     if mode != "睡眠" { Button { descending.toggle() } label: { Image(systemName: descending ? "arrow.down" : "arrow.up") }.buttonStyle(.plain).help("切换排序方向") }
                 }
-                if mode == "睡眠" { SleepChart(dashboard: model.dashboard) }
-                else {
-                    if mode == "项目" {
-                        if !pie {
-                            DailyProjectChart(days: model.dashboard?.days ?? [], onSelect: { selected = $0 })
-                                .popover(item: $selected, arrowEdge: .bottom) { day in DayBreakdown(day: day, model: model) }
+            }.padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 14)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if mode == "睡眠" { SleepChart(dashboard: model.dashboard) }
+                    else {
+                        if mode == "项目" {
+                            if !pie {
+                                DailyProjectChart(days: model.dashboard?.days ?? [], onSelect: { selected = $0 })
+                                    .popover(item: $selected, arrowEdge: .bottom) { day in DayBreakdown(day: day, model: model) }
+                            }
+                            ProjectCompositionChart(composition: composition, pie: pie, model: model)
+                            if composition.slices.isEmpty { Text("暂无记录").foregroundStyle(.secondary).padding(.top, 20) }
+                        } else {
+                            ForEach(rows) { row in interruptionRow(row) }
+                            if rows.isEmpty { Text("暂无记录").foregroundStyle(.secondary).padding(.top, 20) }
                         }
-                        ProjectCompositionChart(composition: composition, pie: pie, model: model)
-                        if composition.slices.isEmpty { Text("暂无记录").foregroundStyle(.secondary).padding(.top, 20) }
-                    } else {
-                        ForEach(rows) { row in interruptionRow(row) }
-                        if rows.isEmpty { Text("暂无记录").foregroundStyle(.secondary).padding(.top, 20) }
                     }
-                }
-            }.padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 20)
+                }.padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
+            }
         }
     }
     private func interruptionRow(_ row: ProjectSummary) -> some View {

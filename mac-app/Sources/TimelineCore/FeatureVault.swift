@@ -60,7 +60,9 @@ public final class FeatureVault {
         var result: [[String: Any]] = []
         while let file = files?.nextObject() as? URL {
             guard file.pathExtension.lowercased() == "md", let info = try? file.resourceValues(forKeys: keys), info.isRegularFile == true else { continue }
-            let path = String(file.path.dropFirst(store.bridge.root.path.count + 1))
+            let canonical = file.standardizedFileURL.resolvingSymlinksInPath()
+            guard canonical.path.hasPrefix(store.bridge.root.path + "/") else { continue }
+            let path = String(canonical.path.dropFirst(store.bridge.root.path.count + 1))
             guard (try? allowed(path)) != nil else { continue }
             let data = (try? Data(contentsOf: file, options: .mappedIfSafe)) ?? Data()
             let prefix = String(decoding: data.prefix(16_384), as: UTF8.self)

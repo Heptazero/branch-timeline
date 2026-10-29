@@ -86,7 +86,12 @@ struct FinishView: View {
                 Spacer()
                 Button("保存记录") { model.finish(title: title, note: note) }.buttonStyle(.borderedProminent)
             }
-            if let error = model.error { Text(error).font(.caption).foregroundStyle(.red) }
+            if let error = model.error {
+                Text(error).font(.caption).foregroundStyle(.red)
+                if model.active?.sourcePlan != nil && (error.contains("原计划") || error.contains("关联任务")) {
+                    Button("保留原计划，单独保存本次") { model.finish(title: title, note: note, separateFromPlan: true) }
+                }
+            }
         }.padding(22).frame(width: 370)
             .onAppear { title = model.active?.title ?? ""; note = model.active?.note ?? "" }
     }

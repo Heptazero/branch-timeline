@@ -1,5 +1,10 @@
 import { desktopEntries, parseDesktopSession } from "./session-model";
 import { desktopWorkLog } from "./session-log";
+import { planSource, currentPlan } from "./plan-source";
+import { setProjectTaskDone, upsertProjectDayTotal } from "../vault/format";
+import { completedProjectTotals, completedProjectTaskTotals } from "../vault/project-time-sync";
+import { upsertProjectTaskTotals } from "../vault/project-tasks";
+import type { BranchTimelineState } from "../types";
 import { DEFAULT_RHYTHM } from "../rhythm";
 import type { BranchTimelineSettings, TimelineDayState, TimelineItem } from "../types";
 
@@ -37,12 +42,14 @@ export function finishSharedSession(stateText: string, sessionText: string, sett
     if (!record(day) || !Array.isArray(day.items)) throw new Error("已有日期的事项格式无效，未覆盖");
     day.items.forEach((item: TimelineItem) => known.add(item.id));
   }
+  const source = planSource(session.sourcePlan, session.projectPath);
+  if (source && entries.length) currentPlan(state.days, source.source);
   let project = projectText;
   for (const entry of entries) {
     if (known.has(entry.item.id)) continue;
     const minutes = entry.item.endMin! - entry.item.startMin!;
     const time = `${String(Math.floor(entry.item.endMin! / 60) % 24).padStart(2, "0")}:${String(entry.item.endMin! % 60).padStart(2, "0")}`;
-    project = desktopWorkLog(project, entry.date, time, minutes, [session.title, session.note].filter(Boolean).join(" — "), entry.item.id, settings.pluginCommentStyle === "obsidian" ? "obsidian" : "html");
+    project = desktopWorkLog(project, entry.date, time, minutes, [entry.item.projectTaskTitle ? "@" + entry.item.projectTaskTitle : "", session.title, session.note].filter(Boolean).join(" — ").replace(/\s*[\r\n]+\s*/g, " / "), entry.item.id, settings.pluginCommentStyle === "obsidian" ? "obsidian" : "html");
     const day = state.days[entry.date] ||= {
       ...DEFAULT_RHYTHM, ...settings.rhythm, wakeReal: false, napStartReal: false, napEndReal: false,
       sleepPrepReal: false, sleepReal: false, branches: [], items: []
@@ -51,6 +58,14 @@ export function finishSharedSession(stateText: string, sessionText: string, sett
     (day.distractions ||= []).push(...entry.distractions);
     (day.goodStates ||= []).push(...entry.goodStates);
     known.add(entry.item.id);
+  }
+  if (source && entries.length) {
+    const day = state.days[source.source.date];
+    if (day) day.items = day.items.filter(item => item.id !== source.source.id);
+    if (source.item.projectTaskId) project = setProjectTaskDone(project, source.item.projectTaskId, true);
+    const full = state as unknown as BranchTimelineState;
+    for (const date of new Set(entries.map(entry => entry.date))) project = upsertProjectDayTotal(project, date, completedProjectTotals(full, date).totals.get(session.projectPath) || 0, settings.pluginCommentStyle);
+    project = upsertProjectTaskTotals(project, completedProjectTaskTotals(full, session.projectPath), settings.pluginCommentStyle);
   }
   const status = entries.length ? "imported" : "too-short";
   receipts[session.id] = { status, seconds: session.segments.reduce((sum, part) => sum + (Date.parse(part.end) - Date.parse(part.start)) / 1000, 0) };
