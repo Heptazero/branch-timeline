@@ -1,5 +1,5 @@
 import { dateKey } from "../vault/format";
-import type { TimelineDayState, TimelineItem } from "../types";
+import type { TimelineItem } from "../types";
 export interface PlanSource { date: string; id: string; revision: string }
 function canonical(value: unknown): string { return JSON.stringify(value, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item); }
 export function planSource(value: unknown, project: string): { source: PlanSource; item: TimelineItem } | null {
@@ -11,8 +11,3 @@ export function planSource(value: unknown, project: string): { source: PlanSourc
   return { source, item };
 }
 export function unchangedPlan(item: TimelineItem, revision: string): boolean { return canonical(item) === canonical(JSON.parse(revision)); }
-export function currentPlan(days: Record<string, TimelineDayState>, source: PlanSource): TimelineItem | undefined {
-  const item = days[source.date]?.items?.find(item => item.id === source.id);
-  if (item && !unchangedPlan(item, source.revision)) throw new Error("原计划已在别处修改，请核对后再结束；本次计时仍保留");
-  return item;
-}

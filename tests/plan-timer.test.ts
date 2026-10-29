@@ -12,27 +12,31 @@ const session = (duration = 60) => ({ version: 1, id, projectPath: item.projectP
   startedAt: "2026-10-29T02:00:00Z", endedAt: new Date(Date.parse("2026-10-29T02:00:00Z") + duration * 60000).toISOString(),
   segments: [{ start: "2026-10-29T02:00:00Z", end: new Date(Date.parse("2026-10-29T02:00:00Z") + duration * 60000).toISOString() }], markers: [] });
 const finish = (value: unknown, minutes = 60) => JSON.parse(finishSharedSession(JSON.stringify(value), JSON.stringify(session(minutes)), "{}", "## 任务\n- [ ] 解释器 ^task-1\n## log\n手写保留\n"));
-test("plan start inherits title, project, note and explicit duration without editing it", () => {
+test("plan start always counts up, inherits metadata and leaves planned duration untouched", () => {
   const before = state(), text = JSON.stringify(before);
   const draft = JSON.parse(nativePreparePlan(text, source.date, item.id, source.revision, now));
-  assert.equal(draft.title, item.title); assert.equal(draft.note, item.note); assert.equal(draft.projectPath, item.projectPath); assert.equal(draft.targetMinutes, 60);
+  assert.equal(draft.title, item.title); assert.equal(draft.note, item.note); assert.equal(draft.projectPath, item.projectPath); assert.equal(draft.targetMinutes, 0);
   assert.equal(JSON.stringify(before), text);
   const point = { ...item, plannedEndMin: undefined }, plain = state(); plain.days[source.date].items = [point];
   assert.equal(JSON.parse(nativePreparePlan(JSON.stringify(plain), source.date, item.id, JSON.stringify(point), now)).targetMinutes, 0);
 });
-test("plan completion removes exactly its source, inherits metadata and writes one work log", () => {
+test("ending plan timing keeps its source unchanged, inherits metadata and writes one work log", () => {
   const before = state(); before.days[source.date].items = [Object.fromEntries(Object.entries(item).reverse()) as unknown as TimelineItem];
   const result = finish(before), all = Object.values(result.state.days).flatMap((day: any) => day.items);
-  assert.equal(all.some((i: any) => i.id === item.id), false); assert.equal(all.length, 1);
-  assert.equal((all[0] as any).title, item.title); assert.equal((all[0] as any).projectTaskId, "task-1"); assert.equal((all[0] as any).tagId, "blue");
-  assert.match(result.project, /手写保留/); assert.match(result.project, /@解释器/); assert.match(result.project, /- \[x\] 解释器/);
+  assert.deepEqual(result.state.days[source.date].items.find((i: any) => i.id === item.id), before.days[source.date].items[0]); assert.equal(all.length, 2);
+  const fact = all.find((i: any) => i.kind === "fact") as any;
+  assert.equal(fact.sourcePlanId, item.id); assert.equal(fact.sourcePlanDate, source.date); assert.equal(fact.plannedMin, undefined); assert.equal(fact.plannedEndMin, undefined);
+  assert.equal(fact.title, item.title); assert.equal(fact.projectTaskId, "task-1"); assert.equal(fact.tagId, "blue");
+  assert.match(result.project, /手写保留/); assert.match(result.project, /@解释器/); assert.match(result.project, /- \[ \] 解释器/);
   assert.deepEqual(result.state.custom, before.custom);
   const repeated = JSON.parse(finishSharedSession(JSON.stringify(result.state), JSON.stringify(session()), "{}", result.project));
   assert.deepEqual(repeated.state, result.state); assert.equal(repeated.project, result.project);
 });
-test("conflicts stop plan completion, removed plans stay removed, short sessions retain the plan", () => {
+test("editing or deleting plans does not block saving actual time, and short sessions retain plans", () => {
   const changed = state(); changed.days[source.date].items = [{ ...item, title: "别处改过" }];
-  assert.throws(() => finish(changed), /原计划已在别处修改/);
+  const saved = finish(changed);
+  assert.equal(saved.state.days[source.date].items.find((i: any) => i.id === item.id).title, "别处改过");
+  assert.equal(saved.state.days[source.date].items.filter((i: any) => i.kind === "fact").length, 1);
   const removed = state(); removed.days[source.date].items = []; assert.equal(finish(removed).state.days[source.date].items.some((i: any) => i.id === item.id), false);
   assert.equal(finish(state(), 0.5).state.days[source.date].items[0].id, item.id);
 });
@@ -51,5 +55,14 @@ test("multiline inherited notes remain intact in facts and form one owned log en
   const value = state(), record = { ...item, note: "第一行\n第二行" }; value.days[source.date].items = [record];
   const run = { ...session(), note: record.note, sourcePlan: { ...source, revision: JSON.stringify(record) } };
   const result = JSON.parse(finishSharedSession(JSON.stringify(value), JSON.stringify(run), "{}", "## 任务\n- [ ] 解释器 ^task-1\n## log\n手写保留\n"));
-  assert.match(result.project, /第一行 \/ 第二行/); assert.equal(result.state.days[source.date].items[0].note, record.note);
+  assert.match(result.project, /第一行 \/ 第二行/); assert.equal(result.state.days[source.date].items.find((i: any) => i.kind === "fact").note, record.note);
+});
+test("one retained plan can produce multiple actual sessions without completing its task", () => {
+  const first = finish(state());
+  const next = { ...session(30), id: "22345678-1234-1234-1234-123456789abc", startedAt: "2026-10-29T03:00:00Z", endedAt: "2026-10-29T03:30:00Z", segments: [{ start: "2026-10-29T03:00:00Z", end: "2026-10-29T03:30:00Z" }] };
+  const second = JSON.parse(finishSharedSession(JSON.stringify(first.state), JSON.stringify(next), "{}", first.project));
+  assert.deepEqual(second.state.days[source.date].items.find((i: any) => i.id === item.id), item);
+  const facts = Object.values(second.state.days).flatMap((day: any) => day.items).filter((i: any) => i.kind === "fact");
+  assert.equal(facts.length, 2); assert.equal(facts.every((i: any) => i.sourcePlanId === item.id && i.plannedMin === undefined), true);
+  assert.match(second.project, /- \[ \] 解释器/); assert.match(second.project, /1\.5h/);
 });

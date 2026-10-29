@@ -53,6 +53,7 @@ public struct DesktopSession: Codable, Equatable, Identifiable {
         self.note = ""; self.segments = [Segment(start: now)]; self.markers = []
     }
 
+    public var clockTargetMinutes: Int { sourcePlan == nil ? targetMinutes : 0 }
     public var isPaused: Bool { endedAt == nil && segments.last?.end != nil }
     public func elapsed(at now: Date) -> TimeInterval {
         segments.reduce(0) { $0 + max(0, ($1.end ?? endedAt ?? now).timeIntervalSince($1.start)) }

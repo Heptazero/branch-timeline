@@ -11,6 +11,5 @@ export function nativePreparePlan(text: string, date: string, id: string, revisi
   if (typeof item.title !== "string" || !item.title.trim() || item.title.length > 400 || (item.note != null && (typeof item.note !== "string" || item.note.length > 20_000))) throw new Error("计划标题或备注过长，请先编辑后重试");
   if (!item.projectPath) throw new Error("请先为计划关联项目");
   const source = { date, id, revision }; planSource(source, item.projectPath);
-  const minutes = item.plannedEndMin != null && item.plannedMin != null ? Math.max(0, Math.min(1440, Math.round(item.plannedEndMin - item.plannedMin))) : 0;
-  return JSON.stringify({ title: item.title, projectPath: item.projectPath, note: item.note || "", targetMinutes: minutes, source });
+  return JSON.stringify({ title: item.title, projectPath: item.projectPath, note: item.note || "", targetMinutes: 0, source });
 }

@@ -25,7 +25,7 @@ struct FocusTimerPage: View {
                     }
                 }.padding(.horizontal, 30)
                 Spacer(minLength: 8)
-                TimerFace(minutes: model.active?.targetMinutes ?? model.targetMinutes, elapsed: model.elapsed, editable: model.active == nil, color: color) { model.targetMinutes = $0 }
+                TimerFace(minutes: model.active?.clockTargetMinutes ?? model.targetMinutes, elapsed: model.elapsed, editable: model.active == nil, color: color) { model.targetMinutes = $0 }
                     .frame(width: diameter, height: diameter)
                 Group {
                     if model.active != nil { clockText }
@@ -57,7 +57,7 @@ struct FocusTimerPage: View {
     private var timeCaption: String {
         if let active = model.active {
             if active.isPaused { return "已暂停 · 已做 \(clockLabel(model.elapsed))" }
-            if active.targetMinutes == 0 { return "正计时 · \(active.startedAt.formatted(date: .omitted, time: .shortened)) 开始" }
+            if active.clockTargetMinutes == 0 { return "正计时 · \(active.startedAt.formatted(date: .omitted, time: .shortened)) 开始" }
             if model.ratio >= 1 { return "已到目标 · 已做 \(clockLabel(model.elapsed))" }
             let end = model.now.addingTimeInterval(model.remaining)
             return active.startedAt.formatted(date: .omitted, time: .shortened) + " → " + end.formatted(date: .omitted, time: .shortened)

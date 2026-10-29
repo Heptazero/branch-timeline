@@ -68,6 +68,10 @@ export function desktopEntries(session: DesktopSession): DesktopEntry[] {
         const entry: DesktopEntry = { date: dateKey(logical), item: { ...(source ? { ...source.item, branchId: source.source.date === dateKey(logical) ? source.item.branchId : undefined } : {}), id, title: session.title.trim(), kind: "fact",
           startMin: Math.max(120, endMinute - minutes), endMin: endMinute, projectPath: session.projectPath,
           projectLogPath: session.projectPath, projectLogId: id, note: session.note.trim() || undefined }, distractions: [], goodStates: [] };
+        if (source) {
+          delete entry.item.plannedMin; delete entry.item.plannedEndMin; delete entry.item.startedMin;
+          entry.item.factTiming = false; entry.item.sourcePlanId = source.source.id; entry.item.sourcePlanDate = source.source.date;
+        }
         for (const mark of session.markers.filter(mark => new Date(mark.at) >= cursor && new Date(mark.at) < until)) {
           const date = new Date(mark.at);
           const minute = Math.max(entry.item.startMin!, Math.min(endMinute, Math.round(date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60) + (dateKey(date) !== dateKey(logical) ? 1440 : 0)));

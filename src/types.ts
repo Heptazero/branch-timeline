@@ -142,6 +142,9 @@ export interface TimelineItem {
   projectTaskTitle?: string;
   projectLogId?: string;
   projectLogPath?: string;
+  /** Original plan stays separate from its actual timing records. */
+  sourcePlanId?: string;
+  sourcePlanDate?: string;
   tagId?: string;
   tag?: string;
   note?: string;

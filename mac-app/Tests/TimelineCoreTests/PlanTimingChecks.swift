@@ -13,11 +13,15 @@ extension CoreTests {
         let projectPath = try bridge.projects().first?.path; precondition(projectPath == "p.md")
         return (bridge, store, item)
     }
-    func testPlanTimerCancellationKeepsPlanAndFinishReplacesIt() throws {
+    func testPlanTimerCountsUpAndKeepsPlanAfterCancellationOrFinish() throws {
         let (bridge, store, item) = try planFixture(), date = dayKey(logicalDate(origin))
         let started = try store.startPlan(date: date, id: item.id, revision: item.revision!, now: origin)
-        precondition(started.title == "原计划" && started.note == "原备注" && started.targetMinutes == 60)
+        precondition(started.title == "原计划" && started.note == "原备注" && started.targetMinutes == 0)
         precondition(started.projectPath == "p.md" && started.sourcePlan?.id == "plan")
+        var legacy = DesktopSession(project: Project(path: "p.md", name: "项目"), title: "旧计划", targetMinutes: 60)
+        legacy.sourcePlan = started.sourcePlan; precondition(legacy.clockTargetMinutes == 0)
+        precondition(TimerDial.displaySeconds(target: legacy.clockTargetMinutes, elapsed: 3700) == 3700)
+        legacy.sourcePlan = nil; precondition(legacy.clockTargetMinutes == 60)
         let current = try store.load(); precondition(current.active?.sourcePlan == started.sourcePlan)
         do { _ = try store.startPlan(date: date, id: item.id, revision: item.revision!, now: origin); preconditionFailure("Cannot start two timers") } catch {}
         try store.saveTimer(nil, expectedID: started.id)
@@ -27,7 +31,7 @@ extension CoreTests {
         again.finish(at: origin.addingTimeInterval(3600), title: again.title, note: again.note)
         try store.finish(again)
         let after = try store.dashboard(date: logicalDate(origin), scope: "day", projects: []).items
-        precondition(after.count == 1 && after[0].kind == "fact" && after[0].note == "原备注")
+        precondition(after.count == 2 && after.contains { $0.id == item.id && $0.kind == "todo" } && after.contains { $0.kind == "fact" && $0.note == "原备注" })
         let project = try String(contentsOf: bridge.safeURL("p.md"), encoding: .utf8); precondition(project.contains("手写保留") && project.contains("原备注"))
     }
     func testFailedPlanFinishRollsNotesBackAndKeepsPlan() throws {
@@ -46,7 +50,7 @@ extension CoreTests {
         let after = try Data(contentsOf: store.url), afterNote = try Data(contentsOf: bridge.safeURL("p.md"))
         precondition(before == after && note == afterNote)
     }
-    func testChangedPlanCanBeKeptWhileSavingTimeIndependently() throws {
+    func testChangedPlanIsKeptWhileSavingActualTime() throws {
         let (_, store, item) = try planFixture(), date = dayKey(logicalDate(origin))
         var session = try store.startPlan(date: date, id: item.id, revision: item.revision!, now: origin)
         let vault = FeatureVault(store: store), before = try vault.read("shared.json")
@@ -56,8 +60,6 @@ extension CoreTests {
         let changed = String(decoding: try JSONSerialization.data(withJSONObject: raw), as: UTF8.self)
         try vault.write("shared.json", text: changed, expected: before)
         session.finish(at: origin.addingTimeInterval(600), title: session.title, note: session.note)
-        do { try store.finish(session); preconditionFailure("Changed plan must be preserved") } catch {}
-        session.sourcePlan = nil
         try store.finish(session)
         let result = try store.dashboard(date: logicalDate(origin), scope: "day", projects: []).items
         precondition(result.contains { $0.title == "已调整计划" && $0.kind == "todo" })

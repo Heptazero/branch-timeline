@@ -1,7 +1,7 @@
 import { desktopEntries, parseDesktopSession } from "./session-model";
 import { desktopWorkLog } from "./session-log";
-import { planSource, currentPlan } from "./plan-source";
-import { setProjectTaskDone, upsertProjectDayTotal } from "../vault/format";
+import { planSource } from "./plan-source";
+import { upsertProjectDayTotal } from "../vault/format";
 import { completedProjectTotals, completedProjectTaskTotals } from "../vault/project-time-sync";
 import { upsertProjectTaskTotals } from "../vault/project-tasks";
 import type { BranchTimelineState } from "../types";
@@ -43,7 +43,6 @@ export function finishSharedSession(stateText: string, sessionText: string, sett
     day.items.forEach((item: TimelineItem) => known.add(item.id));
   }
   const source = planSource(session.sourcePlan, session.projectPath);
-  if (source && entries.length) currentPlan(state.days, source.source);
   let project = projectText;
   for (const entry of entries) {
     if (known.has(entry.item.id)) continue;
@@ -60,9 +59,6 @@ export function finishSharedSession(stateText: string, sessionText: string, sett
     known.add(entry.item.id);
   }
   if (source && entries.length) {
-    const day = state.days[source.source.date];
-    if (day) day.items = day.items.filter(item => item.id !== source.source.id);
-    if (source.item.projectTaskId) project = setProjectTaskDone(project, source.item.projectTaskId, true);
     const full = state as unknown as BranchTimelineState;
     for (const date of new Set(entries.map(entry => entry.date))) project = upsertProjectDayTotal(project, date, completedProjectTotals(full, date).totals.get(session.projectPath) || 0, settings.pluginCommentStyle);
     project = upsertProjectTaskTotals(project, completedProjectTaskTotals(full, session.projectPath), settings.pluginCommentStyle);

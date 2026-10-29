@@ -43,9 +43,9 @@ import TimelineCore
     var canStart: Bool { storage != nil && selected?.isActive == true && active == nil && !loading }
     var filtered: [Project] { projects.filter { $0.isActive && matchesProject(query, project: $0) } }
     var elapsed: TimeInterval { active?.elapsed(at: now) ?? 0 }
-    var remaining: TimeInterval { max(0, Double((active?.targetMinutes ?? 0) * 60) - elapsed) }
-    var ratio: Double { guard let active, active.targetMinutes > 0 else { return 0 }; return elapsed / Double(active.targetMinutes * 60) }
-    var timerSeconds: TimeInterval { TimerDial.displaySeconds(target: active?.targetMinutes ?? targetMinutes, elapsed: elapsed) }
+    var remaining: TimeInterval { max(0, Double((active?.clockTargetMinutes ?? 0) * 60) - elapsed) }
+    var ratio: Double { guard let active, active.clockTargetMinutes > 0 else { return 0 }; return elapsed / Double(active.clockTargetMinutes * 60) }
+    var timerSeconds: TimeInterval { TimerDial.displaySeconds(target: active?.clockTargetMinutes ?? targetMinutes, elapsed: elapsed) }
 
     init(preview: Bool = false, runningPreview: Bool = true, previewScope: String = "day") {
         if preview {
@@ -172,7 +172,7 @@ import TimelineCore
     }
     private func tick() {
         now = Date()
-        if let session = active, !session.isPaused, session.targetMinutes > 0, ratio >= 1, alertedID != session.id {
+        if let session = active, !session.isPaused, session.clockTargetMinutes > 0, ratio >= 1, alertedID != session.id {
             alertedID = session.id; NSSound.beep(); AppWindows.shared.finish()
         }
         if active != nil && active?.isPaused == false && now.timeIntervalSince(archive.checkpoint) >= 15 { _ = persist(archive) }
