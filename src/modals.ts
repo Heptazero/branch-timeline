@@ -48,7 +48,7 @@ export class TextEntryModal extends Modal {
     actions.createEl("button", { text: "添加", cls: "mod-cta" }).onclick = () => this.submit();
     window.setTimeout(() => input.focus(), 30);
   }
-  onClose(): void { this.contentEl.empty(); }
+  onClose(): void { this.resolve(null); this.resolve = () => undefined; this.contentEl.empty(); }
   private submit(): void {
     const value = this.value.trim();
     if (!value) return;

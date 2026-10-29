@@ -1,0 +1,313 @@
+@import "../../styles/index.css";
+:root {
+  --color-blue:#3159e2;
+  --color-red:#df4958;
+  --color-green:#2d9768;
+  --color-purple:#8b5bd2;
+  --color-orange:#d9913e;
+  --color-cyan:#249bb3;
+  --text-error:#c43645;
+  --font-ui-smaller:11px;
+  --button-radius:6px;
+  color-scheme: light dark;
+  --background-primary:Canvas;
+  --background-secondary:color-mix(in srgb,CanvasText 4%,Canvas);
+  --background-modifier-border:color-mix(in srgb,CanvasText 12%,Canvas);
+  --background-modifier-hover:color-mix(in srgb,CanvasText 5%,Canvas);
+  --background-modifier-form-field:Canvas;
+  --background-modifier-error:#d34c5c;
+  --text-normal:CanvasText;
+  --text-muted:color-mix(in srgb,CanvasText 60%,Canvas);
+  --text-faint:color-mix(in srgb,CanvasText 40%,Canvas);
+  --text-accent:#3159e2;
+  --interactive-accent:#3159e2;
+  --interactive-normal:var(--background-secondary);
+  --interactive-hover:var(--background-modifier-hover);
+  --text-on-accent:white;
+  --font-interface:-apple-system,BlinkMacSystemFont,sans-serif;
+  --font-text:var(--font-interface);
+  --font-monospace:ui-monospace,monospace;
+  --font-ui-small:12px;
+  --font-ui-medium:13px;
+  --radius-s:5px;
+  --radius-m:8px;
+  --input-height:28px;
+  --size-4-2:8px;
+  --size-4-3:12px;
+  --size-4-4:16px;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: Canvas;
+  color: CanvasText;
+  font: 13px var(--font-interface);
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+  border: 0;
+  background: var(--interactive-normal);
+  border-radius: 6px;
+  padding: 6px 9px;
+}
+button:hover {
+  background: var(--interactive-hover);
+}
+button:disabled {
+  opacity: .4;
+  cursor: default;
+}
+input,
+textarea {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: Canvas;
+  padding: 7px;
+  max-width: 100%;
+}
+button.mod-cta {
+  background: var(--interactive-accent);
+  color: white;
+}
+#app {
+  height: 100%;
+  min-height: 0;
+}
+.branch-timeline-hz > .btl-toolbar,
+.branch-timeline-hz > .btl-page-nav-row {
+  display: none !important;
+}
+.branch-timeline-hz {
+  height: 100%;
+  padding-top: 0;
+}
+.btl-page-content {
+  min-height: 0;
+  flex: 1;
+}
+#error {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 2000;
+  padding: 10px;
+  border-radius: 8px;
+  background: Canvas;
+  border: 1px solid #d34c5c;
+  color: #c43645;
+}
+#error[hidden] {
+  display: none;
+}
+.modal-container {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #0003;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.modal {
+  background: Canvas;
+  border-radius: 14px;
+  box-shadow: 0 12px 42px #0003;
+  width: min(440px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+}
+.modal-content {
+  padding: 20px;
+}
+.modal-content h3 {
+  margin: 0 0 16px;
+  font-size: 17px;
+}
+.modal input,
+.modal textarea {
+  width: 100%;
+}
+.modal input[type=checkbox],
+.modal input[type=color],
+.modal input[type=radio] {
+  width: auto;
+}
+.menu,
+.suggestion-container {
+  position: fixed;
+  z-index: 1500;
+  background: Canvas;
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 7px 28px #0002;
+  padding: 5px;
+  min-width: 160px;
+  max-width: min(330px, calc(100vw - 12px));
+  max-height: 80vh;
+  overflow: auto;
+  border-radius: 9px;
+}
+.menu button,
+.suggestion-container button,
+.suggestion-list button {
+  display: block;
+  text-align: left;
+  width: 100%;
+  background: transparent;
+  padding: 7px 10px;
+}
+.menu button:hover,
+.suggestion-container button:hover {
+  background: var(--background-modifier-hover);
+}
+.menu .is-checked:before {
+  content: "\2713  ";
+  color: var(--interactive-accent);
+}
+.menu .is-warning {
+  color: #d04452;
+}
+.menu hr {
+  border: 0;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.notice {
+  position: fixed;
+  z-index: 2200;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 90vw;
+  padding: 10px 14px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: Canvas;
+  box-shadow: 0 4px 20px #0002;
+}
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.setting-item-info {
+  flex: 1;
+  min-width: 0;
+}
+.setting-item-description {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+.setting-item-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 60%;
+}
+.setting-item-control input[type=text],
+.setting-item-control textarea {
+  width: 160px;
+}
+.setting-item-heading {
+  font-weight: 600;
+}
+#app:has(.btl-settings-root) {
+  overflow: auto;
+  padding: 14px;
+}
+.markdown-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.markdown-preview-head strong {
+  flex: 1;
+}
+.markdown-preview .markdown-lines {
+  max-height: 65vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.markdown-lines > div {
+  padding: 1px 5px;
+}
+.markdown-lines .is-line-focused {
+  background: #3159e219;
+  border-radius: 4px;
+}
+.feature-convert {
+  margin: 16px;
+}
+.markdown-preview-head button {
+  white-space: nowrap;
+}
+.btl-policy-node {
+  user-select: none;
+}
+body[data-route=life] .btl-life-page {
+  height: 100%;
+}
+body[data-route=rhythm] #app > .btl-page-content,
+body[data-route=rhythm] .btl-running-bar {
+  display: none !important;
+}
+body[data-route=rhythm] .btl-rhythm-popover {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+body[data-route=rhythm] .btl-rhythm-resize {
+  display: none;
+}
+body[data-detail=true] .btl-project-detail-head {
+  display: none;
+}
+body[data-route=projects] .btl-project-controls > button:first-child {
+  display: none;
+}
+.feature-loading {
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+.feature-loading span {
+  height: 20px;
+  width: 20px;
+  border: 2px solid var(--background-modifier-border);
+  border-top-color: var(--interactive-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.suggestion-list button.is-selected {
+  background: var(--background-modifier-hover);
+}
+body[data-route=rhythm] .btl-rhythm-popover-head > button[aria-label=\5173\95ed] {
+  visibility: hidden;
+}

@@ -139,6 +139,7 @@ function normalizePolicyNode(node: PolicyNode): PolicyNode {
 
 function normalizeProject(project: ProjectTimelineState): ProjectTimelineState {
   return {
+    ...project,
     branches: Array.isArray(project?.branches) ? project.branches : [],
     ...normalizeProjectGoals(project)
   };

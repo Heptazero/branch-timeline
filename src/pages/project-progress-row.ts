@@ -11,7 +11,7 @@ export interface ProjectProgressOptions {
   manual: boolean;
   open: (path: string) => void;
   openFile: (path: string) => void;
-  setPlan: (path: string, scope: "day" | "week", anchor: HTMLElement) => void;
+  setPlan: (path: string, scope: "day" | "week" | "month", anchor: HTMLElement) => void;
   togglePin: (path: string) => void;
 }
 
@@ -41,9 +41,9 @@ export function renderProjectProgressRow(parent: HTMLElement, entry: ProjectList
     const target = amount.createEl("button", {
       cls: "btl-progress-goal",
       text: summary.planned ? projectHours(summary.planned) : "无",
-      attr: { type: "button", "aria-label": `设置${project.name}${options.scope === "week" ? "本周" : "今日"}目标` }
+      attr: { type: "button", "aria-label": `设置${project.name}${options.scope === "month" ? "本月" : options.scope === "week" ? "本周" : "今日"}目标` }
     });
-    target.onclick = () => options.setPlan(project.path, options.scope as "day" | "week", target);
+    target.onclick = () => options.setPlan(project.path, options.scope as "day" | "week" | "month", target);
   } else amount.createSpan({ cls: "btl-progress-goal-empty", text: "无", attr: { title: "累计视图不设目标" } });
   const menu = line.createEl("button", { cls: "btl-progress-menu", text: "⋮", attr: { type: "button", "aria-label": `${project.name}菜单` } });
   menu.onclick = () => openMenu(menu, project, options);
@@ -72,7 +72,7 @@ function openMenu(anchor: HTMLElement, project: ProjectRef, options: ProjectProg
   menu.onHide(() => { if (row) delete row.dataset.menuOpen; });
   menu.addItem(item => item.setTitle("打开项目文件").setIcon("file-text").onClick(() => options.openFile(project.path)));
   if (options.scope !== "total") menu.addItem(item => item.setTitle("设置目标").setIcon("timer")
-    .onClick(() => options.setPlan(project.path, options.scope as "day" | "week", anchor)));
+    .onClick(() => options.setPlan(project.path, options.scope as "day" | "week" | "month", anchor)));
   menu.addSeparator();
   menu.addItem(item => item.setTitle(options.pinned ? "取消置顶" : "置顶").setIcon(options.pinned ? "pin-off" : "pin")
     .onClick(() => options.togglePin(project.path)));

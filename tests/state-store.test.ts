@@ -86,3 +86,15 @@ test("external writes during mutation are rejected rather than overwritten", asy
   await assert.rejects(subject.store.update(() => { subject.content = external; }), /已在别处改变/);
   assert.equal(subject.content, external); assert.equal(subject.writes, 0);
 });
+
+
+test("feature normalization retains native timer and unknown project/day fields", async () => {
+  const initial = { version: 1, days: { "2026-10-29": { wake: 420, sleep: 1500, napStart: 780, napEnd: 810, items: [], branches: [], extension: { keep: true } } },
+    projects: { "p.md": { branches: [], extension: { keep: true } } }, macTimer: { active: null }, desktopReceipts: { saved: true } };
+  const subject = fixture(JSON.stringify(initial));
+  await subject.store.update(state => { state.lifeEvents = []; });
+  const result = JSON.parse(subject.content);
+  assert.deepEqual(result.days["2026-10-29"].extension, { keep: true });
+  assert.deepEqual(result.projects["p.md"].extension, { keep: true });
+  assert.deepEqual(result.macTimer, initial.macTimer); assert.deepEqual(result.desktopReceipts, initial.desktopReceipts);
+});

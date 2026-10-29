@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 import TimelineCore
 
 @MainActor final class AppModel: ObservableObject {
-    static var diagnostic: Bool { ["--render-preview", "--check-quit", "--check-interface"].contains(where: CommandLine.arguments.contains) }
+    static var diagnostic: Bool { ["--render-preview", "--check-quit", "--check-interface", "--check-features"].contains(where: CommandLine.arguments.contains) }
     static let shared = AppModel(preview: diagnostic)
     // View state only. The authoritative timer and records live in the original state.json.
     @Published private(set) var archive = AppArchive()
@@ -24,6 +24,13 @@ import TimelineCore
     @Published var error: String?
     @Published var loading = false
     @Published var finishRequested = false
+    @Published var visiblePages = Set(["day", "projects", "habits", "policy", "achievements", "life"])
+    @Published var featureRoute = "policy"
+    @Published var featureItemID: String?
+    @Published var featureCommand: FeatureCommand?
+    @Published var featureCanUndo = false
+    @Published var branchMode = false
+    @Published var projectDetailPath: String?
     private(set) var storage: SharedStateStore?
     private var legacy: AppArchive?
     private var ticker: Timer?
@@ -48,7 +55,7 @@ import TimelineCore
             selectedPath = project.path; archive.vaultPath = "/Preview"; title = "完成标识符识别"
             if runningPreview { archive.active = DesktopSession(project: project, title: title, targetMinutes: 25, now: now.addingTimeInterval(-428)) }
             scope = previewScope; dashboard = PreviewFixture.dashboard(scope: previewScope)
-            connection = ConnectionInfo(vaultPath: "/示例库", appPath: "/示例库/时间线/state.json", configuredPath: "/示例库/时间线/state.json", pluginVersion: "0.3.63", projectTypes: "project", comments: "HTML 注释", sameFile: true, compatiblePlugin: true, catalogMatches: true)
+            connection = ConnectionInfo(vaultPath: "/示例库", appPath: "/示例库/时间线/state.json", configuredPath: "/示例库/时间线/state.json", pluginVersion: "0.3.64", projectTypes: "project", comments: "HTML 注释", sameFile: true, compatiblePlugin: true, catalogMatches: true)
             return
         }
         if let id = Bundle.main.bundleIdentifier, NSRunningApplication.runningApplications(withBundleIdentifier: id).count > 1 { return }
@@ -188,7 +195,7 @@ import TimelineCore
     func goToday() { focusDate = logicalDate(); focusRequest = UUID(); refreshDashboard() }
     func requestDateFocus() { focusRequest = UUID(); refreshDashboard() }
     func shiftDate(_ amount: Int) {
-        focusDate = PeriodNavigation.shift(focusDate, scope: scope, amount: amount)
+        focusDate = PeriodNavigation.shift(focusDate, scope: navigationScope, amount: amount)
         requestDateFocus()
     }
     func refreshDashboard() {
@@ -219,7 +226,10 @@ import TimelineCore
     }
     func refreshConnection() {
         guard let storage else { return }
-        do { connection = try storage.connectionInfo(catalogSignature: catalogSignature) }
+        do {
+            connection = try storage.connectionInfo(catalogSignature: catalogSignature)
+            if let pages = storage.bridge.settings()["visiblePages"] as? [String] { visiblePages = Set(pages).union(["day"]) }
+        }
         catch { connection = nil; self.error = error.localizedDescription }
     }
     func revealDataFile() { if let storage { NSWorkspace.shared.activateFileViewerSelecting([storage.url]) } }

@@ -12,7 +12,7 @@ export function openProjectPlanPopover(
   closeCurrent?.();
   const doc = anchor.ownerDocument;
   const win = doc.defaultView || window;
-  const label = options.scope === "week" ? "本周计划" : "今日计划";
+  const label = options.scope === "month" ? "本月计划" : options.scope === "week" ? "本周计划" : "今日计划";
   const panel = doc.body.createDiv({ cls: "btl-project-goal-popover", attr: { role: "dialog", "aria-label": label } });
   let closed = false;
   let saving = false;

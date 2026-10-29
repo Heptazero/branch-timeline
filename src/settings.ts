@@ -2,12 +2,10 @@ import { AbstractInputSuggest, App, Notice, PluginSettingTab, Setting, setIcon }
 import type BranchTimelinePlugin from "./main";
 import { installLongPressSort } from "./interactions/long-press-sort";
 import { ConfirmModal } from "./modals";
-import { DEFAULT_RHYTHM, DEFAULT_RHYTHM_MARKERS } from "./rhythm";
 import type { BranchTimelineSettings, ItemMetadataRequirement } from "./types";
 import { normalizeTaskHeadings } from "./vault/project-tasks";
 import { compileFormat } from "./pages/life-diary";
 import { renderMentalStateSettings } from "./focus-state-settings";
-import { DEFAULT_FOCUS_COLORS } from "./focus-rhythm-color";
 import { renderFocusColorSettings } from "./focus-color-settings";
 
 const PROJECT_TYPE_COLORS = ["#3b6ea5", "#a5573b", "#7a3ba5", "#2e8b74", "#a53b6e"];
@@ -65,37 +63,8 @@ const SETTINGS_GROUPS = [
 type SettingsGroupId = typeof SETTINGS_GROUPS[number]["id"];
 type SettingsSectionId = typeof SETTINGS_GROUPS[number]["sections"][number];
 
-export const DEFAULT_SETTINGS: BranchTimelineSettings = {
-  statePath: "99_assets/branch-timeline/state.json",
-  pluginCommentStyle: "html",
-  hidePluginCommentsInEditor: false,
-  diaryFolder: "20_self/22-diary",
-  lifeDiaryFormats: ["[event] {内容}"],
-  projectFolder: "21_project",
-  projectTypes: [{ type: "project", color: PROJECT_TYPE_COLORS[0] }],
-  projectTaskHeadings: ["任务"],
-  linkProjectWorkTasks: false,
-  lastProjectTasks: {},
-  lastProjectTaskHeadings: {},
-  itemMetadataRequirement: "none",
-  habits: ["早睡", "阅读", "对话训练", "写日记"],
-  tags: [],
-  rhythm: { ...DEFAULT_RHYTHM },
-  rhythmMarkers: DEFAULT_RHYTHM_MARKERS.map(marker => ({ ...marker })),
-  rhythmLabels: { wake: "起床", napStart: "午休开始", napEnd: "午休结束", sleepPrep: "睡眠准备", sleep: "入睡" },
-  rhythmElapsedMark: "↑",
-  rhythmRemainingMark: "↓",
-  timerReminderMinutes: 45,
-  mentalStateLabels: [],
-  focusColors: { ...DEFAULT_FOCUS_COLORS },
-  visiblePages: ["day", "projects", "habits", "achievements", "policy", "life"],
-  pageVisibilityVersion: 2,
-  projectOrder: [],
-  pinnedProjects: [],
-  collapsedProjectGroups: [],
-  policySceneWidths: {},
-  habitCardOrder: ["week", "month", "sleep"]
-};
+export { DEFAULT_SETTINGS } from "./settings-defaults";
+import { DEFAULT_SETTINGS } from "./settings-defaults";
 
 export class BranchTimelineSettingTab extends PluginSettingTab {
   private activeGroup: SettingsGroupId = "data";

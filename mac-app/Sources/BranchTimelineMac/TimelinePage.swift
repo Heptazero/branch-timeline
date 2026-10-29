@@ -36,13 +36,14 @@ struct TimelinePage: View {
                 Text("\(minuteLabel(item.start))–\(minuteLabel(item.end)) · \(hoursLabel(max(0, item.end - item.start)))").font(.caption).foregroundStyle(.secondary)
                 if item.plan == true { Text("计划").font(.caption).foregroundStyle(.secondary) }
                 if !item.note.isEmpty { Text(item.note).textSelection(.enabled) }
+                Button("更多操作") { detail = nil; model.openFeature("day"); model.featureItemID = item.id }
                 if !item.projectPath.isEmpty { Button("在 Obsidian 打开项目文件") { model.openProject(item.projectPath) } }
             }.padding(18).frame(width: 300, alignment: .leading)
         }
     }
     private func document(_ days: [DashboardDay]) -> TimelineDocument {
         TimelineDocument(items: model.dashboard?.items ?? [], projects: model.projects, branches: model.dashboard?.branches ?? [], scale: TimelineZoom.clamp(scale), now: nowMinute,
-            onOpen: { detail = $0 }, days: days, focusDate: dayKey(model.focusDate), showPlans: showPlans,
+            onOpen: { detail = $0 }, onRhythm: { date, id, minute in model.changeRhythm(date: date, id: id, minute: minute) }, days: days, focusDate: dayKey(model.focusDate), showPlans: showPlans,
             onCreate: { date, minute, plan in
                 model.clearError()
                 var value = BlockEdit(date: date, start: minute, end: min(1560, minute + 30)); value.kind = plan ? "todo" : "fact"; draft = value
@@ -61,6 +62,7 @@ struct TimelineDocument: View {
     let scale: Double
     let now: Double?
     let onOpen: (DashboardItem) -> Void
+    var onRhythm: (String, String, Int?) -> Void = { _, _, _ in }
     var days: [DashboardDay] = []
     var focusDate = ""
     var showPlans = true
@@ -102,6 +104,7 @@ struct TimelineDocument: View {
                 lane(actual, date: date, plan: false, width: showPlans ? width / 2 : width)
                 if showPlans { lane(plans, date: date, plan: true, width: width / 2) }
             }
+            RhythmTimelineOverlay(events: days.first { $0.date == date }?.rhythmEvents ?? [], scale: scale, onChange: { id, minute in onRhythm(date, id, minute) })
             if today, let now {
                 HStack(spacing: 0) { Circle().fill(.red).frame(width: 4, height: 4); Rectangle().fill(.red.opacity(0.6)).frame(height: 1) }.offset(y: y(now)).allowsHitTesting(false)
             }

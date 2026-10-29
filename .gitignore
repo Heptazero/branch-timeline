@@ -5,3 +5,7 @@ main.js
 mac-app/.build/
 mac-app/dist/
 mac-app/Sources/TimelineCore/Resources/shared-session.js
+
+mac-app/Sources/TimelineCore/Resources/features.js
+mac-app/Sources/TimelineCore/Resources/features.css
+mac-app/Sources/TimelineCore/Resources/features.html

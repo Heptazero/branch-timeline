@@ -8,6 +8,7 @@ public struct Dashboard: Decodable {
     public let branches: [DashboardBranch]
     public let days: [DashboardDay]
     public let sleep: [SleepMetric]
+    public let rhythm: RhythmSummary?
 }
 public struct ProjectSummary: Decodable, Identifiable {
     public var id: String { path }
@@ -32,6 +33,7 @@ public struct DashboardDay: Decodable, Identifiable {
     public let bed, wake: Double?
     public let projects: [DayProject]?
     public let items: [DashboardItem]?
+    public let rhythmEvents: [DayRhythmEvent]?
 }
 public struct DayProject: Decodable, Identifiable {
     public var id: String { path }
@@ -49,7 +51,7 @@ extension SharedStateStore {
         let (before, _) = try read()
         let catalog = String(decoding: try JSONEncoder().encode(projects), as: UTF8.self)
         let clock = ISO8601DateFormatter(); clock.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let value = try script.invoke("nativeDashboard", arguments: [String(decoding: before, as: UTF8.self), catalog, dayKey(date), scope, clock.string(from: now)])
+        let value = try script.invoke("nativeDashboard", arguments: [String(decoding: before, as: UTF8.self), catalog, dayKey(date), scope, clock.string(from: now), String(decoding: try JSONSerialization.data(withJSONObject: bridge.settings()), as: UTF8.self)])
         guard let text = value.toString() else { throw SharedStateError.invalid }
         return try JSONDecoder().decode(Dashboard.self, from: Data(text.utf8))
     }

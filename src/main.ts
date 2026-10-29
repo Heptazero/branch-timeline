@@ -1,13 +1,10 @@
+import { normalizeSettings } from "./settings-state";
 import { Notice, Platform, Plugin, WorkspaceLeaf } from "obsidian";
 import type { Extension } from "@codemirror/state";
 import { ChoiceSuggestModal, ConfirmModal, ProjectSuggestModal, TextEntryModal } from "./modals";
 import { ProjectWorkModal } from "./project-work-modal";
 import type { ProjectWorkResult } from "./project-work-modal";
-import { normalizeRhythmMarkers, normalizeRhythmSchedule } from "./rhythm";
 import { BranchTimelineSettingTab, DEFAULT_SETTINGS } from "./settings";
-import { normalizeMentalStateLabels } from "./focus-state-model";
-import { normalizeFocusColors } from "./focus-rhythm-color";
-import { loadTags } from "./tags";
 import { BRANCH_TIMELINE_VIEW, BranchTimelineView } from "./timeline-view";
 import type { BranchTimelineSettings, ProjectRef } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
@@ -16,7 +13,6 @@ import { StateStore, defaultDay } from "./vault/state-store";
 import { changedProjectDates, projectPathsOn, ProjectTimeSync } from "./vault/project-time-sync";
 import { UndoManager } from "./undo-manager";
 import { compactDuration, elapsedMinutes, runningItems } from "./timeline/timer-service";
-import { normalizeTaskHeadings } from "./vault/project-tasks";
 import type { ProjectTaskIndex } from "./vault/project-tasks";
 import { DiaryBracketSuggest } from "./diary-bracket-suggest";
 import { reminderOn } from "./fixed-reminders/model";
@@ -88,60 +84,7 @@ export default class BranchTimelinePlugin extends Plugin {
     this.app.workspace.detachLeavesOfType(BRANCH_TIMELINE_VIEW);
   }
 
-  async loadSettings(): Promise<void> {
-    const saved = await this.loadData() as (Partial<BranchTimelineSettings> & {
-      tagMap?: Record<string, string>;
-      dayStartMinute?: number;
-      dayEndMinute?: number;
-      requireItemMetadata?: boolean;
-      showProjectLogHeatmap?: boolean;
-    }) | null;
-    const { tagMap, dayStartMinute, dayEndMinute, requireItemMetadata, showProjectLogHeatmap: _legacyProjectLog, ...settings } = saved || {};
-    const rhythm = normalizeRhythmSchedule(saved?.rhythm, dayStartMinute, dayEndMinute);
-    const rhythmLabels = { ...DEFAULT_SETTINGS.rhythmLabels, ...(saved?.rhythmLabels || {}) };
-    this.settings = {
-      ...DEFAULT_SETTINGS,
-      ...settings,
-      pluginCommentStyle: saved?.pluginCommentStyle === "obsidian" ? "obsidian" : "html",
-      hidePluginCommentsInEditor: saved?.hidePluginCommentsInEditor === true,
-      projectTypes: Array.isArray(saved?.projectTypes)
-        ? saved.projectTypes
-          .filter(item => item && typeof item.type === "string" && typeof item.color === "string")
-          .map(item => ({ type: item.type.trim(), color: item.color }))
-        : DEFAULT_SETTINGS.projectTypes.map(item => ({ ...item })),
-      projectTaskHeadings: normalizeTaskHeadings(saved?.projectTaskHeadings),
-      lifeDiaryFormats: Array.isArray(saved?.lifeDiaryFormats) ? saved.lifeDiaryFormats.filter(value => typeof value === "string") : DEFAULT_SETTINGS.lifeDiaryFormats,
-      linkProjectWorkTasks: saved?.linkProjectWorkTasks === true,
-      lastProjectTasks: saved?.lastProjectTasks && typeof saved.lastProjectTasks === "object" ? saved.lastProjectTasks : {},
-      lastProjectTaskHeadings: saved?.lastProjectTaskHeadings && typeof saved.lastProjectTaskHeadings === "object" ? saved.lastProjectTaskHeadings : {},
-      itemMetadataRequirement: this.metadataRequirement(saved),
-      habits: Array.isArray(saved?.habits) ? saved.habits : DEFAULT_SETTINGS.habits,
-      tags: Array.isArray(saved?.tags) || tagMap ? loadTags(saved?.tags, tagMap) : [],
-      rhythm,
-      rhythmMarkers: normalizeRhythmMarkers(saved?.rhythmMarkers, rhythm, rhythmLabels),
-      rhythmLabels,
-      mentalStateLabels: normalizeMentalStateLabels(saved?.mentalStateLabels),
-      focusColors: normalizeFocusColors(saved?.focusColors),
-      visiblePages: Array.isArray(saved?.visiblePages)
-        ? ["day", ...saved.visiblePages.filter(page => page !== "day"), ...(saved.pageVisibilityVersion === 2 ? [] : ["life" as const])]
-        : DEFAULT_SETTINGS.visiblePages,
-      pageVisibilityVersion: 2,
-      projectOrder: Array.isArray(saved?.projectOrder) ? saved.projectOrder : [],
-      pinnedProjects: Array.isArray(saved?.pinnedProjects) ? saved.pinnedProjects : [],
-      collapsedProjectGroups: Array.isArray(saved?.collapsedProjectGroups) ? saved.collapsedProjectGroups : [],
-      policySceneWidths: saved?.policySceneWidths && typeof saved.policySceneWidths === "object" ? saved.policySceneWidths : {},
-      habitCardOrder: Array.isArray(saved?.habitCardOrder) ? saved.habitCardOrder : DEFAULT_SETTINGS.habitCardOrder,
-      timerReminderMinutes: typeof saved?.timerReminderMinutes === "number" && Number.isFinite(saved.timerReminderMinutes)
-        ? Math.max(0, Math.round(saved.timerReminderMinutes))
-        : DEFAULT_SETTINGS.timerReminderMinutes
-    };
-  }
-
-  private metadataRequirement(saved: (Partial<BranchTimelineSettings> & { requireItemMetadata?: boolean }) | null): BranchTimelineSettings["itemMetadataRequirement"] {
-    const requirement = saved?.itemMetadataRequirement;
-    if (requirement === "project" || requirement === "both") return "project";
-    return "none";
-  }
+  async loadSettings(): Promise<void> { this.settings = normalizeSettings(await this.loadData()); }
 
   async saveSettings(refresh = true): Promise<void> {
     const before = await this.loadData();

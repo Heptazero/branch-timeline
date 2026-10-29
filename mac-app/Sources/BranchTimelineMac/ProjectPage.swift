@@ -21,7 +21,7 @@ struct ProjectPage: View {
                 LazyVStack(spacing: 26) {
                     ForEach(rows) { row in
                         ProjectProgressRow(row: row, expected: model.dashboard?.expected ?? 0, showGoal: model.scope != "total", maximum: rows.map(\.actual).max() ?? 1,
-                            onOpen: { model.openProject(row.path) }, model: model)
+                            onOpen: { model.projectDetailPath = row.path }, model: model)
                     }
                     if rows.isEmpty { Text("暂无项目").foregroundStyle(.secondary).padding(.top, 80) }
                 }.padding(.horizontal, 30).padding(.vertical, 6)

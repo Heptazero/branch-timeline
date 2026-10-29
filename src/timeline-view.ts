@@ -284,7 +284,7 @@ export class BranchTimelineView extends BranchTimelineViewDayActions {
     await this.app.workspace.revealLeaf(leaf);
   }
 
-  protected openProjectPlan(path: string, scope: "day" | "week", anchor: HTMLElement): void {
+  protected openProjectPlan(path: string, scope: "day" | "week" | "month", anchor: HTMLElement): void {
     const key = dateKey(this.date);
     void this.plugin.store.load().then(state => {
       openProjectPlanPopover(anchor, projectGoalOn(state, path, key, scope), async minutes => {

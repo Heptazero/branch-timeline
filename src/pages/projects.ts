@@ -20,7 +20,7 @@ export interface ProjectsPageOptions {
   openProject: (path: string) => void;
   openProjectFile: (path: string) => void;
   onTimeScope: (scope: ProjectTimeScope) => void;
-  onSetPlan: (path: string, scope: "day" | "week", anchor: HTMLElement) => void;
+  onSetPlan: (path: string, scope: "day" | "week" | "month", anchor: HTMLElement) => void;
   onTogglePin: (path: string) => void;
   onReorder: (paths: string[]) => void;
 }
@@ -43,7 +43,7 @@ export function renderProjectsPage(options: ProjectsPageOptions): { destroy: () 
   const scope = controlButton(controls, SCOPE_LABELS[options.timeScope]);
   scope.onclick = () => {
     const menu = new Menu();
-    for (const id of ["day", "week", "total"] as const) menu.addItem(item => item.setTitle(SCOPE_LABELS[id]).setChecked(id === options.timeScope)
+    for (const id of ["day", "week", "month", "total"] as const) menu.addItem(item => item.setTitle(SCOPE_LABELS[id]).setChecked(id === options.timeScope)
       .onClick(() => { if (id !== options.timeScope) options.onTimeScope(id); }));
     showMenu(menu, scope);
   };

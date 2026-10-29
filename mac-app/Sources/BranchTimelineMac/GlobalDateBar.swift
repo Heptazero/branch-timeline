@@ -23,10 +23,10 @@ struct GlobalDateBar: View {
     var body: some View {
         VStack(spacing: 7) {
             DateNavigation(model: model)
-            Picker("日期范围", selection: Binding(get: { model.scope }, set: { model.selectScope($0) })) {
+            if !model.hasFeaturePanel || (model.page == .features && model.featureRoute == "projects") { Picker("日期范围", selection: Binding(get: { model.scope }, set: { model.selectScope($0) })) {
                 Text("日").tag("day"); Text("周").tag("week"); Text("月").tag("month")
-                if model.page == .projects { Text("累计").tag("total") }
-            }.labelsHidden().pickerStyle(.segmented).controlSize(.small)
-        }.frame(width: 156)
+                if model.page == .projects || (model.page == .features && model.featureRoute == "projects") { Text("累计").tag("total") }
+            }.labelsHidden().pickerStyle(.segmented).controlSize(.small) }
+        }.frame(width: 148)
     }
 }

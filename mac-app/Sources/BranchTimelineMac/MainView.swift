@@ -7,9 +7,16 @@ struct MainView: View {
     @AppStorage("timelineShowPlans") private var showPlans = true
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            HStack(spacing: 6) {
                 Button { AppWindows.shared.togglePanel() } label: { Image(systemName: "arrow.down.right.and.arrow.up.left") }.help("显示 / 隐藏悬浮条")
+                RhythmControl(model: model)
                 Spacer()
+                if model.hasFeaturePanel {
+                    Button { model.featureAction("undo") } label: { Image(systemName: "arrow.uturn.backward") }.disabled(!model.featureCanUndo).help("撤回")
+                    if model.featureRoute != "settings" || model.page != .features {
+                        Button { model.featureAction("add") } label: { Image(systemName: "plus") }.help("添加")
+                    }
+                }
                 if model.page == .timeline && model.scope != "month" {
                     Button { showPlans.toggle() } label: { Image(systemName: "rectangle.split.2x1") }
                         .foregroundStyle(showPlans ? AppPalette.blue : .secondary)
@@ -17,13 +24,18 @@ struct MainView: View {
                 }
                 Button { AppWindows.shared.showSettings() } label: { Image(systemName: "gearshape") }.help("设置")
                 Menu {
+                    if model.page == .timeline {
+                        Button(model.branchMode ? "日历视图" : "分支视图") { model.branchMode.toggle() }
+                    }
+                    if model.hasFeaturePanel { Button("同步项目日志") { model.featureAction("sync") } }
+                    Button("全部功能设置") { model.openFeature("settings") }
                     Button("更换数据文件") { model.chooseDataFile() }.disabled(model.active != nil)
-                    Button("刷新项目和记录") { model.refreshProjects(); model.refreshShared() }
+                    Button("刷新项目和记录") { model.refreshProjects(); model.refreshShared(); if model.hasFeaturePanel { model.featureAction("refresh") } }
                     Divider()
                     Button("退出") { ApplicationLifecycle.requestQuit() }
                 } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("设置与更多操作")
             }.buttonStyle(.plain).font(.system(size: 15)).frame(height: model.page == .timer ? 28 : 64)
-                .overlay { if model.page != .timer { GlobalDateBar(model: model) } }
+                .overlay { if model.page != .timer && !(model.page == .features && model.featureRoute == "life") { GlobalDateBar(model: model) } }
                 .padding(.horizontal, 20).padding(.vertical, 10)
             if let error = model.error {
                 HStack(alignment: .top) {
@@ -43,9 +55,12 @@ struct MainView: View {
             } else {
                 switch model.page {
                 case .timer: FocusTimerPage(model: model)
-                case .timeline: TimelinePage(model: model)
-                case .projects: ProjectPage(model: model)
+                case .timeline:
+                    if model.branchMode { SharedFeatureView(model: model, route: "day") } else { TimelinePage(model: model) }
+                case .projects:
+                    if let path = model.projectDetailPath { ProjectDetailPage(model: model, path: path) } else { ProjectPage(model: model) }
                 case .stats: StatisticsPage(model: model)
+                case .features: FeaturePage(model: model)
                 }
             }
             BottomNavigation(model: model)

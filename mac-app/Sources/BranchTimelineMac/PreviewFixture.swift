@@ -14,7 +14,7 @@ enum PreviewFixture {
         let days: [[String: Any]] = dates.enumerated().map { index, value in
             let factor = Double(index % 3 + 1) / 2
             return ["date": dayKey(value), "minutes": 150 * factor, "distractions": index % 4, "bed": 1440 + index % 3 * 20, "wake": 1890 + index % 3 * 15,
-                    "items": items(index), "projects": [
+                    "rhythmEvents": [["id": "wake", "name": "起床", "minute": 420, "real": true], ["id": "nap-start", "name": "午休", "minute": 780, "real": false], ["id": "sleep", "name": "入睡", "minute": 1500, "real": false]], "items": items(index), "projects": [
                         ["path": "preview.md", "name": "编译器", "color": "#3159e2", "minutes": 90 * factor],
                         ["path": "research.md", "name": "科研", "color": "#9072c6", "minutes": 60 * factor]
                     ]]
@@ -26,7 +26,7 @@ enum PreviewFixture {
         ]
         let week = PeriodNavigation.dates(date, scope: "week")
         let value: [String: Any] = ["date": dayKey(date), "weekStart": dayKey(week[0]), "weekEnd": dayKey(week[6]), "totalMinutes": days.reduce(0.0) { $0 + ($1["minutes"] as? Double ?? 0) }, "expected": 0.5,
-            "projects": projects, "items": items(0), "branches": [], "days": days, "sleep": [
+            "rhythm": ["wake": 420, "sleep": 1500, "switchAt": 810, "elapsedMark": "+", "remainingMark": "−"], "projects": projects, "items": items(0), "branches": [], "days": days, "sleep": [
                 ["label": "平均入睡", "value": "00:20", "change": ["text": "−18m", "tone": "is-good"]],
                 ["label": "平均起床", "value": "07:45", "change": ["text": "+5m", "tone": "is-neutral"]],
                 ["label": "平均睡眠", "value": "7.4h", "change": ["text": "+23m", "tone": "is-good"]]

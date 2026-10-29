@@ -1,3 +1,5 @@
+import { normalizeSettings } from "../settings-state";
+import { projectRhythm } from "./rhythm-data";
 import type { BranchTimelineState } from "../types";
 import { DEFAULT_RHYTHM } from "../rhythm";
 import { dateKey, logicalToday } from "../vault/format";
@@ -13,8 +15,8 @@ import { recordedMinutes } from "../pages/focus-stats";
 import { sleepWeekMetrics } from "../pages/sleep-summary-model";
 
 /** Read-only projection: reuse the plugin's time, goal and sleep semantics. */
-export function nativeDashboard(stateText: string, catalogText: string, selected: string, scope: ProjectTimeScope, nowText: string): string {
-  const state = readSharedState(stateText) as unknown as BranchTimelineState;
+export function nativeDashboard(stateText: string, catalogText: string, selected: string, scope: ProjectTimeScope, nowText: string, settingsText = "{}"): string {
+  const state = readSharedState(stateText) as unknown as BranchTimelineState, settings = normalizeSettings(JSON.parse(settingsText));
   state.projects ||= {};
   const now = new Date(nowText), date = parseDate(selected);
   if (!Number.isFinite(now.getTime()) || !["day", "week", "month", "total"].includes(scope)) throw new Error("统计范围无效");
@@ -33,9 +35,11 @@ export function nativeDashboard(stateText: string, catalogText: string, selected
   const day = state.days[selected];
   const activeId = (state as unknown as { macTimer?: { active?: { id: string } } }).macTimer?.active?.id;
   const items = nativeItems(day, activeId, selected === today ? minute : undefined);
+  const rhythm = projectRhythm(state, settings, selected, now);
   const days = dates.map(date => {
     const key = dateKey(date), sample = focusSample(state.days, value => value === key, today, minute), sleep = sleepSpan(date, state);
     return { date: key, minutes: sample.minutes, distractions: sample.distractions, bed: sleep?.bed ?? null, wake: sleep?.wake ?? null,
+      rhythmEvents: projectRhythm(state, settings, key, now).events,
       projects: nativeDayProjects(state.days[key], catalog, key === today ? minute : undefined),
       items: nativeItems(state.days[key], activeId, key === today ? minute : undefined) };
   });
@@ -43,7 +47,7 @@ export function nativeDashboard(stateText: string, catalogText: string, selected
     : dates.map(value => new Date(value.getFullYear(), value.getMonth(), value.getDate() - (scope === "day" ? 1 : 7)));
   return JSON.stringify({ date: selected, weekStart: dateKey(week), weekEnd: dateKey(new Date(week.getFullYear(), week.getMonth(), week.getDate() + 6)), totalMinutes: totals.minutes,
     expected: scopeExpectedFraction(date, scope, now), projects, items, branches: (day?.branches || []).map(branch => ({ id: branch.id, name: branch.name })),
-    days, sleep: sleepWeekMetrics(dates, state, previous) });
+    days, rhythm: rhythm.summary, sleep: sleepWeekMetrics(dates, state, previous) });
 }
 
 export function nativeSetGoal(text: string, path: string, selected: string, scope: "day" | "week" | "month", minutes: number): string {

@@ -21,6 +21,10 @@ import TimelineCore
     private var sleepObserver: NSObjectProtocol?
     func applicationDidFinishLaunching(_ notification: Notification) {
         if CommandLine.arguments.contains("--render-preview") { PreviewRenderer.run(); return }
+        if CommandLine.arguments.contains("--check-features") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 50) { fputs("Feature check timeout\n", stderr); exit(1) }
+            Task { do { try await FeatureChecks.run(); NSApp.terminate(nil) } catch { fputs("Feature checks: \(error)\n", stderr); exit(1) } }; return
+        }
         if CommandLine.arguments.contains("--check-interface") { InterfaceChecks.run(); NSApp.terminate(nil); return }
         if CommandLine.arguments.contains("--check-quit") {
             do { try SharedStateStore.verifyRuntime(); print("Shared runtime resource OK") }

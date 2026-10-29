@@ -6,17 +6,17 @@ struct CalendarPicker: View {
     @State private var month = Date()
     @State private var totals: [String: Double] = [:]
     @Environment(\.dismiss) private var dismiss
-    private var weekSelection: Bool { model.scope == "week" }
+    private var weekSelection: Bool { model.navigationScope == "week" }
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                Button { shift(-1) } label: { Image(systemName: "chevron.left") }.help(model.scope == "month" ? "上一年" : "上个月")
+                Button { shift(-1) } label: { Image(systemName: "chevron.left") }.help(model.navigationScope == "month" ? "上一年" : "上个月")
                 Spacer()
-                Text(month.formatted(model.scope == "month" ? .dateTime.locale(Locale(identifier: "zh_CN")).year() : .dateTime.locale(Locale(identifier: "zh_CN")).year().month())).font(.headline)
+                Text(month.formatted(model.navigationScope == "month" ? .dateTime.locale(Locale(identifier: "zh_CN")).year() : .dateTime.locale(Locale(identifier: "zh_CN")).year().month())).font(.headline)
                 Spacer()
-                Button { shift(1) } label: { Image(systemName: "chevron.right") }.help(model.scope == "month" ? "下一年" : "下个月")
+                Button { shift(1) } label: { Image(systemName: "chevron.right") }.help(model.navigationScope == "month" ? "下一年" : "下个月")
             }.buttonStyle(.plain)
-            if model.scope == "month" {
+            if model.navigationScope == "month" {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
                     ForEach(1...12, id: \.self) { value in
                         let date = Calendar.current.date(from: DateComponents(year: Calendar.current.component(.year, from: month), month: value, day: 1))!
@@ -34,7 +34,7 @@ struct CalendarPicker: View {
                 }
             }
             HStack {
-                if model.scope != "month" {
+                if model.navigationScope != "month" {
                     Text("记录时长").font(.caption).foregroundStyle(.secondary)
                     ForEach([0.08, 0.25, 0.45, 0.65], id: \.self) { opacity in RoundedRectangle(cornerRadius: 2).fill(AppPalette.blue.opacity(opacity)).frame(width: 9, height: 9) }
                 }
@@ -55,6 +55,6 @@ struct CalendarPicker: View {
                 .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(selected ? AppPalette.blue : today ? Color.primary.opacity(0.65) : .clear, lineWidth: selected ? 1.5 : 1) }
         }.buttonStyle(.plain).help("\(key) · \(hoursLabel(amount))")
     }
-    private func shift(_ amount: Int) { month = Calendar.current.date(byAdding: .month, value: amount * (model.scope == "month" ? 12 : 1), to: month) ?? month; reload() }
+    private func shift(_ amount: Int) { month = Calendar.current.date(byAdding: .month, value: amount * (model.navigationScope == "month" ? 12 : 1), to: month) ?? month; reload() }
     private func reload() { totals = Dictionary(uniqueKeysWithValues: model.calendar(month).map { ($0.date, $0.minutes) }) }
 }

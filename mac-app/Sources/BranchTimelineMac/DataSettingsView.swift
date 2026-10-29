@@ -38,6 +38,7 @@ struct DataSettingsView: View {
                     Text(model.error ?? "尚未连接数据文件").foregroundStyle(.secondary).textSelection(.enabled)
                     Button("连接原时间线数据") { model.chooseDataFile(); model.refreshConnection() }.disabled(model.active != nil)
                 }
+                Button("全部功能设置") { model.openFeature("settings"); AppWindows.shared.showMain() }
                 Divider()
                 HStack { Text("Branch Timeline"); Spacer(); Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "开发版").foregroundStyle(.secondary) }
             }.padding(24)

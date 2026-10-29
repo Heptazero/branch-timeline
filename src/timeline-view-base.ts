@@ -482,7 +482,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected abstract stepScale(factor: number): void;
   protected abstract toggleProjectPin(path: string): Promise<void>;
   protected abstract openProjectFile(path: string): Promise<void>;
-  protected abstract openProjectPlan(path: string, scope: "day" | "week", anchor: HTMLElement): void;
+  protected abstract openProjectPlan(path: string, scope: "day" | "week" | "month", anchor: HTMLElement): void;
   protected abstract reorderProjects(paths: string[]): Promise<void>;
   protected abstract openPluginSettings(): void;
   protected abstract openPolicySideMenu(side: import("./types").PolicySide, event: MouseEvent): void;
