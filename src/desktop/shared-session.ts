@@ -47,7 +47,7 @@ export function finishSharedSession(stateText: string, sessionText: string, sett
   for (const entry of entries) {
     if (known.has(entry.item.id)) continue;
     const minutes = entry.item.endMin! - entry.item.startMin!;
-    const time = `${String(Math.floor(entry.item.endMin! / 60) % 24).padStart(2, "0")}:${String(entry.item.endMin! % 60).padStart(2, "0")}`;
+    const time = `${String(Math.floor(entry.item.endMin! / 60) % 24).padStart(2, "0")}:${String(Math.floor(entry.item.endMin! % 60)).padStart(2, "0")}`;
     project = desktopWorkLog(project, entry.date, time, minutes, [entry.item.projectTaskTitle ? "@" + entry.item.projectTaskTitle : "", session.title, session.note].filter(Boolean).join(" — ").replace(/\s*[\r\n]+\s*/g, " / "), entry.item.id, settings.pluginCommentStyle === "obsidian" ? "obsidian" : "html");
     const day = state.days[entry.date] ||= {
       ...DEFAULT_RHYTHM, ...settings.rhythm, wakeReal: false, napStartReal: false, napEndReal: false,

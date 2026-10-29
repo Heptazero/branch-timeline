@@ -4,7 +4,7 @@ import type { DistractionLevel, TimelineDistraction, TimelineGoodState, Timeline
 
 export interface DesktopSession {
   version: 1; id: string; projectPath: string; title: string; note: string;
-  startedAt: string; endedAt: string; sourcePlan?: PlanSource;
+  startedAt: string; endedAt: string; sourcePlan?: PlanSource; minimumRecordSeconds?: number;
   segments: Array<{ start: string; end: string }>;
   markers: Array<{ id: string; at: string; kind: "good" | "distraction"; level: DistractionLevel }>;
 }
@@ -13,6 +13,10 @@ export interface DesktopEntry {
 }
 export const DESKTOP_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const timestamp = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value));
+function dayMinute(date: Date, logical: Date, precise: boolean): number {
+  const minute = date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60 + date.getMilliseconds() / 60000;
+  return (precise ? minute : Math.round(minute)) + (dateKey(date) !== dateKey(logical) ? 1440 : 0);
+}
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 
 export function parseDesktopSession(text: string): DesktopSession {
@@ -42,14 +46,18 @@ export function parseDesktopSession(text: string): DesktopSession {
       || !value.segments.some(segment => Date.parse(segment.start) <= Date.parse(marker.at as string) && Date.parse(marker.at as string) < Date.parse(segment.end))) throw new Error("状态点格式无效");
     ids.add(marker.id.toLowerCase());
   }
+  if (value.minimumRecordSeconds != null && (!Number.isInteger(value.minimumRecordSeconds) || (value.minimumRecordSeconds as number) < 0 || (value.minimumRecordSeconds as number) > 3600)) throw new Error("短计时阈值无效");
   planSource(value.sourcePlan, value.projectPath);
   const session = value as unknown as DesktopSession;
   return { ...session, id: session.id.toLowerCase(), markers: session.markers.map(marker => ({ ...marker, id: marker.id.toLowerCase() })) };
 }
 
-/** Native seconds stay in the inbox; the existing timeline is rounded to whole minutes. */
-export function desktopEntries(session: DesktopSession): DesktopEntry[] {
+/** Legacy sessions keep minute rounding; newly configured sessions retain second precision. */
+export function desktopEntries(session: DesktopSession, options: { preview?: boolean } = {}): DesktopEntry[] {
   const entries: DesktopEntry[] = [];
+  const seconds = session.segments.reduce((sum, part) => sum + (Date.parse(part.end) - Date.parse(part.start)) / 1000, 0);
+  if (!options.preview && seconds + 1e-8 < (session.minimumRecordSeconds ?? 60)) return entries;
+  const precise = session.minimumRecordSeconds != null;
   const source = planSource(session.sourcePlan, session.projectPath);
   let elapsed = 0, allocated = 0;
   session.segments.forEach((segment, segmentIndex) => {
@@ -59,11 +67,11 @@ export function desktopEntries(session: DesktopSession): DesktopEntry[] {
       const boundary = new Date(logical.getFullYear(), logical.getMonth(), logical.getDate() + 1, 2);
       const until = new Date(Math.min(end.getTime(), boundary.getTime()));
       elapsed += (until.getTime() - cursor.getTime()) / 60000;
-      const rounded = Math.floor(elapsed + 1e-8);
+      const rounded = precise ? elapsed : Math.floor(elapsed + 1e-8);
       const minutes = rounded - allocated;
       allocated = rounded;
       if (minutes > 0) {
-        const endMinute = until.getTime() === boundary.getTime() ? 1560 : Math.round(until.getHours() * 60 + until.getMinutes() + until.getSeconds() / 60) + (dateKey(until) !== dateKey(logical) ? 1440 : 0);
+        const endMinute = until.getTime() === boundary.getTime() ? 1560 : dayMinute(until, logical, precise);
         const id = `desktop-${session.id}-${segmentIndex}-${part}`;
         const entry: DesktopEntry = { date: dateKey(logical), item: { ...(source ? { ...source.item, branchId: source.source.date === dateKey(logical) ? source.item.branchId : undefined } : {}), id, title: session.title.trim(), kind: "fact",
           startMin: Math.max(120, endMinute - minutes), endMin: endMinute, projectPath: session.projectPath,
@@ -74,7 +82,7 @@ export function desktopEntries(session: DesktopSession): DesktopEntry[] {
         }
         for (const mark of session.markers.filter(mark => new Date(mark.at) >= cursor && new Date(mark.at) < until)) {
           const date = new Date(mark.at);
-          const minute = Math.max(entry.item.startMin!, Math.min(endMinute, Math.round(date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60) + (dateKey(date) !== dateKey(logical) ? 1440 : 0)));
+          const minute = Math.max(entry.item.startMin!, Math.min(endMinute, dayMinute(date, logical, precise)));
           const event = { id: `desktop-${mark.id}`, minute, itemId: id };
           if (mark.kind === "good") entry.goodStates.push(event); else entry.distractions.push({ ...event, level: mark.level });
         }

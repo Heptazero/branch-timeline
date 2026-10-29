@@ -49,5 +49,11 @@ extension Color {
         self.init(red: Double((value >> 16) & 255) / 255, green: Double((value >> 8) & 255) / 255, blue: Double(value & 255) / 255)
     }
 }
-func hoursLabel(_ minutes: Double) -> String { String(format: "%.1fh", minutes / 60) }
-func minuteLabel(_ minute: Double) -> String { String(format: "%02d:%02d", Int(minute) / 60 % 24, Int(minute) % 60) }
+func hoursLabel(_ minutes: Double) -> String {
+    minutes > 0 && minutes < 1.0 / 60 ? "<1s" : minutes > 0 && minutes < 1 ? String(format: "%.0fs", minutes * 60) : String(format: "%.1fh", minutes / 60)
+}
+func minuteLabel(_ minute: Double, seconds: Bool = false) -> String {
+    let value = Int(max(0, minute) * 60 + 1e-6)
+    let time = String(format: "%02d:%02d", value / 3600 % 24, value / 60 % 60)
+    return seconds ? time + String(format: ":%02d", value % 60) : time
+}

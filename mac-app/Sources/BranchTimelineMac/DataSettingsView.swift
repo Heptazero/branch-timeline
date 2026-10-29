@@ -6,6 +6,8 @@ struct DataSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
+                RecordingSettingsSection()
+                Divider()
                 HStack {
                     Text("数据与 Obsidian").font(.title2.weight(.medium))
                     Spacer()

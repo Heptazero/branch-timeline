@@ -177,7 +177,7 @@ export function upsertProjectDayTotal(content: string, date: string, minutes: nu
   if (minutes <= 0) {
     if (index >= 0) lines[index] = `- ${mmdd}`;
   } else {
-    const hours = Number((minutes / 60).toFixed(2));
+    const hours = projectLogHours(minutes / 60);
     const currentStyle = index >= 0 ? findPluginMarker(lines[index], "date")?.style : undefined;
     const header = `- ${mmdd} [${hours}h] ${pluginMarker("date", date, currentStyle || style)}`;
     if (index >= 0) lines[index] = header;
@@ -193,6 +193,8 @@ export function upsertProjectDayTotal(content: string, date: string, minutes: nu
   }
   return lines.join("\n");
 }
+
+export function projectLogHours(hours: number): number { return Number(hours.toFixed(hours > 0 && hours < 0.005 ? 4 : 2)); }
 
 export function appendProjectLog(
   content: string,
@@ -232,7 +234,7 @@ export function appendProjectLog(
     if (match && match[1].localeCompare(time) > 0) { insertAt = index; break; }
   }
   while (insertAt > dateLine + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
-  const value = Number(hours.toFixed(2));
+  const value = projectLogHours(hours);
   const suffix = note.trim() ? ` ${note.trim()}` : "";
   const marker = workId ? ` ${pluginMarker("work", workId, style)}` : "";
   lines.splice(insertAt, 0, `\t- [${time}] ${value}h${suffix}${marker}`);

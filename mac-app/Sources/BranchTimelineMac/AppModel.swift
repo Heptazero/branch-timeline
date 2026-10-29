@@ -55,7 +55,7 @@ import TimelineCore
             selectedPath = project.path; archive.vaultPath = "/Preview"; title = "完成标识符识别"
             if runningPreview { archive.active = DesktopSession(project: project, title: title, targetMinutes: 25, now: now.addingTimeInterval(-428)) }
             scope = previewScope; dashboard = PreviewFixture.dashboard(scope: previewScope)
-            connection = ConnectionInfo(vaultPath: "/示例库", appPath: "/示例库/时间线/state.json", configuredPath: "/示例库/时间线/state.json", pluginVersion: "0.3.64", projectTypes: "project", comments: "HTML 注释", sameFile: true, compatiblePlugin: true, catalogMatches: true)
+            connection = ConnectionInfo(vaultPath: "/示例库", appPath: "/示例库/时间线/state.json", configuredPath: "/示例库/时间线/state.json", pluginVersion: "0.3.65", projectTypes: "project", comments: "HTML 注释", sameFile: true, compatiblePlugin: true, catalogMatches: true)
             return
         }
         if let id = Bundle.main.bundleIdentifier, NSRunningApplication.runningApplications(withBundleIdentifier: id).count > 1 { return }
@@ -136,7 +136,7 @@ import TimelineCore
     func start() {
         guard canStart, let project = selected, let path = archive.vaultPath else { return }
         var next = archive
-        next.active = DesktopSession(project: project, title: title, targetMinutes: min(1440, max(0, targetMinutes)), vaultPath: path)
+        next.active = DesktopSession(project: project, title: title, targetMinutes: min(1440, max(0, targetMinutes)), vaultPath: path, minimumRecordSeconds: RecordingPolicy.load())
         if persist(next) {
             alertedID = nil; now = Date()
             UserDefaults.standard.set(targetMinutes, forKey: "timerTargetMinutes")
@@ -155,7 +155,11 @@ import TimelineCore
         guard var session = active, !session.isPaused else { return }
         session.mark(kind, at: Date(), level: level); var next = archive; next.active = session; _ = persist(next)
     }
-    func beginFinish() { if pause(), active != nil { finishRequested = true } }
+    func beginFinish() {
+        guard pause(), let session = active else { return }
+        if session.isTooShort(at: Date()) { finish(title: session.title, note: session.note) }
+        else { finishRequested = true }
+    }
     func finish(title: String, note: String, separateFromPlan: Bool = false) {
         guard var session = active, let storage else { return }
         guard title.count <= 400, note.count <= 20_000 else { error = "标题限400字，备注限20000字。"; return }

@@ -1,3 +1,4 @@
+import { projectLogHours } from "./format";
 import { findPluginMarker, pluginMarker } from "./comment-markers";
 import type { PluginCommentStyle } from "./comment-markers";
 
@@ -132,7 +133,7 @@ export function upsertProjectTaskTotals(content: string, totals: ReadonlyMap<str
     found.add(id);
     const clean = lines[line].replace(OWNED_TOTAL, "").replace(BLOCK_ID, "").trimEnd();
     const minutes = totals.get(id) || 0;
-    const total = minutes > 0 ? ` （累计 ${Number((minutes / 60).toFixed(2))}h） ${pluginMarker("task-total", id, ownedMarker?.style || style)}` : "";
+    const total = minutes > 0 ? ` （累计 ${projectLogHours(minutes / 60)}h） ${pluginMarker("task-total", id, ownedMarker?.style || style)}` : "";
     lines[line] = `${clean}${total} ^${id}`;
   }
   for (const id of totals.keys()) if (!found.has(id)) throw new Error(`找不到关联任务 ${id}，请检查项目笔记`);

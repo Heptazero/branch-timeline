@@ -21,7 +21,7 @@ export function nativeEditBlock(text: string, requestText: string, settingsText:
   const { date, id, start, end } = request;
   const parsed = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T12:00:00`) : new Date(NaN);
   if (!Number.isFinite(parsed.getTime()) || dateKey(parsed) !== date || typeof id !== "string" || !/^[\w-]{1,160}$/.test(id)
-    || !Number.isInteger(start) || !Number.isInteger(end) || start < 120 || end > 1560 || end <= start) throw new Error("时间范围无效（一天从 02:00 到次日 02:00）");
+    || !Number.isFinite(start) || !Number.isFinite(end) || (request.expected == null && (!Number.isInteger(start) || !Number.isInteger(end))) || start < 120 || end > 1560 || end <= start) throw new Error("时间范围无效（一天从 02:00 到次日 02:00）");
   const existing = state.days[date]?.items.find(item => item.id === id);
   let item: TimelineItem;
   if (request.expected != null) {
@@ -48,7 +48,7 @@ export function nativeEditBlock(text: string, requestText: string, settingsText:
   if (request.move && existing) {
     const oldStart = plan ? existing.plannedMin ?? start : existing.startMin ?? start;
     const oldEnd = plan ? existing.plannedEndMin ?? oldStart + 30 : existing.endMin ?? oldStart;
-    if (end - start !== oldEnd - oldStart) throw new Error("整体移动须保留原时长");
+    if (Math.abs((end - start) - (oldEnd - oldStart)) > 1e-7) throw new Error("整体移动须保留原时长");
     const day = state.days[date], delta = start - oldStart;
     for (const events of [day.distractions, day.goodStates]) for (const event of events || []) {
       if (event.itemId === id) event.minute += delta;

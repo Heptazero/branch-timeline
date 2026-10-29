@@ -73,7 +73,7 @@ function includeActive(state: BranchTimelineState, now: Date): void {
   const endedAt = segments.at(-1)?.end || now.toISOString();
   const session = parseDesktopSession(JSON.stringify({ ...active, endedAt,
     segments: segments.map(segment => ({ ...segment, end: segment.end || now.toISOString() })) }));
-  for (const entry of desktopEntries(session)) {
+  for (const entry of desktopEntries(session, { preview: true })) {
     const day = state.days[entry.date] ||= { ...DEFAULT_RHYTHM, branches: [], items: [] };
     if (day.items.some(item => item.id === entry.item.id)) continue;
     day.items.push(entry.item);

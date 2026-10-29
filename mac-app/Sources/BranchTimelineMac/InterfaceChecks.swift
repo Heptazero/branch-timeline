@@ -5,6 +5,7 @@ import TimelineCore
 /// Isolated, offscreen AppKit contracts; never drive the user's windows.
 @MainActor enum InterfaceChecks {
     static func run() {
+        precondition(minuteLabel(600.25, seconds: true) == "10:00:15" && hoursLabel(0.25) == "15s")
         let model = AppModel(preview: true)
         let panel = AppWindows.floatingWindow(model: model, remember: false)
         for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {

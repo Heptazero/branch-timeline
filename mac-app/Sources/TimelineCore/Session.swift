@@ -43,16 +43,20 @@ public struct DesktopSession: Codable, Equatable, Identifiable {
     public var segments: [Segment]
     public var markers: [FocusMark]
     public var sourcePlan: PlanSource?
+    public var minimumRecordSeconds: Int?
 
-    public init(project: Project, title: String, targetMinutes: Int, vaultPath: String = "", now: Date = Date()) {
+    public init(project: Project, title: String, targetMinutes: Int, vaultPath: String = "", now: Date = Date(), minimumRecordSeconds: Int? = nil) {
         self.version = 1; self.id = UUID().uuidString.lowercased()
         self.projectPath = project.path; self.projectName = project.name
         self.vaultPath = vaultPath
         self.title = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? project.name : title.trimmingCharacters(in: .whitespacesAndNewlines)
         self.startedAt = now; self.endedAt = nil; self.targetMinutes = max(0, targetMinutes)
+        self.minimumRecordSeconds = minimumRecordSeconds.map(RecordingPolicy.seconds)
         self.note = ""; self.segments = [Segment(start: now)]; self.markers = []
     }
 
+    public var recordingMinimumSeconds: Int { RecordingPolicy.seconds(minimumRecordSeconds ?? RecordingPolicy.defaultSeconds) }
+    public func isTooShort(at now: Date) -> Bool { elapsed(at: now) + 1e-8 < Double(recordingMinimumSeconds) }
     public var clockTargetMinutes: Int { sourcePlan == nil ? targetMinutes : 0 }
     public var isPaused: Bool { endedAt == nil && segments.last?.end != nil }
     public func elapsed(at now: Date) -> TimeInterval {

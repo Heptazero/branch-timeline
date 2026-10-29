@@ -3,11 +3,11 @@ import Foundation
 public struct BlockEdit: Encodable, Identifiable {
     public let id: String
     public let date: String
-    public var start, end: Int
+    public var start, end: Double
     public var title = "", note = "", projectPath = "", tagId = "", kind = "fact"
     public var move = false
     public let expected: String?
-    public init(date: String, start: Int, end: Int, id: String = "block-" + UUID().uuidString.lowercased(), expected: String? = nil) {
+    public init(date: String, start: Double, end: Double, id: String = "block-" + UUID().uuidString.lowercased(), expected: String? = nil) {
         self.date = date; self.start = start; self.end = end; self.id = id; self.expected = expected
     }
 }
@@ -22,15 +22,16 @@ public enum BlockGeometry {
     public static func minute(y: Double, scale: Double) -> Int {
         max(120, min(1555, Int((((y - 18) / TimelineZoom.clamp(scale) + 120) / 5).rounded()) * 5))
     }
-    public static func moved(start: Double, end: Double, delta: Double, scale: Double) -> (Int, Int) {
-        let duration = Int(max(1, end - start)), shift = Int((delta / TimelineZoom.clamp(scale) / 5).rounded()) * 5
-        let next = max(120, min(1560 - duration, Int(start) + shift))
+    public static func moved(start: Double, end: Double, delta: Double, scale: Double) -> (Double, Double) {
+        let duration = max(0, end - start), shift = (delta / TimelineZoom.clamp(scale) / 5).rounded() * 5
+        let next = max(120, min(1560 - duration, start + shift))
         return (next, next + duration)
     }
-    public static func resized(start: Double, end: Double, delta: Double, scale: Double, top: Bool) -> (Int, Int) {
-        let shift = Int((delta / TimelineZoom.clamp(scale) / 5).rounded()) * 5
-        return top ? (max(120, min(Int(end) - 5, Int(start) + shift)), Int(end))
-            : (Int(start), max(Int(start) + 5, min(1560, Int(end) + shift)))
+    public static func resized(start: Double, end: Double, delta: Double, scale: Double, top: Bool) -> (Double, Double) {
+        let shift = (delta / TimelineZoom.clamp(scale) / 5).rounded() * 5
+        let minimum = min(5, max(0, end - start))
+        return top ? (max(120, min(end - minimum, start + shift)), end)
+            : (start, max(start + minimum, min(1560, end + shift)))
     }
 }
 

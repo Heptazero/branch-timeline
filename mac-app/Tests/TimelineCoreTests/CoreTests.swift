@@ -150,6 +150,8 @@ private func expectThrows<T>(_ action: @autoclosure () throws -> T, line: UInt =
         try tests.testPlanTimerCountsUpAndKeepsPlanAfterCancellationOrFinish()
         try tests.testFailedPlanFinishRollsNotesBackAndKeepsPlan()
         try tests.testChangedPlanIsKeptWhileSavingActualTime()
-        print("35 native core checks passed")
+        try tests.testRecordingPreferenceDefaultsAndSessionSnapshot()
+        try tests.testConfiguredNativeShortSessionsSaveOrDiscardAndPreservePlan()
+        print("37 native core checks passed")
     }
 }

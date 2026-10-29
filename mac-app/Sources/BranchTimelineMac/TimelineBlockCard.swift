@@ -4,7 +4,7 @@ import TimelineCore
 private struct EdgePreview {
     let item: DashboardItem
     let scale: Double
-    var start, end: Int
+    var start, end: Double
 }
 
 struct TimelineBlockCard: View {
@@ -14,17 +14,17 @@ struct TimelineBlockCard: View {
     let scale: Double
     let showLabel: Bool
     let onOpen: (DashboardItem) -> Void
-    let onResize: (DashboardItem, Int, Int) -> Void
+    let onResize: (DashboardItem, Double, Double) -> Void
     var onStart: (DashboardItem) -> Void = { _ in }
     var canStart = true
-    var onMove: (DashboardItem, Int, Int) -> Void = { _, _, _ in }
+    var onMove: (DashboardItem, Double, Double) -> Void = { _, _, _ in }
     @GestureState private var edgePreview: EdgePreview?
     @GestureState private var movePreview: EdgePreview?
     @State private var suppressOpenUntil = Date.distantPast
     private var preview: EdgePreview? { movePreview ?? edgePreview }
     @State private var hovered = false
-    private var start: Double { Double(preview?.start ?? Int(item.start)) }
-    private var end: Double { Double(preview?.end ?? Int(item.end)) }
+    private var start: Double { preview?.start ?? item.start }
+    private var end: Double { preview?.end ?? item.end }
     private var height: Double { TimelineZoom.cardHeight(minutes: max(0, end - start), scale: scale) }
     private var color: Color { Color(hex: project?.color ?? "#a4aab5") }
     var body: some View {
@@ -46,7 +46,7 @@ struct TimelineBlockCard: View {
         }.frame(height: max(height, 14), alignment: .topLeading)
             .offset(y: (start - item.start) * scale)
             .onHover { hovered = $0 }
-            .help("\(item.title) · \(minuteLabel(start))–\(minuteLabel(end))")
+            .help("\(item.title) · \(minuteLabel(start, seconds: end - start < 1))–\(minuteLabel(end, seconds: end - start < 1))")
     }
     private var moveGesture: some Gesture {
         LongPressGesture(minimumDuration: 0.35, maximumDistance: 8)
@@ -62,7 +62,7 @@ struct TimelineBlockCard: View {
                 guard item.editable == true, case .second(true, let drag?) = value else { return }
                 let base = movePreview?.item ?? item
                 let range = BlockGeometry.moved(start: base.start, end: base.end, delta: drag.translation.height, scale: movePreview?.scale ?? scale)
-                if range.0 != Int(base.start) { onMove(base, range.0, range.1) }
+                if range.0 != base.start { onMove(base, range.0, range.1) }
             }
     }
     private var contents: some View {
@@ -98,7 +98,7 @@ struct TimelineBlockCard: View {
                     }.onEnded { value in
                         let base = preview?.item ?? item
                         let range = BlockGeometry.resized(start: base.start, end: base.end, delta: value.translation.height, scale: preview?.scale ?? scale, top: top)
-                        if range.0 != Int(base.start) || range.1 != Int(base.end) { onResize(base, range.0, range.1) }
+                        if range.0 != base.start || range.1 != base.end { onResize(base, range.0, range.1) }
                     })
                 .accessibilityLabel(top ? "拖动开始时间" : "拖动结束时间")
                 .help(top ? "拖动开始时间" : "拖动结束时间")
@@ -107,7 +107,7 @@ struct TimelineBlockCard: View {
         }.padding(.horizontal, 4)
     }
     private func timeLabel(_ minute: Double) -> some View {
-        Text(minuteLabel(minute)).font(.system(size: 10)).monospacedDigit().foregroundStyle(color)
+        Text(minuteLabel(minute, seconds: end - start < 1)).font(.system(size: 10)).monospacedDigit().foregroundStyle(color)
             .padding(.horizontal, 3).background(AppPalette.surface, in: RoundedRectangle(cornerRadius: 3)).allowsHitTesting(false)
     }
 }

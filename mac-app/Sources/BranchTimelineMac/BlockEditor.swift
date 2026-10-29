@@ -7,7 +7,7 @@ extension AppModel {
         do { try storage.editBlock(edit); refreshShared(); refreshDashboard(); error = nil; return true }
         catch { self.error = error.localizedDescription; return false }
     }
-    func resizeBlock(_ item: DashboardItem, date: String, start: Int, end: Int, move: Bool = false) {
+    func resizeBlock(_ item: DashboardItem, date: String, start: Double, end: Double, move: Bool = false) {
         guard item.editable == true, let revision = item.revision else { return }
         var edit = BlockEdit(date: date, start: start, end: end, id: item.id, expected: revision)
         edit.move = move
@@ -76,14 +76,14 @@ struct BlockEditor: View {
             }.frame(maxHeight: 220)
         }.padding(12).frame(width: 280)
     }
-    private func timeControl(_ label: String, minute: Binding<Int>) -> some View {
+    private func timeControl(_ label: String, minute: Binding<Double>) -> some View {
         let base = Calendar.current.startOfDay(for: model.focusDate)
         return VStack(alignment: .leading, spacing: 4) {
             Text(label + (minute.wrappedValue >= 1440 ? " · 次日" : "")).font(.caption).foregroundStyle(.secondary)
-            DatePicker(label, selection: Binding(get: { Calendar.current.date(byAdding: .minute, value: minute.wrappedValue, to: base) ?? base }, set: { date in
+            DatePicker(label, selection: Binding(get: { Calendar.current.date(byAdding: .minute, value: Int(minute.wrappedValue), to: base) ?? base }, set: { date in
                 let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
                 let value = (parts.hour ?? 0) * 60 + (parts.minute ?? 0)
-                minute.wrappedValue = value < 120 || (label == "结束" && value == 120) ? value + 1440 : value
+                minute.wrappedValue = Double(value < 120 || (label == "结束" && value == 120) ? value + 1440 : value)
             }), displayedComponents: .hourAndMinute).labelsHidden().datePickerStyle(.field).environment(\.locale, Locale(identifier: "zh_CN"))
         }
     }

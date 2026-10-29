@@ -28,8 +28,8 @@ export interface TimelineGap {
 }
 
 export function formatTime(minutes: number): string {
-  const hour = Math.floor(minutes / 60) % 24;
-  return `${String(hour).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  const whole = Math.floor(minutes), hour = Math.floor(whole / 60) % 24;
+  return `${String(hour).padStart(2, "0")}:${String(whole % 60).padStart(2, "0")}`;
 }
 
 export function snapMinute(minutes: number): number {

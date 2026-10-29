@@ -33,7 +33,7 @@ struct TimelinePage: View {
         .popover(item: $detail, arrowEdge: .trailing) { item in
             VStack(alignment: .leading, spacing: 12) {
                 Text(item.title).font(.headline)
-                Text("\(minuteLabel(item.start))–\(minuteLabel(item.end)) · \(hoursLabel(max(0, item.end - item.start)))").font(.caption).foregroundStyle(.secondary)
+                Text("\(minuteLabel(item.start, seconds: item.end - item.start < 1))–\(minuteLabel(item.end, seconds: item.end - item.start < 1)) · \(hoursLabel(max(0, item.end - item.start)))").font(.caption).foregroundStyle(.secondary)
                 if item.plan == true { Text("计划").font(.caption).foregroundStyle(.secondary) }
                 if !item.note.isEmpty { Text(item.note).textSelection(.enabled) }
                 Button("更多操作") { detail = nil; model.openFeature("day"); model.featureItemID = item.id }
@@ -46,7 +46,7 @@ struct TimelinePage: View {
             onOpen: { detail = $0 }, onStart: { item, date in model.executePlan(item, date: date) }, canStart: model.active == nil, onRhythm: { date, id, minute in model.changeRhythm(date: date, id: id, minute: minute) }, days: days, focusDate: dayKey(model.focusDate), showPlans: showPlans,
             onCreate: { date, minute, plan in
                 model.clearError()
-                var value = BlockEdit(date: date, start: minute, end: min(1560, minute + 30)); value.kind = plan ? "todo" : "fact"; draft = value
+                var value = BlockEdit(date: date, start: Double(minute), end: Double(min(1560, minute + 30))); value.kind = plan ? "todo" : "fact"; draft = value
             }, onResize: { item, date, start, end, move in model.resizeBlock(item, date: date, start: start, end: end, move: move) })
     }
     private var nowMinute: Double {
@@ -69,7 +69,7 @@ struct TimelineDocument: View {
     var focusDate = ""
     var showPlans = true
     var onCreate: (String, Int, Bool) -> Void = { _, _, _ in }
-    var onResize: (DashboardItem, String, Int, Int, Bool) -> Void = { _, _, _, _, _ in }
+    var onResize: (DashboardItem, String, Double, Double, Bool) -> Void = { _, _, _, _, _ in }
     var height: Double { 1440 * scale + 40 }
     var minimumWidth: Double { days.count > 1 ? 48 + Double(days.count) * (showPlans ? 200 : 130) : 0 }
     func focusX(width: Double) -> Double {
