@@ -22,9 +22,9 @@ struct StatisticsPage: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(hoursLabel(mode == "项目" ? composition.total : model.dashboard?.totalMinutes ?? 0)).font(.system(size: 36, weight: .medium, design: .rounded)).monospacedDigit()
                 HStack {
-                    ForEach(["项目", "走神", "睡眠"], id: \.self) { value in
+                    ForEach(["项目", "走神", "睡眠", "时间图"], id: \.self) { value in
                         Button { mode = value } label: {
-                            Text(value).font(.callout).padding(.horizontal, 14).padding(.vertical, 7)
+                            Text(value).font(.system(size: 12)).lineLimit(1).fixedSize().padding(.horizontal, 8).padding(.vertical, 7)
                                 .foregroundStyle(mode == value ? AppPalette.blue : .secondary)
                                 .background(mode == value ? AppPalette.blue.opacity(0.07) : .clear, in: Capsule())
                         }.buttonStyle(.plain).accessibilityAddTraits(mode == value ? .isSelected : [])
@@ -36,12 +36,13 @@ struct StatisticsPage: View {
                             Image(systemName: "chart.pie").tag("pie").help("饼图")
                         }.labelsHidden().pickerStyle(.segmented).controlSize(.small).frame(width: 62).accessibilityLabel("切换条形图与饼图")
                     }
-                    if mode != "睡眠" { Button { descending.toggle() } label: { Image(systemName: descending ? "arrow.down" : "arrow.up") }.buttonStyle(.plain).help("切换排序方向") }
+                    if mode != "睡眠" && mode != "时间图" { Button { descending.toggle() } label: { Image(systemName: descending ? "arrow.down" : "arrow.up") }.buttonStyle(.plain).help("切换排序方向") }
                 }
             }.padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 14)
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if mode == "睡眠" { SleepChart(dashboard: model.dashboard) }
+                    else if mode == "时间图" { TimelineTimeMap(model: model) }
                     else {
                         if mode == "项目" {
                             if !pie {

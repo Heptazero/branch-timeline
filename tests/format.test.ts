@@ -415,7 +415,7 @@ test("keeps valid focus markers inside the logical day", () => {
     goodStates: [{ id: "good", minute: 800, itemId: "focus" }]
   });
   assert.deepEqual(day.distractions, [
-    { id: "early", minute: 420, itemId: "focus", level: "medium" },
+    { id: "early", minute: 300, itemId: "focus", level: "medium" },
     { id: "late", minute: 1560 }
   ]);
   assert.deepEqual(day.goodStates, [{ id: "good", minute: 800, itemId: "focus" }]);

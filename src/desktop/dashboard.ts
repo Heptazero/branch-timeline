@@ -1,3 +1,4 @@
+import { predictionsForDates, projectFocusContext } from "./focus-context";
 import { normalizeSettings } from "../settings-state";
 import { projectRhythm } from "./rhythm-data";
 import type { BranchTimelineState } from "../types";
@@ -20,12 +21,13 @@ export function nativeDashboard(stateText: string, catalogText: string, selected
   state.projects ||= {};
   const now = new Date(nowText), date = parseDate(selected);
   if (!Number.isFinite(now.getTime()) || !["day", "week", "month", "total"].includes(scope)) throw new Error("统计范围无效");
-  includeActive(state, now);
   const catalog = JSON.parse(catalogText) as NativeProject[];
   const week = startOfWeek(date), dates = projectRangeDates(date, scope);
   const first = dateKey(dates[0]), last = dateKey(dates.at(-1)!), today = dateKey(logicalToday(now));
   const minute = now.getHours() * 60 + now.getMinutes() + (now.getHours() < 2 ? 1440 : 0);
   const include = (key: string) => scope === "total" || (scope === "day" ? key === selected : key >= first && key <= last);
+  const forecasts = predictionsForDates(state.days, dates.map(dateKey), today);
+  includeActive(state, now);
   const totals = focusSample(state.days, include, today, minute);
   const projects = catalog.map(project => {
     const sample = focusSample(state.days, include, today, minute, project.path);
@@ -39,6 +41,7 @@ export function nativeDashboard(stateText: string, catalogText: string, selected
   const days = dates.map(date => {
     const key = dateKey(date), sample = focusSample(state.days, value => value === key, today, minute), sleep = sleepSpan(date, state);
     return { date: key, minutes: sample.minutes, distractions: sample.distractions, bed: sleep?.bed ?? null, wake: sleep?.wake ?? null,
+      focus: projectFocusContext(state.days, key, settings, today, minute, forecasts.get(key)!, activeId),
       rhythmEvents: projectRhythm(state, settings, key, now).events,
       projects: nativeDayProjects(state.days[key], catalog, key === today ? minute : undefined),
       items: nativeItems(state.days[key], activeId, key === today ? minute : undefined) };

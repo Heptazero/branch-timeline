@@ -23,6 +23,7 @@ public struct DashboardItem: Decodable, Identifiable {
     public let editable: Bool?
     public let revision: String?
     public let plan: Bool?
+    public let milestone: Bool?
 }
 public struct DashboardBranch: Decodable, Identifiable { public let id, name: String }
 public struct DashboardDay: Decodable, Identifiable {
@@ -34,6 +35,7 @@ public struct DashboardDay: Decodable, Identifiable {
     public let projects: [DayProject]?
     public let items: [DashboardItem]?
     public let rhythmEvents: [DayRhythmEvent]?
+    public let focus: DayFocusContext?
 }
 public struct DayProject: Decodable, Identifiable {
     public var id: String { path }

@@ -17,6 +17,7 @@ struct MainView: View {
                         Button { model.featureAction("add") } label: { Image(systemName: "plus") }.help("添加")
                     }
                 }
+                if model.page == .timeline && !model.branchMode { TimelineContextTools(model: model) }
                 if model.page == .timeline && model.scope != "month" {
                     Button { showPlans.toggle() } label: { Image(systemName: "rectangle.split.2x1") }
                         .foregroundStyle(showPlans ? AppPalette.blue : .secondary)

@@ -72,13 +72,13 @@ struct TimelineBlockCard: View {
             Rectangle().fill(color.opacity(0.7)).frame(width: 3, height: height)
             if height >= 42 {
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack { Text(item.title).font(.system(size: 13, weight: .medium)).lineLimit(1); Spacer(minLength: 0); Text(hoursLabel(end - start)).font(.caption) }
+                    HStack { if item.milestone == true { Image(systemName: "flag.fill").font(.system(size: 11)) }; Text(item.title).font(.system(size: 13, weight: .medium)).lineLimit(1); Spacer(minLength: 0); Text(hoursLabel(end - start)).font(.caption) }
                     if height >= 54, let project { Text("@" + project.name).font(.system(size: 11)).lineLimit(1) }
                     if height >= 85, let branch { Text(branch.name).font(.system(size: 11)).foregroundStyle(.secondary) }
                     if height >= 110 && !item.note.isEmpty { Text(item.note).font(.caption).lineLimit(3).foregroundStyle(.secondary) }
                 }.padding(.trailing, item.plan == true ? 27 : 0).padding(10)
             } else if showLabel {
-                HStack(spacing: 6) { Text(item.title).lineLimit(1); Spacer(minLength: 0); if end > start { Text(hoursLabel(end - start)).monospacedDigit() } }
+                HStack(spacing: 6) { if item.milestone == true { Image(systemName: "flag.fill").font(.system(size: 10)) }; Text(item.title).lineLimit(1); Spacer(minLength: 0); if end > start { Text(hoursLabel(end - start)).monospacedDigit() } }
                     .font(.system(size: 11)).padding(.trailing, item.plan == true ? 27 : 0).padding(.horizontal, 8).offset(y: height >= 14 ? 0 : height + 2)
             }
         }.foregroundStyle(color).frame(maxWidth: .infinity, alignment: .topLeading)

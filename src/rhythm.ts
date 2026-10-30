@@ -86,16 +86,16 @@ export function normalizeTimelineDay(value: Partial<TimelineDayState> & { discom
     rhythmMarkers: normalizeDayMarkers(value, schedule),
     distractions: Array.isArray(value.distractions) ? value.distractions.flatMap(event =>
       typeof event?.id === "string" && Number.isFinite(event.minute)
-        ? [{ id: event.id, minute: clamp(Math.round(event.minute), schedule.wake, schedule.sleep),
+        ? [{ id: event.id, minute: clamp(Math.round(event.minute), 120, 1560),
           ...(typeof event.itemId === "string" ? { itemId: event.itemId } : {}),
           ...(event.level === "light" || event.level === "medium" || event.level === "heavy" ? { level: event.level } : {}) }]
         : []) : [],
     goodStates: Array.isArray(value.goodStates) ? value.goodStates.flatMap(event =>
       typeof event?.id === "string" && Number.isFinite(event.minute)
-        ? [{ id: event.id, minute: clamp(Math.round(event.minute), schedule.wake, schedule.sleep),
+        ? [{ id: event.id, minute: clamp(Math.round(event.minute), 120, 1560),
           ...(typeof event.itemId === "string" ? { itemId: event.itemId } : {}) }]
         : []) : [],
-    mentalStates: normalizeMentalStates(value.mentalStates, schedule.wake, schedule.sleep),
+    mentalStates: normalizeMentalStates(value.mentalStates),
     branches: Array.isArray(value.branches) ? value.branches : [],
     items: Array.isArray(value.items) ? value.items : [],
     energyPhases: Array.isArray(value.energyPhases) ? normalizeEnergyPhases(value.energyPhases) : undefined

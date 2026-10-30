@@ -39,6 +39,11 @@ import TimelineCore
                 var block = BlockEdit(date: dayKey(logicalDate()), start: 600, end: 630)
                 block.title = "整理实验结果"; block.projectPath = "preview.md"
                 try await capture(BlockEditor(model: model, edit: block).environment(\.colorScheme, .light), size: NSSize(width: 390, height: 360), to: directory.appendingPathComponent("Mac-add-block.png"))
+                let contextModel = AppModel(preview: true, previewScope: "week")
+                try await capture(TimelineTimeMap(model: contextModel).padding(20).environment(\.colorScheme, .light), size: NSSize(width: 540, height: 620), to: directory.appendingPathComponent("Mac-time-map.png"))
+                let focus = model.dashboard?.days.first?.focus
+                try await capture(FocusPointEditor(model: model, date: dayKey(logicalDate()), context: focus).environment(\.colorScheme, .light), size: NSSize(width: 330, height: 260), to: directory.appendingPathComponent("Mac-state-editor.png"))
+                try await capture(EnergyPhaseEditor(model: model, date: dayKey(logicalDate()), context: focus, phase: focus?.phases.first).environment(\.colorScheme, .light), size: NSSize(width: 310, height: 245), to: directory.appendingPathComponent("Mac-energy-editor.png"))
                 let timeline = TimelineDocument(items: model.dashboard?.items ?? [], projects: model.projects, branches: [], scale: 2, now: nil, onOpen: { _ in })
                 try await capture(timeline.environment(\.colorScheme, .light), size: NSSize(width: 380, height: timeline.height), to: directory.appendingPathComponent("Mac-block-handles.png"))
                 let floating = AppWindows.floatingWindow(model: model, remember: false)

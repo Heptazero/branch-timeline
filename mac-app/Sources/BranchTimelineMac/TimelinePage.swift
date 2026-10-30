@@ -1,6 +1,9 @@
 import SwiftUI
 import TimelineCore
 
+private struct FocusSelection: Identifiable { var id: String { date + point.id }; let date: String; let point: FocusPoint; let context: DayFocusContext? }
+private struct EnergySelection: Identifiable { var id: String { date + phase.id }; let date: String; let phase: EnergyPhase; let context: DayFocusContext? }
+
 struct TimelinePage: View {
     @ObservedObject var model: AppModel
     @AppStorage("timelineMinuteScale") private var scale = TimelineZoom.initial
@@ -8,6 +11,8 @@ struct TimelinePage: View {
     @State private var gestureStart: Double?
     @State private var detail: DashboardItem?
     @State private var draft: BlockEdit?
+    @State private var focusPoint: FocusSelection?
+    @State private var energyPhase: EnergySelection?
     @State private var horizontalOffset = 0.0
     var body: some View {
         VStack(spacing: 0) {
@@ -30,6 +35,8 @@ struct TimelinePage: View {
                 }.padding(.horizontal, 22).padding(.vertical, 12)
             }
         }.sheet(item: $draft) { edit in BlockEditor(model: model, edit: edit) }
+        .popover(item: $focusPoint) { selected in FocusPointEditor(model: model, date: selected.date, context: selected.context, point: selected.point) }
+        .popover(item: $energyPhase) { selected in EnergyPhaseEditor(model: model, date: selected.date, context: selected.context, phase: selected.phase) }
         .popover(item: $detail, arrowEdge: .trailing) { item in
             VStack(alignment: .leading, spacing: 12) {
                 Text(item.title).font(.headline)
@@ -47,7 +54,14 @@ struct TimelinePage: View {
             onCreate: { date, minute, plan in
                 model.clearError()
                 var value = BlockEdit(date: date, start: Double(minute), end: Double(min(1560, minute + 30))); value.kind = plan ? "todo" : "fact"; draft = value
-            }, onResize: { item, date, start, end, move in model.resizeBlock(item, date: date, start: start, end: end, move: move) })
+            }, onResize: { item, date, start, end, move in model.resizeBlock(item, date: date, start: start, end: end, move: move) },
+            onFocus: { date, point in focusPoint = FocusSelection(date: date, point: point, context: model.dashboard?.days.first { $0.date == date }?.focus) },
+            onEnergy: { date, phase in energyPhase = EnergySelection(date: date, phase: phase, context: model.dashboard?.days.first { $0.date == date }?.focus) },
+            onEnergyMove: { date, phase, minute, revision in
+                var request = TimelineContextEdit(date: date); request.kind = "energy"; request.id = phase.id; request.minute = minute; request.label = phase.name; request.color = phase.color
+                request.expected = revision
+                _ = model.saveContext(request)
+            }, onGap: { date, start, end in draft = BlockEdit(date: date, start: ceil(start), end: floor(end)) })
     }
     private var nowMinute: Double {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: model.now), hour = parts.hour ?? 0
@@ -70,6 +84,10 @@ struct TimelineDocument: View {
     var showPlans = true
     var onCreate: (String, Int, Bool) -> Void = { _, _, _ in }
     var onResize: (DashboardItem, String, Double, Double, Bool) -> Void = { _, _, _, _, _ in }
+    var onFocus: (String, FocusPoint) -> Void = { _, _ in }
+    var onEnergy: (String, EnergyPhase) -> Void = { _, _ in }
+    var onEnergyMove: (String, EnergyPhase, Double, String) -> Void = { _, _, _, _ in }
+    var onGap: (String, Double, Double) -> Void = { _, _, _ in }
     var height: Double { 1440 * scale + 40 }
     var minimumWidth: Double { days.count > 1 ? 48 + Double(days.count) * (showPlans ? 200 : 130) : 0 }
     func focusX(width: Double) -> Double {
@@ -100,15 +118,30 @@ struct TimelineDocument: View {
         let actual = items.filter { $0.plan != true && !($0.kind == "todo" && $0.end == $0.start) }
         let plans = items.filter { $0.plan == true || ($0.kind == "todo" && $0.end == $0.start) }
         let today = date == dayKey(logicalDate())
-        return ZStack(alignment: .topLeading) {
+        let context = days.first { $0.date == date }?.focus
+        return EnergyTimelineLayer(phases: context?.phases ?? [], scale: scale, revision: context?.energyRevision ?? "[]", onEdit: { onEnergy(date, $0) }, onMove: { onEnergyMove(date, $0, $1, $2) }) {
+            ZStack(alignment: .topLeading) {
             Rectangle().fill(today ? AppPalette.blue.opacity(0.025) : Color.clear).allowsHitTesting(false)
             HStack(spacing: 0) {
                 lane(actual, date: date, plan: false, width: showPlans ? width / 2 : width)
                 if showPlans { lane(plans, date: date, plan: true, width: width / 2) }
             }
+            if let context {
+                ForEach(Array(context.gaps.enumerated()), id: \.offset) { _, gap in
+                    if (gap.end - gap.start) * scale >= 26 {
+                        Button { onGap(date, gap.start, gap.end) } label: {
+                            Text("\(Int((gap.end - gap.start).rounded()))m 未记录").font(.system(size: 10)).foregroundStyle(.secondary.opacity(0.7))
+                                .frame(width: max(40, (showPlans ? width / 2 : width) - 16), height: 22)
+                        }.buttonStyle(.plain).offset(x: 8, y: y((gap.start + gap.end) / 2) - 11)
+                            .help("补记 \(minuteLabel(gap.start))–\(minuteLabel(gap.end))").accessibilityLabel("补记未记录的时间")
+                    }
+                }
+            }
+            FocusTimelineOverlay(context: context, scale: scale, actualFraction: showPlans ? 0.5 : 1, onOpen: { onFocus(date, $0) })
             RhythmTimelineOverlay(events: days.first { $0.date == date }?.rhythmEvents ?? [], scale: scale, onChange: { id, minute in onRhythm(date, id, minute) })
             if today, let now {
                 HStack(spacing: 0) { Circle().fill(.red).frame(width: 4, height: 4); Rectangle().fill(.red.opacity(0.6)).frame(height: 1) }.offset(y: y(now)).allowsHitTesting(false)
+            }
             }
         }.frame(width: max(1, width), height: height).overlay(alignment: .leading) { Rectangle().fill(.primary.opacity(0.06)).frame(width: 1).allowsHitTesting(false) }
     }

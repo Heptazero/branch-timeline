@@ -6,7 +6,7 @@ export function nativeItems(day: TimelineDayState | undefined, activeId: string 
   return (day?.items || []).map(item => {
     const plan = item.kind === "todo" && item.startedMin == null;
     const start = itemStart(item, day!.wake);
-    return { id: item.id, title: item.title, kind: item.kind, note: item.note || "", plan,
+    return { milestone: !!item.milestone, id: item.id, title: item.title, kind: item.kind, note: item.note || "", plan,
       editable: !item.factTiming && (item.kind === "fact" || plan) && !item.id.startsWith(`desktop-${activeId}-`),
       revision: JSON.stringify(item), projectPath: item.projectPath || "", branchId: item.branchId || "", start,
       end: plan ? item.plannedEndMin ?? start + 30 : itemEnd(item, day!.wake, nowMinute) };

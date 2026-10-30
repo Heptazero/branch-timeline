@@ -20,11 +20,11 @@ export function normalizeMentalStateLabels(value: unknown): MentalStateLabel[] {
   });
 }
 
-export function normalizeMentalStates(value: unknown, wake: number, sleep: number): TimelineMentalState[] {
+export function normalizeMentalStates(value: unknown): TimelineMentalState[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap(event =>
     event && typeof event.id === "string" && Number.isFinite(event.minute) && Number.isFinite(event.score)
-      ? [{ id: event.id, minute: Math.max(wake, Math.min(sleep, Math.round(event.minute))),
+      ? [{ id: event.id, minute: Math.max(120, Math.min(1560, Math.round(event.minute))),
         score: clampFocusScore(event.score),
         ...(typeof event.label === "string" && event.label.trim() ? { label: event.label.trim().slice(0, 24) } : {}) }]
       : []);
@@ -32,7 +32,7 @@ export function normalizeMentalStates(value: unknown, wake: number, sleep: numbe
 
 export function setMentalStateMinute(day: TimelineDayState, id: string, minute: number): void {
   const entry = day.mentalStates?.find(state => state.id === id);
-  if (entry && Number.isFinite(minute)) entry.minute = Math.max(day.wake, Math.min(day.sleep, Math.round(minute)));
+  if (entry && Number.isFinite(minute)) entry.minute = Math.max(120, Math.min(1560, Math.round(minute)));
 }
 
 /** Actual marks are explicit observations; historical prediction is calculated separately. */
