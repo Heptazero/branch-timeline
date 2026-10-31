@@ -3,13 +3,14 @@ import TimelineCore
 
 private struct FocusSelection: Identifiable { var id: String { date + point.id }; let date: String; let point: FocusPoint; let context: DayFocusContext? }
 private struct EnergySelection: Identifiable { var id: String { date + phase.id }; let date: String; let phase: EnergyPhase; let context: DayFocusContext? }
+private struct BlockSelection: Identifiable { var id: String { date + item.id }; let date: String; let item: DashboardItem }
 
 struct TimelinePage: View {
     @ObservedObject var model: AppModel
     @AppStorage("timelineMinuteScale") private var scale = TimelineZoom.initial
     @AppStorage("timelineShowPlans") private var showPlans = true
     @State private var gestureStart: Double?
-    @State private var detail: DashboardItem?
+    @State private var detail: BlockSelection?
     @State private var draft: BlockEdit?
     @State private var focusPoint: FocusSelection?
     @State private var energyPhase: EnergySelection?
@@ -37,20 +38,26 @@ struct TimelinePage: View {
         }.sheet(item: $draft) { edit in BlockEditor(model: model, edit: edit) }
         .popover(item: $focusPoint) { selected in FocusPointEditor(model: model, date: selected.date, context: selected.context, point: selected.point) }
         .popover(item: $energyPhase) { selected in EnergyPhaseEditor(model: model, date: selected.date, context: selected.context, phase: selected.phase) }
-        .popover(item: $detail, arrowEdge: .trailing) { item in
+        .popover(item: $detail, arrowEdge: .trailing) { selection in
+            let item = selection.item
             VStack(alignment: .leading, spacing: 12) {
                 Text(item.title).font(.headline)
                 Text("\(minuteLabel(item.start, seconds: item.end - item.start < 1))–\(minuteLabel(item.end, seconds: item.end - item.start < 1)) · \(hoursLabel(max(0, item.end - item.start)))").font(.caption).foregroundStyle(.secondary)
                 if item.plan == true { Text("计划").font(.caption).foregroundStyle(.secondary) }
                 if !item.note.isEmpty { Text(item.note).textSelection(.enabled) }
-                Button("更多操作") { detail = nil; model.openFeature("day"); model.featureItemID = item.id }
+                Text("结束计时后可编辑").font(.caption).foregroundStyle(.secondary)
+                Button("更多操作") { detail = nil; model.openBlockActions(date: selection.date, id: item.id) }
                 if !item.projectPath.isEmpty { Button("在 Obsidian 打开项目文件") { model.openProject(item.projectPath) } }
             }.padding(18).frame(width: 300, alignment: .leading)
         }
     }
     private func document(_ days: [DashboardDay]) -> TimelineDocument {
         TimelineDocument(items: model.dashboard?.items ?? [], projects: model.projects, branches: model.dashboard?.branches ?? [], scale: TimelineZoom.clamp(scale), now: nowMinute,
-            onOpen: { detail = $0 }, onStart: { item, date in model.executePlan(item, date: date) }, canStart: model.active == nil, onRhythm: { date, id, minute in model.changeRhythm(date: date, id: id, minute: minute) }, days: days, focusDate: dayKey(model.focusDate), showPlans: showPlans,
+            onOpen: { item, date in
+                model.clearError()
+                if let edit = BlockEdit(item: item, date: date) { draft = edit }
+                else { detail = BlockSelection(date: date, item: item) }
+            }, onStart: { item, date in model.executePlan(item, date: date) }, canStart: model.active == nil, onRhythm: { date, id, minute in model.changeRhythm(date: date, id: id, minute: minute) }, days: days, focusDate: dayKey(model.focusDate), showPlans: showPlans,
             onCreate: { date, minute, plan in
                 model.clearError()
                 var value = BlockEdit(date: date, start: Double(minute), end: Double(min(1560, minute + 30))); value.kind = plan ? "todo" : "fact"; draft = value
@@ -75,7 +82,7 @@ struct TimelineDocument: View {
     let branches: [DashboardBranch]
     let scale: Double
     let now: Double?
-    let onOpen: (DashboardItem) -> Void
+    let onOpen: (DashboardItem, String) -> Void
     var onStart: (DashboardItem, String) -> Void = { _, _ in }
     var canStart = true
     var onRhythm: (String, String, Int?) -> Void = { _, _, _ in }
@@ -155,7 +162,7 @@ struct TimelineDocument: View {
             ForEach(Array(sorted.enumerated()), id: \.element.id) { index, item in
                 let inset = Double(min(sorted.prefix(index).filter { $0.end > item.start }.count, 3)) * 5
                 TimelineBlockCard(item: item, project: projects.first { $0.path == item.projectPath }, branch: branches.first { $0.id == item.branchId }, scale: scale,
-                    showLabel: labels.contains(item.id), onOpen: onOpen,
+                    showLabel: labels.contains(item.id), onOpen: { onOpen($0, date) },
                     onResize: { item, start, end in onResize(item, date, start, end, false) },
                     onStart: { onStart($0, date) }, canStart: canStart,
                     onMove: { item, start, end in onResize(item, date, start, end, true) })

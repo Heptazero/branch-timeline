@@ -9,13 +9,13 @@ import { upsertProjectTaskTotals } from "../vault/project-tasks";
 
 interface EditRequest {
   date: string; id: string; start: number; end: number;
-  kind?: "todo" | "fact"; move?: boolean; expected?: string; title?: string; note?: string; projectPath?: string; tagId?: string;
+  kind?: "todo" | "fact"; move?: boolean; updateContent?: boolean; expected?: string; title?: string; note?: string; projectPath?: string; tagId?: string;
 }
 const canonical = (value: unknown): string => JSON.stringify(value && typeof value === "object" && !Array.isArray(value)
   ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, val]) => [key, JSON.parse(canonical(val))])) : value);
 
 /** Single-day completed facts only. The live session and arbitrary Markdown never become editable facts. */
-export function nativeEditBlock(text: string, requestText: string, settingsText: string, projectText: string): string {
+export function nativeEditBlock(text: string, requestText: string, settingsText: string, projectText: string, destinationText?: string): string {
   const state = readSharedState(text), request = JSON.parse(requestText) as EditRequest;
   const settings = JSON.parse(settingsText) as Partial<BranchTimelineSettings>;
   const { date, id, start, end } = request;
@@ -23,6 +23,7 @@ export function nativeEditBlock(text: string, requestText: string, settingsText:
   if (!Number.isFinite(parsed.getTime()) || dateKey(parsed) !== date || typeof id !== "string" || !/^[\w-]{1,160}$/.test(id)
     || !Number.isFinite(start) || !Number.isFinite(end) || (request.expected == null && (!Number.isInteger(start) || !Number.isInteger(end))) || start < 120 || end > 1560 || end <= start) throw new Error("时间范围无效（一天从 02:00 到次日 02:00）");
   const existing = state.days[date]?.items.find(item => item.id === id);
+  const original = existing ? { ...existing } : undefined;
   let item: TimelineItem;
   if (request.expected != null) {
     if (!existing || canonical(existing) !== canonical(JSON.parse(request.expected))) throw new Error("记录已变化，请刷新后重试");
@@ -45,6 +46,23 @@ export function nativeEditBlock(text: string, requestText: string, settingsText:
     day.items.push(item);
   }
   const plan = item.kind === "todo";
+  if (existing && request.updateContent) {
+    if (typeof request.title !== "string" || !request.title.trim() || request.title.length > 400
+      || typeof request.note !== "string" || request.note.length > 20000) throw new Error("请填写标题，备注最多 20000 字");
+    const path = request.projectPath;
+    if (typeof path !== "string" || (path && (!path.endsWith(".md") || path.startsWith("/") || path.includes("\\") || path.split("/").some(part => !part || part === ".." || part === ".")))) throw new Error("项目路径无效");
+    if ((settings.itemMetadataRequirement === "project" || settings.itemMetadataRequirement === "both") && !path) throw new Error("请先选择项目");
+    const tag = settings.tags?.find(tag => tag.id === request.tagId);
+    if ((settings.itemMetadataRequirement === "tag" || settings.itemMetadataRequirement === "both") && !tag) throw new Error("请先选择标签");
+    if (request.tagId && request.tagId !== existing.tagId && !tag) throw new Error("标签已变化，请重新选择");
+    item.title = request.title.trim(); item.note = request.note.trim() || undefined;
+    if (item.projectPath !== (path || undefined)) {
+      item.projectBranchId = null; delete item.projectTaskId; delete item.projectTaskTitle;
+      if (!path) item.milestone = false;
+    }
+    item.projectPath = path || undefined;
+    if (request.tagId !== item.tagId) { item.tagId = tag?.id; item.tag = tag?.category; }
+  }
   if (request.move && existing) {
     const oldStart = plan ? existing.plannedMin ?? start : existing.startMin ?? start;
     const oldEnd = plan ? existing.plannedEndMin ?? oldStart + 30 : existing.endMin ?? oldStart;
@@ -54,25 +72,51 @@ export function nativeEditBlock(text: string, requestText: string, settingsText:
       if (event.itemId === id) event.minute += delta;
     }
   }
-  let project = projectText;
-  if (!plan && item.projectLogId) {
-    if (existing) {
-      const old = projectWorkLogEntry(project, item.projectLogId);
+  const from = original?.projectLogId ? original.projectLogPath || original.projectPath || "" : existing ? "" : plan ? "" : item.projectPath || "";
+  const target = plan ? "" : request.updateContent || !existing ? item.projectPath || "" : from;
+  const projects: Record<string, string> = {};
+  if (from) projects[from] = projectText;
+  if (target && target !== from) {
+    if (destinationText == null) throw new Error("缺少目标项目内容，未保存");
+    projects[target] = destinationText;
+  }
+  const workId = original?.projectLogId || (target ? item.id : undefined);
+  let old: ReturnType<typeof projectWorkLogEntry> = null;
+  if (!plan && workId) {
+    if (original?.projectLogId) {
+      old = projectWorkLogEntry(projectText, workId);
       if (!old) throw new Error("找不到对应的项目日志，请先检查文件");
-      // Preserve handwritten details and the marker style when only resizing a block.
-      project = appendProjectLog(removeProjectWorkLog(project, item.projectLogId), date, formatTime(end), (end - start) / 60, old.note, item.projectLogId, old.style);
-    } else {
-      project = appendProjectLog(project, date, formatTime(end), (end - start) / 60,
-        [item.title, item.note].filter(Boolean).join(" — ").replace(/\s*[\r\n]+\s*/g, " / "), item.projectLogId, settings.pluginCommentStyle);
-      if (!projectWorkLogEntry(project, item.projectLogId)) throw new Error("项目日志内容无法保存，请检查标题和备注");
+      projects[from] = removeProjectWorkLog(projectText, workId);
     }
+    if (target) {
+      if (target !== from && projectWorkLogEntry(projects[target], workId)) throw new Error("目标项目已有同一条工时日志");
+      const changedText = original && (original.title !== item.title || (original.note || "") !== (item.note || ""));
+      const note = old ? changedText ? updatedLogDetails(old.note, original!, item) : old.note : logDetails(item);
+      projects[target] = appendProjectLog(projects[target], date, formatTime(end), (end - start) / 60, note, workId, old?.style ?? settings.pluginCommentStyle);
+      if (!projectWorkLogEntry(projects[target], workId)) throw new Error("项目日志内容无法保存，请检查标题和备注");
+    }
+    if (request.updateContent) { item.projectLogId = target ? workId : undefined; item.projectLogPath = target || undefined; }
   }
   if (plan) { item.plannedMin = start; item.plannedEndMin = end; }
   else { item.startMin = start; item.endMin = end; }
-  if (!plan && item.projectLogId && item.projectPath && item.projectPath === (item.projectLogPath || item.projectPath)) {
+  if (!plan) {
     const full = state as unknown as BranchTimelineState;
-    project = upsertProjectDayTotal(project, date, completedProjectTotals(full, date).totals.get(item.projectPath) || 0, settings.pluginCommentStyle);
-    project = upsertProjectTaskTotals(project, completedProjectTaskTotals(full, item.projectPath), settings.pluginCommentStyle);
+    for (const path of Object.keys(projects)) {
+      projects[path] = upsertProjectDayTotal(projects[path], date, completedProjectTotals(full, date).totals.get(path) || 0, settings.pluginCommentStyle);
+      projects[path] = upsertProjectTaskTotals(projects[path], completedProjectTaskTotals(full, path), settings.pluginCommentStyle);
+    }
   }
-  return JSON.stringify({ state, project });
+  return JSON.stringify({ state, project: from ? projects[from] : projectText, projects });
+}
+
+const oneLine = (value: string) => value.replace(/\s*[\r\n]+\s*/g, " / ");
+const logDetails = (item: TimelineItem) => oneLine([item.projectTaskTitle ? "@" + item.projectTaskTitle : "", item.title, item.note].filter(Boolean).join(" — "));
+/** Replace known generated text; keep any extra prose the user added to their Markdown log. */
+function updatedLogDetails(text: string, before: TimelineItem, after: TimelineItem): string {
+  const candidates = [logDetails(before), oneLine([before.projectTaskTitle ? "@" + before.projectTaskTitle : "", before.note || before.title].filter(Boolean).join(" "))].sort((a, b) => b.length - a.length);
+  for (const generated of candidates) {
+    if (text === generated) return logDetails(after);
+    if (generated && text.startsWith(generated + " — ")) return logDetails(after) + text.slice(generated.length);
+  }
+  return [logDetails(after), text].filter(Boolean).join(" — ");
 }

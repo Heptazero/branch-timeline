@@ -14,7 +14,7 @@ import TimelineCore
         precondition(panel.styleMask.contains(.closable) && panel.styleMask.contains(.miniaturizable) && panel.styleMask.contains(.resizable))
         precondition(!panel.styleMask.contains(.fullSizeContentView))
         let scroll = TimelineScrollView(frame: NSRect(x: 0, y: 0, width: 500, height: 500))
-        let document = TimelineDocument(items: model.dashboard?.items ?? [], projects: model.projects, branches: [], scale: 0.65, now: nil, onOpen: { _ in })
+        let document = TimelineDocument(items: model.dashboard?.items ?? [], projects: model.projects, branches: [], scale: 0.65, now: nil, onOpen: { _, _ in })
         let host = NSHostingView(rootView: document); scroll.documentView = host
         let coordinator = TimelineViewport.Coordinator(); coordinator.height = document.height; coordinator.needsFocus = false
         coordinator.layout(scroll)
@@ -23,7 +23,7 @@ import TimelineCore
         precondition(host.frame.height < original, "Timeline document did not shrink")
         precondition(host.isFlipped, "Timeline document must use top-origin coordinates")
         let week = AppModel(preview: true, previewScope: "week")
-        let wide = TimelineDocument(items: [], projects: week.projects, branches: [], scale: 0.65, now: nil, onOpen: { _ in }, days: week.dashboard?.days ?? [])
+        let wide = TimelineDocument(items: [], projects: week.projects, branches: [], scale: 0.65, now: nil, onOpen: { _, _ in }, days: week.dashboard?.days ?? [])
         coordinator.minimumWidth = wide.minimumWidth; coordinator.layout(scroll)
         precondition(host.frame.width >= 1448, "Week columns must retain usable widths")
         precondition(!PeriodNavigation.dates(logicalDate(), scope: "month").isEmpty)

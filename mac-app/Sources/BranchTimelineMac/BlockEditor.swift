@@ -13,6 +13,11 @@ extension AppModel {
         edit.move = move
         _ = saveBlock(edit)
     }
+    func openBlockActions(date: String, id: String) {
+        let format = DateFormatter(); format.dateFormat = "yyyy-MM-dd"; format.locale = Locale(identifier: "en_US_POSIX")
+        if let selected = format.date(from: date) { selectDate(selected) }
+        openFeature("day"); featureItemID = id
+    }
 }
 
 struct BlockEditor: View {
@@ -22,6 +27,7 @@ struct BlockEditor: View {
     @State private var projectSearch = ""
     @State private var selectingProject = false
     @FocusState private var titleFocused: Bool
+    private var editing: Bool { edit.expected != nil }
     private var options: BlockOptions? { model.storage?.blockOptions() }
     private var project: Project? { model.projects.first { $0.path == edit.projectPath } }
     private var valid: Bool {
@@ -32,7 +38,18 @@ struct BlockEditor: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack { Text(edit.kind == "todo" ? "添加计划" : "添加时间块").font(.headline); Spacer(); Text(edit.date).font(.caption).foregroundStyle(.secondary) }
+            HStack {
+                Text(editing ? (edit.kind == "todo" ? "编辑计划" : "编辑时间块") : (edit.kind == "todo" ? "添加计划" : "添加时间块")).font(.headline)
+                Spacer(); Text(edit.date).font(.caption).foregroundStyle(.secondary)
+                if editing {
+                    Menu {
+                        Button("更多操作") {
+                            dismiss(); model.openBlockActions(date: edit.date, id: edit.id)
+                        }
+                        if !edit.projectPath.isEmpty { Button("在 Obsidian 打开项目文件") { model.openProject(edit.projectPath) } }
+                    } label: { Image(systemName: "ellipsis").rotationEffect(.degrees(90)) }.menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("更多操作")
+                }
+            }
             TextField("标题", text: $edit.title).textFieldStyle(.roundedBorder).focused($titleFocused)
             HStack {
                 timeControl("开始", minute: $edit.start)
@@ -56,7 +73,7 @@ struct BlockEditor: View {
                 Spacer(minLength: 0)
             }.buttonStyle(.borderless)
             if let error = model.error { Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true) }
-            HStack { Button("取消") { dismiss() }; Spacer(); Button("添加") { if model.saveBlock(edit) { dismiss() } }.buttonStyle(.borderedProminent).disabled(!valid) }
+            HStack { Button("取消") { dismiss() }; Spacer(); Button(editing ? "保存" : "添加") { if model.saveBlock(edit) { dismiss() } }.buttonStyle(.borderedProminent).disabled(!valid) }
         }.padding(20).frame(width: 350).tint(AppPalette.blue).onAppear { titleFocused = true }
     }
     private var projectChoices: some View {
@@ -67,7 +84,7 @@ struct BlockEditor: View {
                     if options?.requirement != "project" && options?.requirement != "both" {
                         Button("不关联项目") { edit.projectPath = ""; selectingProject = false }.padding(6)
                     }
-                    ForEach(model.projects.filter { $0.isActive && matchesProject(projectSearch, project: $0) }) { project in
+                    ForEach(model.projects.filter { ($0.isActive || $0.path == edit.projectPath) && matchesProject(projectSearch, project: $0) }) { project in
                         Button { edit.projectPath = project.path; selectingProject = false } label: {
                             HStack { Circle().fill(Color(hex: project.color)).frame(width: 7, height: 7); Text(project.name).lineLimit(2); Spacer() }.padding(6)
                         }

@@ -155,6 +155,8 @@ private func expectThrows<T>(_ action: @autoclosure () throws -> T, line: UInt =
         try tests.testFocusCRUDUsesSharedStateWithoutTouchingNotes()
         try tests.testEnergyInheritanceAndConcurrentEditProtection()
         try tests.testLiveFocusProjectionCannotWritePhantomMarksOrChangeTheTimer()
-        print("40 native core checks passed")
+        try tests.testDirectEditorUsesClickedColumnAndMovesItsLogBetweenProjects()
+        try tests.testFailedDirectEditRestoresBothProjectFiles()
+        print("42 native core checks passed")
     }
 }

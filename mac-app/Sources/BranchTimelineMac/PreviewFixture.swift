@@ -44,4 +44,10 @@ enum PreviewFixture {
             ]]
         return try? JSONDecoder().decode(Dashboard.self, from: JSONSerialization.data(withJSONObject: value))
     }
+    static func editableBlock() -> BlockEdit {
+        let item: [String: Any] = ["id": "preview-edit", "kind": "fact", "title": "整理实验结果", "note": "下次从对照组继续。", "projectPath": "preview.md", "startMin": 600, "endMin": 660, "tagId": ""]
+        var edit = BlockEdit(date: dayKey(logicalDate()), start: 600, end: 660, id: "preview-edit", expected: String(decoding: try! JSONSerialization.data(withJSONObject: item), as: UTF8.self))
+        edit.title = "整理实验结果"; edit.note = "下次从对照组继续。"; edit.projectPath = "preview.md"; edit.updateContent = true
+        return edit
+    }
 }
