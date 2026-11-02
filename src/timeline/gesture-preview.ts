@@ -120,7 +120,7 @@ export class TimelineGesturePreview {
     drag.minute = Math.max(bounds[0], Math.min(bounds[1], drag.minute0 + dy / this.layout.scale));
     drag.element.style.top = `${minuteToY(this.day, this.layout.scale, drag.minute)}px`;
     const label = drag.element.lastElementChild;
-    if (label) label.textContent = `${rhythmLabel(drag.key)} ${formatTime(snapMinute(drag.minute))}`;
+    if (label) label.textContent = `${rhythmLabel(drag.key)} ${formatTime(Math.round(drag.minute))}`;
   }
 
   rhythmMarker(drag: Extract<TimelineDragState, { kind: "rhythm-marker" }>, dy: number): void {
@@ -128,7 +128,7 @@ export class TimelineGesturePreview {
     drag.minute = Math.max(bounds[0], Math.min(bounds[1], drag.minute0 + dy / this.layout.scale));
     drag.element.style.top = `${minuteToY(this.day, this.layout.scale, drag.minute)}px`;
     const label = drag.element.lastElementChild;
-    if (label) label.textContent = `${drag.name} ${formatTime(snapMinute(drag.minute))}`;
+    if (label) label.textContent = `${drag.name} ${formatTime(Math.round(drag.minute))}`;
   }
 
   energyPhase(drag: Extract<TimelineDragState, { kind: "energy-phase" }>, dy: number): void {

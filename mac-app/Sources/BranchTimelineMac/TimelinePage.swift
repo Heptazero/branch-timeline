@@ -3,14 +3,12 @@ import TimelineCore
 
 private struct FocusSelection: Identifiable { var id: String { date + point.id }; let date: String; let point: FocusPoint; let context: DayFocusContext? }
 private struct EnergySelection: Identifiable { var id: String { date + phase.id }; let date: String; let phase: EnergyPhase; let context: DayFocusContext? }
-private struct BlockSelection: Identifiable { var id: String { date + item.id }; let date: String; let item: DashboardItem }
 
 struct TimelinePage: View {
     @ObservedObject var model: AppModel
     @AppStorage("timelineMinuteScale") private var scale = TimelineZoom.initial
     @AppStorage("timelineShowPlans") private var showPlans = true
     @State private var gestureStart: Double?
-    @State private var detail: BlockSelection?
     @State private var draft: BlockEdit?
     @State private var focusPoint: FocusSelection?
     @State private var energyPhase: EnergySelection?
@@ -38,26 +36,11 @@ struct TimelinePage: View {
         }.sheet(item: $draft) { edit in BlockEditor(model: model, edit: edit) }
         .popover(item: $focusPoint) { selected in FocusPointEditor(model: model, date: selected.date, context: selected.context, point: selected.point) }
         .popover(item: $energyPhase) { selected in EnergyPhaseEditor(model: model, date: selected.date, context: selected.context, phase: selected.phase) }
-        .popover(item: $detail, arrowEdge: .trailing) { selection in
-            let item = selection.item
-            VStack(alignment: .leading, spacing: 12) {
-                Text(item.title).font(.headline)
-                Text("\(minuteLabel(item.start, seconds: item.end - item.start < 1))–\(minuteLabel(item.end, seconds: item.end - item.start < 1)) · \(hoursLabel(max(0, item.end - item.start)))").font(.caption).foregroundStyle(.secondary)
-                if item.plan == true { Text("计划").font(.caption).foregroundStyle(.secondary) }
-                if !item.note.isEmpty { Text(item.note).textSelection(.enabled) }
-                Text("结束计时后可编辑").font(.caption).foregroundStyle(.secondary)
-                Button("更多操作") { detail = nil; model.openBlockActions(date: selection.date, id: item.id) }
-                if !item.projectPath.isEmpty { Button("在 Obsidian 打开项目文件") { model.openProject(item.projectPath) } }
-            }.padding(18).frame(width: 300, alignment: .leading)
-        }
     }
+
     private func document(_ days: [DashboardDay]) -> TimelineDocument {
         TimelineDocument(items: model.dashboard?.items ?? [], projects: model.projects, branches: model.dashboard?.branches ?? [], scale: TimelineZoom.clamp(scale), now: nowMinute,
-            onOpen: { item, date in
-                model.clearError()
-                if let edit = BlockEdit(item: item, date: date) { draft = edit }
-                else { detail = BlockSelection(date: date, item: item) }
-            }, onStart: { item, date in model.executePlan(item, date: date) }, canStart: model.active == nil, onRhythm: { date, id, minute in model.changeRhythm(date: date, id: id, minute: minute) }, days: days, focusDate: dayKey(model.focusDate), showPlans: showPlans,
+            onOpen: { _, _ in }, onStart: { item, date in model.executePlan(item, date: date) }, canStart: model.active == nil, onRhythm: { date, id, minute, expected in model.changeRhythm(date: date, id: id, minute: minute, expected: expected) }, days: days, focusDate: dayKey(model.focusDate), showPlans: showPlans,
             onCreate: { date, minute, plan in
                 model.clearError()
                 var value = BlockEdit(date: date, start: Double(minute), end: Double(min(1560, minute + 30))); value.kind = plan ? "todo" : "fact"; draft = value
@@ -68,7 +51,8 @@ struct TimelinePage: View {
                 var request = TimelineContextEdit(date: date); request.kind = "energy"; request.id = phase.id; request.minute = minute; request.label = phase.name; request.color = phase.color
                 request.expected = revision
                 _ = model.saveContext(request)
-            }, onGap: { date, start, end in draft = BlockEdit(date: date, start: ceil(start), end: floor(end)) })
+            }, onGap: { date, start, end in draft = BlockEdit(date: date, start: ceil(start), end: floor(end)) },
+            itemEditor: { item, date in AnyView(TimelineBlockEditor(model: model, item: item, date: date)) })
     }
     private var nowMinute: Double {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: model.now), hour = parts.hour ?? 0
@@ -85,7 +69,7 @@ struct TimelineDocument: View {
     let onOpen: (DashboardItem, String) -> Void
     var onStart: (DashboardItem, String) -> Void = { _, _ in }
     var canStart = true
-    var onRhythm: (String, String, Int?) -> Void = { _, _, _ in }
+    var onRhythm: (String, String, Int?, String?) -> Void = { _, _, _, _ in }
     var days: [DashboardDay] = []
     var focusDate = ""
     var showPlans = true
@@ -95,6 +79,7 @@ struct TimelineDocument: View {
     var onEnergy: (String, EnergyPhase) -> Void = { _, _ in }
     var onEnergyMove: (String, EnergyPhase, Double, String) -> Void = { _, _, _, _ in }
     var onGap: (String, Double, Double) -> Void = { _, _, _ in }
+    var itemEditor: ((DashboardItem, String) -> AnyView)? = nil
     var height: Double { 1440 * scale + 40 }
     var minimumWidth: Double { days.count > 1 ? 48 + Double(days.count) * (showPlans ? 200 : 130) : 0 }
     func focusX(width: Double) -> Double {
@@ -145,7 +130,7 @@ struct TimelineDocument: View {
                 }
             }
             FocusTimelineOverlay(context: context, scale: scale, actualFraction: showPlans ? 0.5 : 1, onOpen: { onFocus(date, $0) })
-            RhythmTimelineOverlay(events: days.first { $0.date == date }?.rhythmEvents ?? [], scale: scale, onChange: { id, minute in onRhythm(date, id, minute) })
+            RhythmTimelineOverlay(events: days.first { $0.date == date }?.rhythmEvents ?? [], scale: scale, onChange: { id, minute, expected in onRhythm(date, id, minute, expected) })
             if today, let now {
                 HStack(spacing: 0) { Circle().fill(.red).frame(width: 4, height: 4); Rectangle().fill(.red.opacity(0.6)).frame(height: 1) }.offset(y: y(now)).allowsHitTesting(false)
             }
@@ -165,7 +150,8 @@ struct TimelineDocument: View {
                     showLabel: labels.contains(item.id), onOpen: { onOpen($0, date) },
                     onResize: { item, start, end in onResize(item, date, start, end, false) },
                     onStart: { onStart($0, date) }, canStart: canStart,
-                    onMove: { item, start, end in onResize(item, date, start, end, true) })
+                    onMove: { item, start, end in onResize(item, date, start, end, true) },
+                    editor: itemEditor.map { makeEditor in { item in makeEditor(item, date) } })
                     .padding(.leading, 6 + inset).padding(.trailing, 5).offset(y: y(item.start))
             }
         }.frame(width: max(1, width), height: height)

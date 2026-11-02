@@ -24,8 +24,6 @@ struct BlockEditor: View {
     @ObservedObject var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State var edit: BlockEdit
-    @State private var projectSearch = ""
-    @State private var selectingProject = false
     @FocusState private var titleFocused: Bool
     private var editing: Bool { edit.expected != nil }
     private var options: BlockOptions? { model.storage?.blockOptions() }
@@ -61,9 +59,7 @@ struct BlockEditor: View {
                 .overlay(alignment: .topLeading) { if edit.note.isEmpty { Text("备注（可选）").foregroundStyle(.tertiary).padding(10).allowsHitTesting(false) } }
                 .accessibilityLabel("备注")
             HStack {
-                Button { selectingProject.toggle() } label: {
-                    HStack { Circle().fill(Color(hex: project?.color ?? "#a4aab5")).frame(width: 7, height: 7); Text(project.map { "@" + $0.name } ?? "选择项目").lineLimit(1); Image(systemName: "chevron.down").font(.caption2) }
-                }.popover(isPresented: $selectingProject) { projectChoices }
+                BlockProjectPicker(projects: model.projects, path: $edit.projectPath, required: options?.requirement == "project" || options?.requirement == "both")
                 if let tags = options?.tags, !tags.isEmpty {
                     Menu {
                         Button("无标签") { edit.tagId = "" }
@@ -75,23 +71,6 @@ struct BlockEditor: View {
             if let error = model.error { Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true) }
             HStack { Button("取消") { dismiss() }; Spacer(); Button(editing ? "保存" : "添加") { if model.saveBlock(edit) { dismiss() } }.buttonStyle(.borderedProminent).disabled(!valid) }
         }.padding(20).frame(width: 350).tint(AppPalette.blue).onAppear { titleFocused = true }
-    }
-    private var projectChoices: some View {
-        VStack(spacing: 8) {
-            TextField("搜索项目", text: $projectSearch).textFieldStyle(.roundedBorder)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 4) {
-                    if options?.requirement != "project" && options?.requirement != "both" {
-                        Button("不关联项目") { edit.projectPath = ""; selectingProject = false }.padding(6)
-                    }
-                    ForEach(model.projects.filter { ($0.isActive || $0.path == edit.projectPath) && matchesProject(projectSearch, project: $0) }) { project in
-                        Button { edit.projectPath = project.path; selectingProject = false } label: {
-                            HStack { Circle().fill(Color(hex: project.color)).frame(width: 7, height: 7); Text(project.name).lineLimit(2); Spacer() }.padding(6)
-                        }
-                    }
-                }.buttonStyle(.plain)
-            }.frame(maxHeight: 220)
-        }.padding(12).frame(width: 280)
     }
     private func timeControl(_ label: String, minute: Binding<Double>) -> some View {
         let base = Calendar.current.startOfDay(for: model.focusDate)

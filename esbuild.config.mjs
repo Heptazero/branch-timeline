@@ -22,7 +22,7 @@ const external = [
 if (mode === "test") {
   await esbuild.build({
     entryPoints: [
-      "tests/format.test.ts", "tests/comment-markers.test.ts", "tests/focus-state.test.ts",
+      "tests/format.test.ts", "tests/duration-format.test.ts", "tests/comment-markers.test.ts", "tests/focus-state.test.ts",
       "tests/focus-prediction.test.ts", "tests/project-time-sync.test.ts", "tests/project-tasks.test.ts",
       "tests/life-model.test.ts", "tests/life-diary.test.ts", "tests/diary-bracket-model.test.ts",
       "tests/fixed-reminders.test.ts", "tests/native-context.test.ts", "tests/state-store.test.ts", "tests/repository-transaction.test.ts",

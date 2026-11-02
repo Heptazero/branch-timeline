@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { nativeRhythm, nativeSetRhythm } from "../src/desktop/rhythm-data";
 import { normalizeSettings } from "../src/settings-state";
+import { DEFAULT_RHYTHM } from "../src/rhythm";
+import { TimelineGesturePreview } from "../src/timeline/gesture-preview";
+import type { TimelineLayout } from "../src/timeline/model";
 const date = "2026-10-29", clock = "2026-10-29T10:15:00+08:00";
 const settings = JSON.stringify({ rhythm: { wake: 420, napStart: 780, napEnd: 810, sleep: 1530 }, rhythmMarkers: [{ id: "custom", name: "运动", minute: 1080 }] });
 const initial = JSON.stringify({ version: 1, days: {}, macTimer: { version: 1, active: null }, custom: true });
@@ -27,4 +30,22 @@ test("shared settings normalization preserves user removals and custom options",
   const value = normalizeSettings({ rhythmMarkers: [], visiblePages: ["day", "life"], projectTypes: [{ type: "book", color: "#123456" }], itemMetadataRequirement: "both" });
   assert.deepEqual(value.rhythmMarkers, []); assert.deepEqual(value.visiblePages, ["day", "life"]);
   assert.deepEqual(value.projectTypes, [{ type: "book", color: "#123456" }]); assert.equal(value.itemMetadataRequirement, "project");
+});
+
+test("rhythm drag refuses a stale point without overwriting a newer change", () => {
+  const point = nativeRhythm(initial, settings, date, clock).events.find(e => e.id === "wake")!;
+  const changed = nativeSetRhythm(initial, settings, date, "wake", 430, clock, point.revision);
+  assert.throws(() => nativeSetRhythm(changed, settings, date, "wake", 440, clock, point.revision), /已变化/);
+  assert.equal(nativeRhythm(changed, settings, date, clock).events.find(e => e.id === "wake")?.minute, 430);
+});
+
+test("branch rhythm preview follows the pointer to the minute instead of jumping five minutes", () => {
+  const element = { style: { top: "" }, lastElementChild: { textContent: "" } } as unknown as HTMLElement;
+  const day = { ...DEFAULT_RHYTHM, items: [], branches: [] };
+  const preview = new TimelineGesturePreview({} as HTMLElement, day, { scale: 1 } as TimelineLayout, [], []);
+  const drag = { kind: "rhythm" as const, pointerId: 1, key: "wake" as const, element, y0: 0, minute0: 420, minute: 420, moved: true };
+  preview.rhythm(drag, 22.4);
+  assert.equal(drag.minute, 442.4); assert.equal(element.lastElementChild!.textContent, "起床 07:22");
+  preview.rhythm(drag, 23.4);
+  assert.equal(drag.minute, 443.4); assert.equal(element.lastElementChild!.textContent, "起床 07:23");
 });

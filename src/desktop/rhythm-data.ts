@@ -15,15 +15,16 @@ export function projectRhythm(state: Pick<BranchTimelineState, "days">, settings
     { id: "sleep", name: rhythmLabel("sleep", settings.rhythmLabels), minute: day.sleep, real: !!day.sleepReal }];
   const today = normalizeTimelineDay(state.days[dateKey(logicalToday(now))] || settings.rhythm);
   const nap = settings.rhythmMarkers.find(marker => marker.id === "nap-end");
-  return { events, summary: { wake: today.wakeReal ? today.wake : settings.rhythm.wake, sleep: today.sleepReal ? today.sleep : settings.rhythm.sleep,
+  return { events: events.map(event => ({ ...event, revision: JSON.stringify({ minute: event.minute, real: event.real }) })), summary: { wake: today.wakeReal ? today.wake : settings.rhythm.wake, sleep: today.sleepReal ? today.sleep : settings.rhythm.sleep,
     switchAt: nap ? (rhythmMarkerReal(today, nap.id) ? rhythmMarkerMinute(today, nap) : nap.minute) : Math.round((settings.rhythm.wake + settings.rhythm.sleep) / 2),
     elapsedMark: settings.rhythmElapsedMark, remainingMark: settings.rhythmRemainingMark } };
 }
-export function nativeSetRhythm(text: string, settingsText: string, selected: string, id: string, minute: number | null, nowText: string): string {
+export function nativeSetRhythm(text: string, settingsText: string, selected: string, id: string, minute: number | null, nowText: string, expected?: string): string {
   const state = readSharedState(text), settings = normalizeSettings(JSON.parse(settingsText));
   const parsed = new Date(selected + "T12:00:00"), now = new Date(nowText);
   if (dateKey(parsed) !== selected || !Number.isFinite(now.getTime())) throw new Error("日期无效");
   if (minute != null && (!Number.isFinite(minute) || minute < 120 || minute > 1560)) throw new Error("时间须在当日 02:00 至次日 02:00 之间");
+  if (expected != null && projectRhythm(state as unknown as BranchTimelineState, settings, selected, now).events.find(event => event.id === id)?.revision !== expected) throw new Error("节律已变化，请重新打开后修改");
   const day = state.days[selected] ||= normalizeTimelineDay(settings.rhythm);
   const isToday = selected === dateKey(logicalToday(now));
   const clock = now.getHours() * 60 + now.getMinutes() + (now.getHours() < 2 ? 1440 : 0);

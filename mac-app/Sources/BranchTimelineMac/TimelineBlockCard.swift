@@ -18,6 +18,9 @@ struct TimelineBlockCard: View {
     var onStart: (DashboardItem) -> Void = { _ in }
     var canStart = true
     var onMove: (DashboardItem, Double, Double) -> Void = { _, _, _ in }
+    var editor: ((DashboardItem) -> AnyView)? = nil
+    @State private var inspection: DashboardItem?
+    @State private var tapPoint = CGPoint(x: 16, y: 18)
     @GestureState private var edgePreview: EdgePreview?
     @GestureState private var movePreview: EdgePreview?
     @State private var suppressOpenUntil = Date.distantPast
@@ -29,8 +32,14 @@ struct TimelineBlockCard: View {
     private var color: Color { Color(hex: project?.color ?? "#a4aab5") }
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Button { if Date() > suppressOpenUntil { onOpen(item) } } label: { contents }.buttonStyle(.plain)
+            Button {
+                if Date() > suppressOpenUntil { if editor != nil { inspection = item } else { onOpen(item) } }
+            } label: { contents }.buttonStyle(.plain)
                 .simultaneousGesture(moveGesture)
+                .simultaneousGesture(SpatialTapGesture().onEnded { tapPoint = $0.location })
+                .popover(item: $inspection, attachmentAnchor: .rect(.rect(CGRect(x: tapPoint.x, y: min(max(0, tapPoint.y), max(14, height)), width: 1, height: 1))), arrowEdge: .trailing) { selected in
+                    if let editor { editor(selected) }
+                }
             if item.editable == true, item.end > item.start {
                 handle(top: true).offset(y: -6)
                 handle(top: false).offset(y: height - 6)

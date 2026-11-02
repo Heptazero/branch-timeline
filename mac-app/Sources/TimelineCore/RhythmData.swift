@@ -1,5 +1,5 @@
 import Foundation
-public struct DayRhythmEvent: Decodable, Identifiable { public let id, name: String; public let minute: Double; public let real: Bool }
+public struct DayRhythmEvent: Decodable, Identifiable { public let id, name: String; public let minute: Double; public let real: Bool; public let revision: String? }
 public struct RhythmSummary: Decodable {
     public let wake, sleep, switchAt: Double
     public let elapsedMark, remainingMark: String
@@ -11,12 +11,12 @@ public struct RhythmSummary: Decodable {
     }
 }
 extension SharedStateStore {
-    public func setRhythm(date: String, id: String, minute: Int?) throws {
+    public func setRhythm(date: String, id: String, minute: Int?, expected: String? = nil) throws {
         try SharedFileLock.withLock(file: url) {
             let (before, _) = try read()
             let settings = String(decoding: try JSONSerialization.data(withJSONObject: bridge.settings()), as: UTF8.self)
             let clock = ISO8601DateFormatter()
-            let value = try script.invoke("nativeSetRhythm", arguments: [String(decoding: before, as: UTF8.self), settings, date, id, minute as Any? ?? NSNull(), clock.string(from: Date())])
+            let value = try script.invoke("nativeSetRhythm", arguments: [String(decoding: before, as: UTF8.self), settings, date, id, minute as Any? ?? NSNull(), clock.string(from: Date()), expected as Any? ?? NSNull()])
             guard let text = value.toString(), let state = try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [String: Any] else { throw SharedStateError.invalid }
             try write(state, expected: before)
         }

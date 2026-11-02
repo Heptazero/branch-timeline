@@ -1,3 +1,4 @@
+import { durationLabel, gapDurationLabel } from "./duration-format";
 import { setIcon } from "obsidian";
 import type { FocusPrediction } from "../focus-prediction";
 import { RHYTHM_BOUNDARIES, rhythmLabel, rhythmMarkerMinute, rhythmMarkerReal, rhythmRealKey } from "../rhythm";
@@ -256,7 +257,7 @@ function renderGaps(
       text: gapDurationLabel(duration),
       attr: {
         type: "button",
-        "aria-label": `补记未记录的 ${duration} 分钟`,
+        "aria-label": `补记${gapDurationLabel(duration)}`,
         "data-gap-start": String(gap.start),
         "data-gap-end": String(gap.end)
       }
@@ -433,19 +434,6 @@ function renderSpanHandle(
 
 function projectName(path?: string): string {
   return path?.split("/").pop()?.replace(/\.md$/, "") || "";
-}
-
-function durationLabel(minutes: number): string {
-  if (minutes < 60) return `${minutes} 分钟`;
-  const value = minutes / 60;
-  return `${value.toFixed(minutes % 60 ? 1 : 0)} 小时`;
-}
-
-function gapDurationLabel(minutes: number): string {
-  if (minutes < 60) return `未记录 ${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return `未记录 ${hours}h${rest ? `${rest}m` : ""}`;
 }
 
 function cssEscape(value: string): string {

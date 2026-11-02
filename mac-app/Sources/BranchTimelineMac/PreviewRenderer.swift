@@ -13,7 +13,10 @@ import TimelineCore
                 try await capture(MainView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 540, height: 810), to: directory.appendingPathComponent("Mac-main.png"))
                 try await capture(MainView(model: AppModel(preview: true, runningPreview: false)).environment(\.colorScheme, .light), size: NSSize(width: 540, height: 810), to: directory.appendingPathComponent("Mac-setup.png"))
                 try await capture(MainView(model: model).environment(\.colorScheme, .dark), size: NSSize(width: 380, height: 680), to: directory.appendingPathComponent("Mac-narrow-dark.png"))
-                try await capture(FloatingTimerView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 580, height: 100), to: directory.appendingPathComponent("Mac-floating.png"))
+                try await capture(FloatingTimerView(model: model).environment(\.colorScheme, .light), size: NSSize(width: 380, height: 62), to: directory.appendingPathComponent("Mac-floating.png"))
+                let longTimer = AppModel(preview: true, previewElapsed: 8661, previewTarget: 0)
+                try await capture(FloatingTimerView(model: longTimer).environment(\.colorScheme, .light), size: NSSize(width: 340, height: 62), to: directory.appendingPathComponent("Mac-floating-narrow-long.png"))
+                if let session = longTimer.active { try await capture(ActiveSessionEditor(model: longTimer, session: session).environment(\.colorScheme, .light), size: NSSize(width: 350, height: 270), to: directory.appendingPathComponent("Mac-active-editor.png")) }
                 for page in [AppPage.projects, .stats, .timeline] {
                     let fixture = AppModel(preview: true, previewScope: page == .timeline ? "day" : "week"); fixture.page = page
                     try await capture(MainView(model: fixture).environment(\.colorScheme, .light), size: NSSize(width: 540, height: 810), to: directory.appendingPathComponent("Mac-\(page.icon).png"))

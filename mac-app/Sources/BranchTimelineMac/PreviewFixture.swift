@@ -33,7 +33,7 @@ enum PreviewFixture {
         let projects: [[String: Any]] = [
             ["path": "preview.md", "name": "编译器", "color": "#3159e2", "status": "active", "actual": days.reduce(0.0) { $0 + (($1["projects"] as? [[String: Any]])?.first?["minutes"] as? Double ?? 0) }, "planned": 300, "distractions": 3, "interval": 60],
             ["path": "research.md", "name": "科研", "color": "#9072c6", "status": "active", "actual": days.reduce(0.0) { $0 + (($1["projects"] as? [[String: Any]])?.last?["minutes"] as? Double ?? 0) }, "planned": 180, "distractions": 4, "interval": 30],
-            ["path": "english.md", "name": "英语", "color": "#54a089", "status": "active", "actual": 0, "planned": 120, "distractions": 3, "interval": 20]
+            ["path": "english.md", "name": "英语", "color": "#54a089", "status": "active", "actual": 0, "planned": 0, "distractions": 3, "interval": 20]
         ]
         let week = PeriodNavigation.dates(date, scope: "week")
         let value: [String: Any] = ["date": dayKey(date), "weekStart": dayKey(week[0]), "weekEnd": dayKey(week[6]), "totalMinutes": days.reduce(0.0) { $0 + ($1["minutes"] as? Double ?? 0) }, "expected": 0.5,

@@ -334,9 +334,9 @@ export class TimelineGestures {
       } else if (drag.kind === "branch-label" && !drag.moved) {
         this.callbacks.onBranchFlip(drag.branchId);
       } else if (drag.kind === "rhythm") {
-        this.callbacks.onRhythm(drag.key, snapMinute(drag.minute), drag.moved);
+        this.callbacks.onRhythm(drag.key, Math.round(drag.minute), drag.moved);
       } else if (drag.kind === "rhythm-marker") {
-        this.callbacks.onRhythmMarker(drag.id, snapMinute(drag.minute), drag.moved);
+        this.callbacks.onRhythmMarker(drag.id, Math.round(drag.minute), drag.moved);
       } else if (drag.kind === "energy-phase" && drag.moved) {
         this.callbacks.onEnergyPhaseMove(drag.phaseId, snapMinute(drag.minute));
       }

@@ -47,7 +47,7 @@ struct ProjectProgressRow: View {
                 if let model { ProjectColorButton(project: row, model: model) }
                 else { Circle().fill(Color(hex: row.color)).frame(width: 7, height: 7) }
                 Button(action: onOpen) { Text(row.name).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain)
-                if showGoal { Text(row.planned > 0 ? "\(Int((row.actual / row.planned * 100).rounded()))%" : "无").foregroundStyle(.secondary).font(.caption).monospacedDigit() }
+                if showGoal { Text(row.planned > 0 ? "\(Int((row.actual / row.planned * 100).rounded()))%" : "—%").foregroundStyle(.secondary).font(.caption).monospacedDigit() }
             }
             HStack(spacing: 6) {
                 ZStack {
@@ -72,8 +72,6 @@ struct ProjectProgressRow: View {
                                 .popover(isPresented: $editGoal, arrowEdge: .bottom) {
                                     if let model { GoalEditor(model: model, project: row, date: model.focusDate, scope: model.scope) }
                                 }
-                        } else if model != nil {
-                            Text("无").font(.system(size: 12)).foregroundStyle(.secondary)
                         }
                     }.padding(.horizontal, 8)
                 }.frame(height: 32)

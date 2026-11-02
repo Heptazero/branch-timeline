@@ -13,6 +13,7 @@ import TimelineCore
         }
         precondition(panel.styleMask.contains(.closable) && panel.styleMask.contains(.miniaturizable) && panel.styleMask.contains(.resizable))
         precondition(!panel.styleMask.contains(.fullSizeContentView))
+        precondition(panel.frame.width <= 400 && panel.contentMinSize.width <= 340, "Floating timer must remain compact")
         let scroll = TimelineScrollView(frame: NSRect(x: 0, y: 0, width: 500, height: 500))
         let document = TimelineDocument(items: model.dashboard?.items ?? [], projects: model.projects, branches: [], scale: 0.65, now: nil, onOpen: { _, _ in })
         let host = NSHostingView(rootView: document); scroll.documentView = host

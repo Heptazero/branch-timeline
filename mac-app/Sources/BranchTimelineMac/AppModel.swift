@@ -47,13 +47,13 @@ import TimelineCore
     var ratio: Double { guard let active, active.clockTargetMinutes > 0 else { return 0 }; return elapsed / Double(active.clockTargetMinutes * 60) }
     var timerSeconds: TimeInterval { TimerDial.displaySeconds(target: active?.clockTargetMinutes ?? targetMinutes, elapsed: elapsed) }
 
-    init(preview: Bool = false, runningPreview: Bool = true, previewScope: String = "day") {
+    init(preview: Bool = false, runningPreview: Bool = true, previewScope: String = "day", previewElapsed: TimeInterval = 428, previewTarget: Int = 25) {
         if preview {
             now = Calendar.current.date(bySettingHour: 11, minute: 20, second: 0, of: Date()) ?? Date()
             let project = Project(path: "preview.md", name: "编译器", color: "#3159e2")
             projects = [project, Project(path: "research.md", name: "科研", color: "#9072c6"), Project(path: "english.md", name: "英语", color: "#54a089")]
             selectedPath = project.path; archive.vaultPath = "/Preview"; title = "完成标识符识别"
-            if runningPreview { archive.active = DesktopSession(project: project, title: title, targetMinutes: 25, now: now.addingTimeInterval(-428)) }
+            if runningPreview { archive.active = DesktopSession(project: project, title: title, targetMinutes: previewTarget, now: now.addingTimeInterval(-previewElapsed)) }
             scope = previewScope; dashboard = PreviewFixture.dashboard(scope: previewScope)
             connection = ConnectionInfo(vaultPath: "/示例库", appPath: "/示例库/时间线/state.json", configuredPath: "/示例库/时间线/state.json", pluginVersion: "0.3.65", projectTypes: "project", comments: "HTML 注释", sameFile: true, compatiblePlugin: true, catalogMatches: true)
             return

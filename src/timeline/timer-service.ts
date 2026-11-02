@@ -21,19 +21,7 @@ export function elapsedMinutes(item: TimelineItem, day: TimelineDayState, nowMin
   return Math.max(0, nowMinute - runningStart(item, day.wake));
 }
 
-export function compactDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return `${hours}h${rest ? `${rest}m` : ""}`;
-}
-
-export function readableDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes}分钟`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return `${hours}小时${rest ? `${rest}分钟` : ""}`;
-}
+export { compactDuration, readableDuration } from "./duration-format";
 
 export class TimerService {
   start(day: TimelineDayState, itemId: string, now: number, uid: () => string): TimelineItem | null {

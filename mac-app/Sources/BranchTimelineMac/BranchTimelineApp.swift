@@ -85,13 +85,13 @@ import TimelineCore
         panel?.orderFrontRegardless()
     }
     static func floatingWindow(model: AppModel, remember: Bool) -> NSPanel {
-        let window = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 580, height: 100), styleMask: [.titled, .closable, .miniaturizable, .resizable, .nonactivatingPanel], backing: .buffered, defer: false)
-        window.title = "计时"; window.minSize = NSSize(width: 500, height: 120)
+        let window = FloatingPanel(contentRect: NSRect(x: 0, y: 0, width: 380, height: 58), styleMask: [.titled, .closable, .miniaturizable, .resizable, .nonactivatingPanel], backing: .buffered, defer: false)
+        window.title = "计时"; window.contentMinSize = NSSize(width: 340, height: 50); window.contentMaxSize = NSSize(width: 1200, height: 120)
         window.titleVisibility = .hidden; window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true; window.hidesOnDeactivate = false
         window.level = .floating; window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isReleasedWhenClosed = false
-        if remember { window.setFrameAutosaveName("BranchTimelineFloatingStandard") }
+        if remember { window.setFrameAutosaveName("BranchTimelineFloatingCompactV1") }
         window.contentView = NSHostingView(rootView: FloatingTimerView(model: model))
         return window
     }

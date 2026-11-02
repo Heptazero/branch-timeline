@@ -1,3 +1,4 @@
+import { shortDurationLabel as durationLabel } from "../timeline/duration-format";
 import { setIcon } from "obsidian";
 import type {
   BranchTimelineState,
@@ -292,11 +293,7 @@ function projectMeta(state: BranchTimelineState, path: string, count: number): s
   return `${count} 项 · ${durationLabel(minutes)}`;
 }
 
-function durationLabel(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
-  const hours = minutes / 60;
-  return `${hours.toFixed(minutes % 60 ? 1 : 0)}h`;
-}
+
 
 function pad(value: number): string {
   return String(value).padStart(2, "0");
