@@ -6,6 +6,8 @@ import type {
   ProjectTimelineBranch
 } from "../types";
 import { formatTime, itemDuration } from "../timeline/model";
+import { groupProjectEntries } from "./project-entry-groups";
+import { renderProjectGroupMarker } from "./project-group-marker";
 import { ProjectDetailGestures } from "./project-detail-gestures";
 import {
   PROJECT_SCALE_MAX,
@@ -31,6 +33,7 @@ export { PROJECT_SCALE_MAX, PROJECT_SCALE_MIN } from "./project-detail-layout";
 export interface ProjectScaleAnchor {
   abs: number;
   offset: number;
+  left?: number;
 }
 
 export interface ProjectDetailOptions {
@@ -114,7 +117,7 @@ export function renderProjectDetail(options: ProjectDetailOptions): ProjectDetai
   renderTicks(canvas, range.start, range.end, scale, yOf);
   renderNow(canvas, today, now, yOf, height);
   renderBranches(canvas, svg, branches, center, gap, yOf);
-  renderEntries(canvas, state, entries, branches, center, gap, yOf);
+  renderEntries(canvas, scroller, options, entries, branches, center, gap, yOf);
   const zoom = container.createDiv({ cls: "btl-project-zoom" });
   const zoomOut = zoom.createEl("button", { text: "−", attr: { "aria-label": "缩小" } });
   const zoomIn = zoom.createEl("button", { text: "+", attr: { "aria-label": "放大" } });
@@ -137,6 +140,7 @@ export function renderProjectDetail(options: ProjectDetailOptions): ProjectDetai
   window.requestAnimationFrame(() => {
     const anchor = options.anchor || { abs: focusAbs, offset: scroller.clientHeight / 2 };
     scroller.scrollTop = Math.max(0, yOf(anchor.abs) - anchor.offset);
+    scroller.scrollLeft = anchor.left ?? Math.max(0, (width - scroller.clientWidth) / 2);
   });
 
   return {
@@ -144,7 +148,8 @@ export function renderProjectDetail(options: ProjectDetailOptions): ProjectDetai
     renderedWidth: baseWidth,
     getAnchor: () => ({
       abs: range.start + (scroller.scrollTop + scroller.clientHeight / 2 - PROJECT_TOP) / pxPerMinute,
-      offset: scroller.clientHeight / 2
+      offset: scroller.clientHeight / 2,
+      left: scroller.scrollLeft
     }),
     destroy: () => gestures.destroy()
   };
@@ -236,15 +241,33 @@ function renderBranches(
 
 function renderEntries(
   canvas: HTMLElement,
-  state: BranchTimelineState,
+  scroller: HTMLElement,
+  options: ProjectDetailOptions,
   entries: readonly ProjectTimelineEntry[],
   branches: readonly ProjectTimelineBranch[],
   center: number,
   gap: number,
   yOf: (abs: number) => number
 ): void {
-  const occupied = new Map<string, { left: number; right: number }>();
-  for (const entry of entries) {
+  const occupied = new Map<string | null, { left: number; right: number }>();
+  const groups = groupProjectEntries(entries, branches, options.scale);
+  const milestoneYs = new Map<string | null, number[]>();
+  for (const group of groups) {
+    if (!group.entries[0].item.milestone) continue;
+    const ys = milestoneYs.get(group.branchId) ?? [];
+    ys.push(yOf(group.first));
+    milestoneYs.set(group.branchId, ys);
+  }
+  for (const group of groups) {
+    const x = projectBranchX(group.branchId, branches, center, gap);
+    const y = yOf(group.first);
+    if (group.entries.length > 1) {
+      const nearFlag = milestoneYs.get(group.branchId)?.some(flagY => Math.abs(flagY - y) < 18) ?? false;
+      renderProjectGroupMarker(canvas, scroller, options, group, x, y, nearFlag);
+      occupied.set(group.branchId, { left: y, right: y });
+      continue;
+    }
+    const entry = group.entries[0];
     const item = entry.item;
     const color = "var(--text-faint)";
     const card = canvas.createDiv({
@@ -255,16 +278,16 @@ function renderEntries(
         "data-project-branch-id": item.projectBranchId || ""
       }
     });
-    card.style.left = `${projectBranchX(item.projectBranchId, branches, center, gap)}px`;
-    card.style.top = `${yOf(entry.abs)}px`;
+    card.style.left = `${x}px`;
+    card.style.top = `${y}px`;
     card.style.setProperty("--btl-project-item-color", color);
-    placeCompactTitle(card, item.projectBranchId || "main", yOf(entry.abs), occupied);
+    placeCompactTitle(card, group.branchId, y, occupied);
     if (item.milestone) {
       const flag = card.createSpan({ cls: "btl-project-milestone" });
       setIcon(flag, "flag");
     }
     card.createSpan({ cls: "btl-project-item-title", text: item.title });
-    const day = state.days[entry.date];
+    const day = options.state.days[entry.date];
     const duration = day ? itemDuration(item, day.wake) : 0;
     card.createSpan({
       cls: "btl-project-item-meta",
@@ -275,11 +298,11 @@ function renderEntries(
   }
 }
 
-function placeCompactTitle(card: HTMLElement, lane: string, y: number, occupied: Map<string, { left: number; right: number }>): void {
+function placeCompactTitle(card: HTMLElement, lane: string | null, y: number, occupied: Map<string | null, { left: number; right: number }>): void {
   const slots = occupied.get(lane) || { left: -Infinity, right: -Infinity };
   let side: "left" | "right" = "right";
   if (y - slots.right < 15 && y - slots.left >= 15) side = "left";
-  else if (y - slots.right < 15 && y - slots.left < 15) side = slots.left < slots.right ? "left" : "right";
+  else if (y - slots.right < 15 && y - slots.left < 15) { card.addClass("compact-unlabeled"); return; }
   slots[side] = y;
   occupied.set(lane, slots);
   card.toggleClass("compact-left", side === "left");

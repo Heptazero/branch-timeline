@@ -2,7 +2,7 @@ import { Menu } from "obsidian";
 import type { ProjectRef, TimelineBranch, TimelineItem } from "../types";
 
 export interface ItemMenuActions {
-  complete: () => void;
+  complete?: () => void;
   startTiming: () => void;
   stopTiming: () => void;
   resetStart?: () => void;
@@ -23,7 +23,8 @@ export function showItemMenu(
 ): void {
   const menu = new Menu();
   const running = item.factTiming || (item.kind === "todo" && item.startedMin != null);
-  if (item.kind === "todo") menu.addItem(entry => entry.setTitle(running ? "完成并结束计时" : "完成").setIcon("check").onClick(actions.complete));
+  const complete = actions.complete;
+  if (item.kind === "todo" && complete) menu.addItem(entry => entry.setTitle(running ? "完成并结束计时" : "完成").setIcon("check").onClick(complete));
   if (running) {
     menu.addItem(entry => entry
       .setTitle("结束计时")

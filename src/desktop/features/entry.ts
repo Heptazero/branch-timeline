@@ -1,5 +1,5 @@
 import { installDOM } from "./dom";
-import { logicalToday } from "../../vault/format";
+import { dateKey, logicalToday } from "../../vault/format";
 import { normalizeSettings } from "../../settings-state";
 import { rpc, report } from "./rpc";
 import { makeApp, type FeatureCatalog } from "./app-adapter";
@@ -7,10 +7,25 @@ import { FeaturePlugin } from "./plugin-adapter";
 import { BranchTimelineView } from "../../timeline-view";
 import { BranchTimelineSettingTab } from "../../settings";
 import { ConfirmModal } from "../../modals";
-import type { TimelinePage } from "../../types";
+import { showPlanRecords } from "./plan-details";
+import { projectBranchPlans, type PlanProgress } from "../../timeline/branch-plan-progress";
+import type { BranchTimelineState, TimelineItem, TimelinePage } from "../../types";
 
 installDOM();
 class DesktopFeatureView extends BranchTimelineView {
+  private progress: ReadonlyMap<string, PlanProgress> = new Map();
+  protected override branchPlans = (state: BranchTimelineState, date: string) => {
+    const projection = projectBranchPlans(state, date);
+    this.progress = projection.plans;
+    return { ...projection, openPlan: (anchor: HTMLElement, plan: TimelineItem, wake: number, progress: PlanProgress) =>
+      showPlanRecords(anchor, date, plan, wake, progress, (id, event) => this.openItemMenu(id, event)) };
+  };
+  protected override canCompleteItem(id: string): boolean { return !this.progress.has(id); }
+  protected override async startTiming(id: string): Promise<void> {
+    const item = this.day?.items.find(value => value.id === id);
+    if (!item?.projectPath || item.kind !== "todo" || item.startedMin != null) return super.startTiming(id);
+    await rpc("startPlan", { date: dateKey(this.date), id, revision: JSON.stringify(item) });
+  }
   protected override async render(preserve: boolean, anchor?: { minute: number; offset: number }): Promise<void> {
     const visible = this.plugin.settings.visiblePages;
     if (!visible.includes(this.page)) this.plugin.settings.visiblePages = [...visible, this.page];
@@ -19,10 +34,11 @@ class DesktopFeatureView extends BranchTimelineView {
     await rpc("status", { canUndo: this.plugin.undoManager.canUndo });
   }
   async enter(page: TimelinePage, date: string, path?: string, scope = "day"): Promise<void> {
+    const preserve = page !== "projects" || (this.selectedProjectPath === path && dateKey(this.date) === date);
     this.date = new Date(date + "T12:00:00"); this.followsToday = false; this.page = page;
     this.selectedProjectPath = page === "projects" ? path || null : null; this.selectedAchievementId = null;
     this.projectTimeScope = ["day", "week", "month", "total"].includes(scope) ? scope as any : "day";
-    await this.render(true);
+    await this.render(preserve);
     if (page === "day" && path) {
       const element = this.contentEl.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(path)}"]`);
       element?.scrollIntoView({ block: "center" });

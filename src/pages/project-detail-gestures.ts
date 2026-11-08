@@ -1,3 +1,4 @@
+import type { ProjectScaleAnchor } from "./project-detail";
 import type { ProjectTimelineBranch } from "../types";
 import { pickProjectBranch, projectBranchX, type ProjectTimelineEntry } from "./project-model";
 import {
@@ -19,7 +20,7 @@ export interface ProjectDetailGestureOptions {
   pxPerMinute: number;
   absAt: (clientY: number) => number;
   yOf: (abs: number) => number;
-  onScale: (scale: number, anchor: { abs: number; offset: number }) => void;
+  onScale: (scale: number, anchor: ProjectScaleAnchor) => void;
   onMoveItem: (date: string, itemId: string, branchId: string | null) => void;
   onItemNote: (entry: ProjectTimelineEntry) => void;
   onItemMenu: (entry: ProjectTimelineEntry, event: MouseEvent) => void;
@@ -83,8 +84,7 @@ export class ProjectDetailGestures {
 
   private pointerDown = (event: PointerEvent): void => {
     const target = event.target as HTMLElement;
-    const itemMenu = target.closest<HTMLElement>(".btl-project-item-menu");
-    if (itemMenu) { event.stopPropagation(); return; }
+    if (target.closest(".btl-project-item-menu, .btl-project-group")) { event.stopPropagation(); return; }
     const branchMenu = target.closest<HTMLElement>(".btl-project-branch-menu");
     if (branchMenu?.dataset.branchId) { event.stopPropagation(); return; }
     const end = target.closest<HTMLElement>(".btl-project-branch-end");
@@ -268,7 +268,7 @@ export class ProjectDetailGestures {
     const rect = this.options.scroller.getBoundingClientRect();
     const offset = clientY - rect.top;
     const abs = this.options.rangeStart + (this.options.scroller.scrollTop + offset - PROJECT_TOP) / this.options.pxPerMinute;
-    this.options.onScale(scale, { abs, offset });
+    this.options.onScale(scale, { abs, offset, left: this.options.scroller.scrollLeft });
   }
 
   private startEdgeDrag(event: PointerEvent, element: HTMLElement, kind: "start" | "end"): void {
@@ -292,7 +292,7 @@ export class ProjectDetailGestures {
     }
     const end = this.options.canvas.querySelector<HTMLElement>(`.btl-project-branch-end[data-branch-id="${CSS.escape(branch.id)}"]`);
     if (end && !branch.merged) end.style.left = `${x}px`;
-    for (const item of this.options.canvas.querySelectorAll<HTMLElement>(`.btl-project-item[data-project-branch-id="${CSS.escape(branch.id)}"]`)) item.style.left = `${x}px`;
+    for (const item of this.options.canvas.querySelectorAll<HTMLElement>(`:is(.btl-project-item, .btl-project-group)[data-project-branch-id="${CSS.escape(branch.id)}"]`)) item.style.left = `${x}px`;
   }
 
   private previewBranchPath(branch: ProjectTimelineBranch, x?: number, startAbs?: number, endAbs?: number): void {

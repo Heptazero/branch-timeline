@@ -5,6 +5,7 @@ import { finishProjectTimer } from "./project-timer-finish";
 import { prepareTimelineTodoProject, rememberTimelineTodoProject } from "./timeline-todo-project";
 import { rhythmRealKey } from "./rhythm";
 import { ENERGY_PHASE_COLORS, materializeEnergyPhases } from "./timeline/energy-phases";
+import { appendPlanFact } from "./timeline/branch-plan-progress";
 import { recordBackfilledGap } from "./timeline/backfill-gap";
 import { backfillItem as applyBackfill, clampMinute } from "./timeline/model";
 import { showBranchMenu, showItemMenu } from "./timeline/menu";
@@ -37,7 +38,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       item.branchId = branchId;
     });
   }
-
   protected async resizeItem(itemId: string, edge: "start" | "end", minute: number): Promise<void> {
     await this.updateDay(day => {
       const item = day.items.find(candidate => candidate.id === itemId);
@@ -46,10 +46,9 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       else item.endMin = Math.max(minute, (item.startMin ?? minute - 5) + 5);
     });
   }
-
   protected async completeItem(itemId: string): Promise<void> {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
-    if (!item || item.kind === "fact") return;
+    if (!item || item.kind === "fact" || !this.canCompleteItem(itemId)) return;
     const timing = item.startedMin != null;
     const end = this.day ? this.nowOnAxis(this.day) ?? item.plannedMin ?? this.day.napEnd : 0;
     const minutes = timing ? Math.max(0, end - (item.startedMin ?? end)) : 0;
@@ -60,10 +59,13 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     const note = timing && !item.projectPath ? await this.note(`完成 · ${item.title}`, "本次做了什么（可选）", item.note || "") : finish?.note ?? null;
     if (timing && note == null) return;
     const taskTitle = finish?.taskTitle || (!timing ? item.projectTaskTitle || (item.projectTaskId ? item.title : undefined) : undefined);
+    const completion = !timing && this.branchPlans ? { id: this.uid("fact"), date: dateKey(this.date) } : null;
     const commit = () => this.persistDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
       if (!target || target.kind === "fact") throw new Error("代办已改变，请重新打开后操作");
-      this.timers.complete(day, itemId, end || target.plannedMin || day.napEnd);
+      const at = end || target.plannedMin || day.napEnd;
+      if (completion) appendPlanFact(day, target, completion.id, completion.date, at);
+      else this.timers.complete(day, itemId, at);
       if (target && timing) {
         target.note = note?.trim() || undefined;
         target.projectTaskTitle = taskTitle;
@@ -83,7 +85,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     await this.refreshDay();
     new Notice(`完成 · ${item.title}`);
   }
-
   protected async startTiming(itemId: string): Promise<void> {
     const title = this.day?.items.find(candidate => candidate.id === itemId)?.title;
     await this.updateDay(day => {
@@ -94,7 +95,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     });
     if (title) new Notice(`开始计时 · ${title}`);
   }
-
   protected async stopTiming(itemId: string): Promise<void> {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
     if (!item || !(item.factTiming || (item.kind === "todo" && item.startedMin != null))) return;
@@ -170,11 +170,12 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     window.setTimeout(() => new Notice("休息结束，可以继续了"), 5 * 60_000);
   }
 
+  protected canCompleteItem(_id: string): boolean { return true; }
   protected openItemMenu(itemId: string, event: MouseEvent): void {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
     if (!item) return;
     showItemMenu(event, item, this.plugin.repository.listProjects(), {
-      complete: () => void this.completeItem(item.id),
+      complete: this.canCompleteItem(item.id) ? () => void this.completeItem(item.id) : undefined,
       startTiming: () => void this.startTiming(item.id),
       stopTiming: () => void this.stopTiming(item.id),
       ...(this.currentLogicalMinute() != null && !item.projectLogId ? { resetStart: () => void this.resetTimingStart(item.id) } : {}),
@@ -214,17 +215,18 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
       if (now != null) this.timers.resetStart(day, itemId, now);
     });
   }
-
   protected async backfillItem(itemId: string): Promise<void> {
     const item = this.day?.items.find(candidate => candidate.id === itemId);
     if (!item) return;
     const minutes = await this.minutes(`补记 · ${item.title}`);
     if (minutes == null) return;
+    const plan = this.branchPlans && item.kind === "todo" && item.startedMin == null ? { id: this.uid("fact"), date: dateKey(this.date) } : null;
     const commit = () => this.persistDay(day => {
       const target = day.items.find(candidate => candidate.id === itemId);
       if (!target) return;
       const end = this.nowOnAxis(day) ?? target.endMin ?? target.plannedMin ?? day.napEnd;
-      applyBackfill(target, end, minutes, day.wake);
+      if (plan) appendPlanFact(day, target, plan.id, plan.date, end, minutes);
+      else applyBackfill(target, end, minutes, day.wake);
     });
     try {
       if (item.kind === "todo" && item.projectPath && item.projectTaskId) {
@@ -233,7 +235,6 @@ export abstract class BranchTimelineViewDayActions extends BranchTimelineViewBas
     } catch (error) { new Notice(error instanceof Error ? error.message : "补记失败"); return; }
     await this.refreshDay();
   }
-
   protected async backfillGap(startMinute: number, endMinute: number): Promise<void> {
     const minutes = Math.max(1, Math.round(endMinute - startMinute));
     const factId = this.uid("fact");

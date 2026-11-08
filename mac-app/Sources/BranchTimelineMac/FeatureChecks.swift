@@ -11,7 +11,7 @@ import TimelineCore
         let bridge = VaultBridge(root: root), config = try bridge.safeURL(".obsidian/plugins/branch-timeline-hz/data.json")
         try FileManager.default.createDirectory(at: config.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data(##"{"statePath":"shared.json","visiblePages":["day","projects","policy","achievements","life"],"projectTypes":[{"type":"project","color":"#3159e2"}],"projectTaskHeadings":["任务"]}"##.utf8).write(to: config)
-        let initial = #"{"version":1,"days":{},"custom":{"keep":true},"macTimer":{"version":1,"active":null,"checkpoint":"2026-10-29T06:00:00Z"},"desktopReceipts":{"keep":{"status":"imported"}}}"#
+        let initial = #"{"version":1,"days":{"2026-10-29":{"wake":420,"napStart":780,"napEnd":810,"sleepPrep":1440,"sleep":1500,"branches":[],"items":[{"id":"plan","title":"读论文","kind":"todo","plannedMin":540,"plannedEndMin":600,"projectPath":"p.md"},{"id":"read1","title":"第一段","kind":"fact","startMin":620,"endMin":665,"projectPath":"p.md","sourcePlanId":"plan","sourcePlanDate":"2026-10-29"},{"id":"read2","title":"第二段","kind":"fact","startMin":780,"endMin":805,"projectPath":"p.md","sourcePlanId":"plan","sourcePlanDate":"2026-10-29"},{"id":"flag","title":"交初稿","kind":"fact","startMin":820,"endMin":820,"projectPath":"p.md","milestone":true}]}},"custom":{"keep":true},"macTimer":{"version":1,"active":null,"checkpoint":"2026-10-29T06:00:00Z"},"desktopReceipts":{"keep":{"status":"imported"}}}"#
         try Data(initial.utf8).write(to: root.appendingPathComponent("shared.json"))
         try Data("---\ntype: project\nstatus: active\ncolor: '#3159e2'\n---\n## 任务\n- [ ] 示例任务\n## log\n手写内容\n".utf8).write(to: root.appendingPathComponent("p.md"))
         let store = try SharedStateStore(bridge: bridge), vault = FeatureVault(store: store), model = AppModel(preview: true)
@@ -35,6 +35,7 @@ import TimelineCore
         }
         // Opening read-only pages must not modify Markdown or create records.
         let untouched = try vault.read("shared.json"); precondition(untouched == initial)
+        try await verifyTimelineViews(web)
         _ = try await evaluate(web, "await window.FeatureUI.enter('policy','2026-10-29'); await window.FeatureUI.action('add'); return true;")
         _ = try await evaluate(web, "[...document.querySelectorAll('.menu button')].find(b=>b.textContent==='添加根锚点').click(); await new Promise(r=>setTimeout(r,60)); const input=document.querySelector('.modal input'); input.value='专注锚点'; input.dispatchEvent(new Event('input')); document.querySelector('.modal .mod-cta').click(); return true;")
         try await wait(web, "JSON.parse(await window.webkit.messageHandlers.vault.postMessage({op:'read',path:'shared.json'})).policyCards?.some(c=>c.name==='专注锚点')")
@@ -86,6 +87,17 @@ import TimelineCore
         }
         _ = try await evaluate(web, "window.FeatureUI.shutdown(); return true;")
         print("Offline feature routes, anchor create/undo, achievement create, project detail, rhythm editor and shared-field preservation OK")
+    }
+    private static func verifyTimelineViews(_ web: WKWebView) async throws {
+        _ = try await evaluate(web, "await window.FeatureUI.enter('day','2026-10-29'); return true;")
+        try await wait(web, "document.querySelector('[data-item-id=plan].has-plan-progress') && !document.querySelector('.btl-canvas-item[data-item-id=read1]')")
+        _ = try await evaluate(web, "document.querySelector('.btl-plan-progress').click(); return true;")
+        try await wait(web, "document.querySelector('.menu')?.textContent.includes('第一段') && document.querySelector('.menu')?.textContent.includes('第二段')")
+        _ = try await evaluate(web, "document.querySelector('.menu').remove(); await window.FeatureUI.enter('projects','2026-10-29','p.md'); return true;")
+        try await wait(web, "document.querySelector('.btl-project-group') && document.querySelector('[data-item-id=flag].is-milestone')")
+        _ = try await evaluate(web, "document.querySelector('.btl-project-group').click(); return true;")
+        try await wait(web, "document.querySelector('[data-item-id=read1]') && document.querySelector('[data-item-id=read2]')")
+        print("Feature branch plan projection and project cluster drill-down OK"); fflush(stdout)
     }
     private static func evaluate(_ web: WKWebView, _ body: String, _ arguments: [String: Any] = [:]) async throws -> Any {
         try await withCheckedThrowingContinuation { continuation in

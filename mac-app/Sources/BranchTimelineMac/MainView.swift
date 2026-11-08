@@ -18,16 +18,8 @@ struct MainView: View {
                     }
                 }
                 if model.page == .timeline && !model.branchMode { TimelineContextTools(model: model) }
-                if model.page == .timeline && model.scope != "month" {
-                    Button { showPlans.toggle() } label: { Image(systemName: "rectangle.split.2x1") }
-                        .foregroundStyle(showPlans ? AppPalette.blue : .secondary)
-                        .help(showPlans ? "隐藏计划" : "显示计划").accessibilityLabel(showPlans ? "隐藏计划" : "显示计划")
-                }
                 Button { AppWindows.shared.showSettings() } label: { Image(systemName: "gearshape") }.help("设置")
                 Menu {
-                    if model.page == .timeline {
-                        Button(model.branchMode ? "日历视图" : "分支视图") { model.branchMode.toggle() }
-                    }
                     if model.hasFeaturePanel { Button("同步项目日志") { model.featureAction("sync") } }
                     Button("全部功能设置") { model.openFeature("settings") }
                     Button("更换数据文件") { model.chooseDataFile() }.disabled(model.active != nil)
@@ -57,6 +49,7 @@ struct MainView: View {
                 switch model.page {
                 case .timer: FocusTimerPage(model: model)
                 case .timeline:
+                    timelineModePicker
                     if model.branchMode { SharedFeatureView(model: model, route: "day") } else { TimelinePage(model: model) }
                 case .projects:
                     if let path = model.projectDetailPath { ProjectDetailPage(model: model, path: path) } else { ProjectPage(model: model) }
@@ -68,6 +61,21 @@ struct MainView: View {
         }.background(AppPalette.surface).frame(minWidth: 360, minHeight: 650)
             .sheet(isPresented: $model.finishRequested) { FinishView(model: model) }
             .tint(AppPalette.blue)
+    }
+    private var timelineModePicker: some View {
+        Picker("时间线视图", selection: $model.branchMode) {
+            Text("双栏").tag(false)
+            Text("分支").tag(true)
+        }.labelsHidden().pickerStyle(.segmented).controlSize(.small).frame(width: 126)
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .trailing) {
+                if !model.branchMode && model.scope != "month" {
+                    Button { showPlans.toggle() } label: { Image(systemName: "rectangle.split.2x1") }
+                        .buttonStyle(.plain).foregroundStyle(showPlans ? AppPalette.blue : .secondary)
+                        .help(showPlans ? "隐藏计划" : "显示计划")
+                        .accessibilityLabel(showPlans ? "隐藏计划" : "显示计划")
+                }
+            }.padding(.horizontal, 20).padding(.bottom, 7)
     }
 }
 

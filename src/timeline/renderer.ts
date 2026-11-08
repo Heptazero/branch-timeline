@@ -1,8 +1,9 @@
-import { durationLabel, gapDurationLabel } from "./duration-format";
+import { durationLabel, gapDurationLabel, shortDurationLabel } from "./duration-format";
 import { setIcon } from "obsidian";
 import type { FocusPrediction } from "../focus-prediction";
 import { RHYTHM_BOUNDARIES, rhythmLabel, rhythmMarkerMinute, rhythmMarkerReal, rhythmRealKey } from "../rhythm";
 import type { RhythmKey, RhythmMarkerDefinition, TimelineDayState, TimelineEnergyPhase, TimelineItem } from "../types";
+import type { BranchPlanProgress, PlanProgress } from "./branch-plan-progress";
 import { renderFocusMarkers } from "./focus-markers";
 import { renderFocusRhythmRail } from "./focus-rhythm-rail";
 import {
@@ -23,6 +24,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 export interface TimelineRenderOptions {
   day: TimelineDayState;
+  branchPlans?: BranchPlanProgress & { openPlan: (anchor: HTMLElement, plan: TimelineItem, wake: number, progress: PlanProgress) => void };
   scale: number;
   width: number;
   nowMinute?: number;
@@ -82,7 +84,9 @@ export function renderTimeline(container: HTMLElement, options: TimelineRenderOp
   renderBranches(canvas, svg, day, layout);
 
   const orderedItems = [...day.items].sort((a, b) => itemDuration(b, day.wake, nowMinute) - itemDuration(a, day.wake, nowMinute));
-  for (const item of orderedItems) renderItem(canvas, day, layout, item, nowMinute, options.projectColors);
+  for (const item of orderedItems) {
+    if (!options.branchPlans?.folded.has(item.id)) renderItem(canvas, day, layout, item, nowMinute, options.projectColors, options.branchPlans);
+  }
   return { canvas, layout };
 }
 
@@ -341,12 +345,14 @@ function renderItem(
   layout: TimelineLayout,
   item: TimelineItem,
   nowMinute?: number,
-  projectColors?: ReadonlyMap<string, string>
+  projectColors?: ReadonlyMap<string, string>,
+  branchPlans?: TimelineRenderOptions["branchPlans"]
 ): void {
   const start = itemStart(item, day.wake);
   const end = itemEnd(item, day.wake, nowMinute);
   const duration = Math.max(0, end - start);
   const running = item.factTiming || (item.kind === "todo" && item.startedMin != null);
+  const progress = branchPlans?.plans.get(item.id);
   const timed = duration > 0 && (item.kind === "fact" || running);
   const xOffset = itemX(item, layout);
   const x = layout.center + xOffset;
@@ -358,6 +364,7 @@ function renderItem(
     attr: { "data-item-id": item.id }
   });
   card.style.left = branch ? `${x}px` : "50%";
+  card.toggleClass("has-plan-progress", !!progress);
   card.style.setProperty("--btl-item-color", color);
   card.style.zIndex = String(timed ? 20 + Math.max(0, Math.floor((720 - duration) / 60)) : 36);
   if (timed) {
@@ -376,7 +383,12 @@ function renderItem(
     const milestone = head.createSpan({ cls: "btl-item-milestone" });
     setIcon(milestone, "flag");
   }
-  if (item.kind === "todo") head.createEl("button", { cls: "btl-item-circle", attr: { "aria-label": "完成" } });
+  if (progress && branchPlans) {
+    const details = head.createEl("button", { cls: "btl-plan-progress", attr: { type: "button", "aria-label": "查看计划和实际记录", title: "查看实际记录" } });
+    setIcon(details, "check");
+    details.onpointerdown = event => event.stopPropagation();
+    details.onclick = event => { event.stopPropagation(); branchPlans.openPlan(details, item, day.wake, progress); };
+  } else if (item.kind === "todo") head.createEl("button", { cls: "btl-item-circle", attr: { "aria-label": "完成" } });
   head.createSpan({ cls: "btl-canvas-item-title", text: item.title });
   head.createEl("button", { cls: "btl-item-menu", text: "⋮", attr: { "aria-label": "事项菜单" } });
 
@@ -388,7 +400,7 @@ function renderItem(
 
   const time = card.createDiv({
     cls: "btl-canvas-item-time",
-    text: running ? `计时 ${durationLabel(duration)}` : item.kind === "todo" ? `plan: ${formatTime(start)}` : duration ? durationLabel(duration) : formatTime(end)
+    text: progress ? (progress.minutes > 0 ? shortDurationLabel(progress.minutes) : "已完成") : running ? `计时 ${durationLabel(duration)}` : item.kind === "todo" ? `plan: ${formatTime(start)}` : duration ? durationLabel(duration) : formatTime(end)
   });
   if (!timed) {
     const compact = card.createDiv({ cls: "btl-canvas-item-compact" });

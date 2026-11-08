@@ -73,6 +73,11 @@ struct SharedFeatureView: NSViewRepresentable {
                     guard let expected = request["expected"] as? String else { throw SharedStateError.invalid }
                     try vault.trash(path, expected: expected)
                 case "open": if override == nil { model.openProject(path) }
+                case "startPlan":
+                    guard override == nil, desiredRoute == "day", let id = request["id"] as? String,
+                          let selectedDate = request["date"] as? String, selectedDate == date,
+                          let revision = request["revision"] as? String else { throw SharedStateError.invalid }
+                    try model.startPlan(id: id, date: selectedDate, revision: revision)
                 case "changed": if override == nil { model.refreshShared(); model.refreshDashboard(); model.refreshConnection() }
                 case "status": model.featureCanUndo = request["canUndo"] as? Bool ?? false
                 case "ready":

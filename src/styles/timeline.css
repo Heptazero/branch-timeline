@@ -355,3 +355,34 @@
 .btl-anchor-stat-row strong { color: var(--interactive-accent); font-size: 13px; text-align: right; }
 .btl-stats-empty { padding: 18px 4px; color: var(--text-faint); font-size: 10px; text-align: center; }
 .btl-modal h3 { margin: 0 0 12px; }
+
+.btl-canvas-item.is-todo.has-plan-progress {
+  background: color-mix(in srgb, var(--btl-item-color) 13%, var(--background-primary));
+}
+.btl-canvas-item .btl-plan-progress {
+  position: absolute; top: calc((100% - var(--btl-todo-bottom, 16px)) / 2);
+  left: var(--btl-item-padding-x, 8px); display: grid; place-items: center;
+  width: min(17px, var(--btl-point-width, 108px)); min-width: 0;
+  height: min(17px, var(--btl-point-width, 108px)); min-height: 0;
+  transform: translateY(-50%); border: 0; border-radius: 50%; padding: 0;
+  background: var(--btl-item-color); box-shadow: none; color: var(--background-primary);
+  cursor: pointer;
+}
+.btl-plan-progress svg { width: min(12px, var(--btl-point-width, 108px)); height: auto; }
+
+.btl-project-item.compact-unlabeled .btl-project-item-compact { visibility: hidden; }
+.btl-project-item.is-milestone { z-index: 35; }
+.branch-timeline-hz button.btl-project-group {
+  position: absolute; z-index: 36; display: inline-flex; align-items: center;
+  width: max-content; min-width: 0; height: 18px; min-height: 0; gap: 5px;
+  transform: translate(-9px, -50%) scaleY(var(--btl-preview-inverse));
+  border: 1px solid var(--background-modifier-border); border-radius: 999px;
+  padding: 0 7px 0 4px; background: var(--background-primary);
+  box-shadow: none; color: var(--text-muted); cursor: pointer;
+  font-size: 10px; font-weight: 650; font-variant-numeric: tabular-nums;
+}
+.branch-timeline-hz button.btl-project-group.is-zoomable { cursor: zoom-in; }
+.branch-timeline-hz button.btl-project-group.is-beside-milestone { margin-left: 24px; }
+.branch-timeline-hz button.btl-project-group:hover,
+.branch-timeline-hz button.btl-project-group:focus-visible { color: var(--interactive-accent); border-color: currentColor; }
+.btl-project-group-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: currentColor; }

@@ -28,10 +28,10 @@ import { TimelineGestures } from "./timeline/gestures";
 import { RunningBar } from "./timeline/running-bar";
 import { effectiveEnergyPhases } from "./timeline/energy-phases";
 import { minuteToY } from "./timeline/model";
-import { renderTimeline } from "./timeline/renderer";
+import { renderTimeline, type TimelineRenderOptions } from "./timeline/renderer";
 import { observeRenderedWidth } from "./timeline/view-width";
 import { renderViewHeader } from "./timeline/view-header";
-import type { DistractionLevel, ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase } from "./types";
+import type { BranchTimelineState, DistractionLevel, ProjectRef, RhythmKey, TimelineBranch, TimelineDayState, TimelineEnergyPhase } from "./types";
 import { dateKey, logicalToday } from "./vault/format";
 import { defaultDay } from "./vault/state-store";
 import { clampProjectScale, clampScale, readProjectTimeScope } from "./view-preferences";
@@ -45,6 +45,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   protected date = logicalToday();
   protected scale = clampScale(Number(localStorage.getItem("branch-timeline-hz-scale")) || 1.4);
   protected gestures: TimelineGestures | null = null;
+  protected branchPlans?: (state: BranchTimelineState, date: string) => TimelineRenderOptions["branchPlans"];
   protected scroller: HTMLElement | null = null;
   protected day: TimelineDayState | null = null;
   protected energyPhases: TimelineEnergyPhase[] = [];
@@ -132,6 +133,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
   }
   async refresh(): Promise<void> { await this.render(true); }
   protected async render(preserveScroll: boolean, anchor?: ScrollAnchor): Promise<void> {
+    if (preserveScroll && !this.projectAnchor) this.projectAnchor = this.getProjectAnchor?.();
     this.stopLayoutWatch?.();
     const requestId = ++this.renderId;
     const previousScroll = preserveScroll ? this.scroller?.scrollTop || 0 : 0;
@@ -366,7 +368,7 @@ export abstract class BranchTimelineViewBase extends ItemView {
     const nowMinute = this.nowOnAxis(day);
     const gapHorizon = this.gapHorizon(day);
     const rendered = renderTimeline(scroller, {
-      day,
+      day, branchPlans: this.branchPlans?.(state, key),
       scale: this.scale,
       width,
       nowMinute,
