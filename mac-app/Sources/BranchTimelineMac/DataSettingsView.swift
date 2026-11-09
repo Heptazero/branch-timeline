@@ -8,6 +8,8 @@ struct DataSettingsView: View {
             VStack(alignment: .leading, spacing: 22) {
                 RecordingSettingsSection()
                 Divider()
+                LearningReviewSettings()
+                Divider()
                 HStack {
                     Text("数据与 Obsidian").font(.title2.weight(.medium))
                     Spacer()

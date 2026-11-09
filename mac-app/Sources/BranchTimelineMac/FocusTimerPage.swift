@@ -13,7 +13,11 @@ struct FocusTimerPage: View {
                 if model.active == nil {
                     Text("这次专注什么？").font(.system(size: 26, weight: .medium)).padding(.bottom, 14)
                 }
-                ProjectPicker(model: model)
+                HStack(spacing: 10) {
+                    ProjectPicker(model: model)
+                    if model.active == nil, let path = model.selectedPath { LearningProjectMenu(model: model, path: path) }
+                    else { LearningReminderButton(model: model) }
+                }
                 Group {
                     if let active = model.active {
                         Text(active.title).font(.system(size: 18, weight: .medium)).lineLimit(2).multilineTextAlignment(.center).frame(minHeight: 45)

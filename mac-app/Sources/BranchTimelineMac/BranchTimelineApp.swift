@@ -52,7 +52,7 @@ import TimelineCore
     }
 }
 
-@MainActor final class AppWindows {
+@MainActor final class AppWindows: NSObject, NSWindowDelegate {
     static let shared = AppWindows()
     private var main: NSWindow?
     private var panel: NSPanel?
@@ -70,11 +70,12 @@ import TimelineCore
         if main == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 540, height: 810), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
             window.title = "Branch Timeline"; window.minSize = NSSize(width: 380, height: 680)
-            window.isReleasedWhenClosed = false; window.setFrameAutosaveName("BranchTimelineMainDial")
+            window.isReleasedWhenClosed = false; window.delegate = self; window.setFrameAutosaveName("BranchTimelineMainDial")
             window.contentView = NSHostingView(rootView: MainView(model: .shared)); window.center(); main = window
         }
         NSApp.activate(ignoringOtherApps: true); main?.makeKeyAndOrderFront(nil)
     }
+    func windowShouldClose(_ sender: NSWindow) -> Bool { !AppModel.shared.learningBlocksClosing }
     func finish() { showMain(); AppModel.shared.beginFinish() }
     func togglePanel() {
         if let panel, panel.isMiniaturized { panel.deminiaturize(nil); return }
@@ -103,7 +104,7 @@ struct MenuLabel: View {
     @ObservedObject var model: AppModel
     var body: some View {
         HStack(spacing: 5) {
-            Image(systemName: "timer")
+            Image(systemName: model.learningCheckpointDue ? "text.bubble.fill" : "timer")
             if model.active != nil { Text(TimelineCore.clockLabel(model.timerSeconds)).monospacedDigit() }
         }
     }

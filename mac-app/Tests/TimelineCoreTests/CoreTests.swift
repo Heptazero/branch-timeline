@@ -160,6 +160,8 @@ private func expectThrows<T>(_ action: @autoclosure () throws -> T, line: UInt =
         tests.testPointDraggingUsesStableDocumentTranslation()
         try tests.testActiveMetadataKeepsNewerMarksPausesAndNotesUntouchedUntilFinish()
         try tests.testActiveProjectEditKeepsThePlanAndSavesOnlyToTheChosenProject()
-        print("45 native core checks passed")
+        try tests.testLearningCheckpointCountsActiveTimeAndRejectsFiller()
+        try tests.testLearningJournalSavesAtomicallyAndRecallIsDueOnNextLogicalDay()
+        print("47 native core checks passed")
     }
 }

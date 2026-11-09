@@ -9,6 +9,17 @@ import AppKit
         DispatchQueue.main.async { NSApp.terminate(nil) }
     }
     static func shouldTerminate() -> NSApplication.TerminateReply {
+        if !AppModel.diagnostic {
+            let model = AppModel.shared
+            if model.learningPrompt != nil || model.active?.learningReview != nil {
+                quitting = false
+                DispatchQueue.main.async {
+                    if model.learningPrompt != nil { AppWindows.shared.showMain() }
+                    else { AppWindows.shared.finish() }
+                }
+                return .terminateCancel
+            }
+        }
         if !AppModel.diagnostic && !AppModel.shared.prepareToQuit() {
             NSApp.activate(ignoringOtherApps: true)
             let alert = NSAlert()

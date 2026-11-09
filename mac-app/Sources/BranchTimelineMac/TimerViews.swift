@@ -12,7 +12,7 @@ struct TimerControls: View {
     var body: some View {
         HStack(spacing: compact ? 6 : 24) {
             if !compact { stateButtons }
-            Button { if model.active?.isPaused == true { model.resume() } else { model.pause() } } label: {
+            Button { if model.active?.isPaused == true { model.resume() } else { model.pauseForReview() } } label: {
                 Image(systemName: model.active?.isPaused == true ? "play.fill" : "pause.fill")
                     .font(.system(size: compact ? 14 : 21, weight: .medium))
                     .frame(width: compact ? 24 : 58, height: compact ? 28 : 58)
@@ -35,7 +35,9 @@ struct TimerControls: View {
                     VStack(alignment: .leading, spacing: 16) {
                         if model.active != nil { Button("编辑本次计时") { editCurrent = true } }
                         Button("显示 / 隐藏悬浮条") { showMore = false; AppWindows.shared.togglePanel() }
-                        Button("取消本次计时", role: .destructive) { showMore = false; confirmCancel = true }
+                        if model.active?.learningReview == nil {
+                            Button("取消本次计时", role: .destructive) { showMore = false; confirmCancel = true }
+                        }
                     }.buttonStyle(.plain).padding(16)
                     }
                 }
@@ -70,7 +72,8 @@ struct MenuContent: View {
             if let active = model.active {
                 Text(active.projectName)
                 Text(clockLabel(model.timerSeconds))
-                Button(active.isPaused ? "继续计时" : "暂停计时") { if active.isPaused { model.resume() } else { model.pause() } }
+                Button(active.isPaused ? "继续计时" : "暂停计时") { if active.isPaused { model.resume() } else { model.pauseForReview() } }
+                if model.learningCheckpointDue { Button("学习回顾") { model.openLearningCheckpoint() } }
                 Button("结束并记录") { AppWindows.shared.finish() }
                 Divider()
             }

@@ -24,7 +24,7 @@ struct ProjectPicker: View {
                     ScrollView {
                         LazyVStack(spacing: 2) {
                             ForEach(model.filtered) { project in
-                                Button { model.selectedPath = project.path; expanded = false } label: {
+                                Button { expanded = false; model.selectTimerProject(project.path) } label: {
                                     HStack(spacing: 9) {
                                         Circle().fill(Color(hex: project.color)).frame(width: 7, height: 7)
                                         Text(project.name).lineLimit(2).multilineTextAlignment(.leading)

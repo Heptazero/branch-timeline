@@ -21,7 +21,7 @@ struct ProjectPage: View {
                 LazyVStack(spacing: 26) {
                     ForEach(rows) { row in
                         ProjectProgressRow(row: row, expected: model.dashboard?.expected ?? 0, showGoal: model.scope != "total", maximum: rows.map(\.actual).max() ?? 1,
-                            onOpen: { model.projectDetailPath = row.path }, model: model)
+                            onOpen: { model.openProjectDetail(row.path) }, model: model)
                     }
                     if rows.isEmpty { Text("暂无项目").foregroundStyle(.secondary).padding(.top, 80) }
                 }.padding(.horizontal, 30).padding(.vertical, 6)
@@ -77,6 +77,9 @@ struct ProjectProgressRow: View {
                 }.frame(height: 32)
                 if let model {
                     Menu {
+                        Button(model.learningProjects.contains(row.path) ? "关闭学习回顾" : "开启学习回顾") {
+                            model.setLearningProject(row.path, enabled: !model.learningProjects.contains(row.path))
+                        }
                         Button("在 Obsidian 打开项目文件") { model.openProject(row.path) }
                         if showGoal { Button("修改目标") { editGoal = true } }
                     } label: { Text("⋮").font(.system(size: 21)).frame(width: 24, height: 32) }

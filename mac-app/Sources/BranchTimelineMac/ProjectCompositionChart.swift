@@ -51,7 +51,7 @@ struct ProjectCompositionChart: View {
                         .contentShape(Rectangle())
                 }.buttonStyle(.plain).contextMenu {
                     if !slice.id.isEmpty {
-                        Button("项目详情") { model.projectDetailPath = slice.id; model.selectPage(.projects) }
+                        Button("项目详情") { model.openProjectDetail(slice.id); model.selectPage(.projects) }
                         Button("在 Obsidian 打开项目文件") { model.openProject(slice.id) }
                     }
                 }

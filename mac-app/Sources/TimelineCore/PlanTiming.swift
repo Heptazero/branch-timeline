@@ -2,7 +2,7 @@ import Foundation
 
 extension SharedStateStore {
     /// Start now without mutating the plan; cancellation leaves it exactly as it was.
-    public func startPlan(date: String, id: String, revision: String, now: Date = Date(), minimumRecordSeconds: Int? = nil) throws -> DesktopSession {
+    public func startPlan(date: String, id: String, revision: String, now: Date = Date(), minimumRecordSeconds: Int? = nil, learningPolicy: (String) throws -> LearningReviewPolicy? = { _ in nil }) throws -> DesktopSession {
         try SharedFileLock.withLock(file: url) {
             let (before, original) = try read()
             let value = try script.invoke("nativePreparePlan", arguments: [String(decoding: before, as: UTF8.self), date, id, revision, ISO8601DateFormatter().string(from: now)])
@@ -18,6 +18,7 @@ extension SharedStateStore {
             guard project.isActive else { throw SharedStateError.script("请先将计划关联的项目设为进行中") }
             var session = DesktopSession(project: project, title: draft.title, targetMinutes: draft.targetMinutes, vaultPath: bridge.root.path, now: now, minimumRecordSeconds: minimumRecordSeconds)
             session.note = draft.note; session.sourcePlan = draft.source
+            session.learningReview = try learningPolicy(project.path).map(LearningProgress.init)
             var state = original, timer = original["macTimer"] as? [String: Any] ?? [:]
             timer["version"] = 1
             timer["active"] = try JSONSerialization.jsonObject(with: ArchiveStore.encoder().encode(session))

@@ -21,6 +21,7 @@ struct FloatingTimerView: View {
                     }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                 }.buttonStyle(.plain).help(model.active?.title ?? "打开主窗口")
                 if model.active != nil {
+                    LearningReminderButton(model: model)
                     Text(clockLabel(model.timerSeconds)).font(.system(size: 22, weight: .medium, design: .rounded)).monospacedDigit().fixedSize()
                     TimerControls(model: model, compact: true).fixedSize()
                 } else {

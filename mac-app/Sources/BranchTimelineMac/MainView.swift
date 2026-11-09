@@ -59,6 +59,7 @@ struct MainView: View {
             }
             BottomNavigation(model: model)
         }.background(AppPalette.surface).frame(minWidth: 360, minHeight: 650)
+            .sheet(item: $model.learningPrompt) { prompt in LearningReviewView(model: model, prompt: prompt) }
             .sheet(isPresented: $model.finishRequested) { FinishView(model: model) }
             .tint(AppPalette.blue)
     }
@@ -84,24 +85,32 @@ struct FinishView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var note = ""
+    @State private var answer = ""
+    private var policy: LearningReviewPolicy? { model.active?.learningReview?.policy }
+    private var canSave: Bool { policy?.accepts(answer) ?? true }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack { Text("结束计时").font(.headline); Spacer(); Text(clockLabel(model.elapsed)).font(.title2).monospacedDigit() }
+            HStack { Text(policy == nil ? "结束计时" : "结束回顾").font(.headline); Spacer(); Text(clockLabel(model.elapsed)).font(.title2).monospacedDigit() }
             TextField("标题", text: $title).textFieldStyle(.roundedBorder)
-            TextEditor(text: $note).font(.body).frame(height: 120).padding(6).background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+            if let policy {
+                Text("先不看资料。用自己的话写下这次学会了什么。").font(.callout)
+                LearningAnswerEditor(answer: $answer, minimum: policy.minimum)
+                Text("备注（可选）").font(.caption).foregroundStyle(.secondary)
+            }
+            TextEditor(text: $note).font(.body).frame(height: policy == nil ? 120 : 58).padding(6).background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
                 .accessibilityLabel("结束备注")
             HStack {
-                Button("返回") { dismiss() }
+                if policy == nil { Button("返回") { dismiss() } }
                 Spacer()
-                Button("保存记录") { model.finish(title: title, note: note) }.buttonStyle(.borderedProminent)
+                Button("保存记录") { model.finish(title: title, note: note, learningAnswer: answer) }.buttonStyle(.borderedProminent).disabled(!canSave)
             }
             if let error = model.error {
                 Text(error).font(.caption).foregroundStyle(.red)
                 if model.active?.sourcePlan != nil && (error.contains("原计划") || error.contains("关联任务")) {
-                    Button("保留原计划，单独保存本次") { model.finish(title: title, note: note, separateFromPlan: true) }
+                    Button("保留原计划，单独保存本次") { model.finish(title: title, note: note, learningAnswer: answer, separateFromPlan: true) }.disabled(!canSave)
                 }
             }
-        }.padding(22).frame(width: 370)
+        }.padding(22).frame(width: 370).interactiveDismissDisabled(policy != nil)
             .onAppear { title = model.active?.title ?? ""; note = model.active?.note ?? "" }
     }
 }

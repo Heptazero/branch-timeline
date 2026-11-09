@@ -10,7 +10,7 @@ import TimelineCore
     @Published private(set) var archive = AppArchive()
     @Published private(set) var records: [TimelineRecord] = []
     @Published private(set) var projects: [Project] = []
-    @Published var selectedPath: String?
+    @Published var selectedPath: String? { didSet { if selectedPath != oldValue { learningOverride = nil } } }
     @Published var title = ""
     @Published var targetMinutes = 25
     @Published var page: AppPage = .timer
@@ -24,6 +24,10 @@ import TimelineCore
     @Published var error: String?
     @Published var loading = false
     @Published var finishRequested = false
+    @Published var learningPrompt: LearningPrompt?
+    @Published var learningOverride: Bool?
+    @Published var learningProjects = Set<String>()
+    private(set) var learningReviews: [LearningReviewRecord] = []
     @Published var visiblePages = Set(["day", "projects", "habits", "policy", "achievements", "life"])
     @Published var featureRoute = "policy"
     @Published var featureItemID: String?
@@ -81,6 +85,8 @@ import TimelineCore
             snapshot = try next.load()
         }
         storage = next; archive.vaultPath = bridge.root.path
+        learningProjects = Set(learningProjectDefaultsKey.flatMap { UserDefaults.standard.stringArray(forKey: $0) } ?? [])
+        learningReviews = snapshot.learningReviews
         archive.active = snapshot.active; archive.checkpoint = snapshot.checkpoint; records = snapshot.records
         UserDefaults.standard.set(bridge.root.path, forKey: "dataVaultPath")
     }
@@ -94,6 +100,7 @@ import TimelineCore
     func clearError() { error = nil }
 
     func chooseDataFile() {
+        guard learningPrompt == nil else { return }
         guard active == nil else { error = "请先结束或取消当前计时。"; return }
         let panel = NSOpenPanel()
         panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
@@ -130,14 +137,18 @@ import TimelineCore
         do {
             let snapshot = try storage.load()
             archive.active = snapshot.active; archive.checkpoint = snapshot.checkpoint; records = snapshot.records
+            learningReviews = snapshot.learningReviews
             if page != .timer { refreshDashboard() }
         } catch { self.error = error.localizedDescription }
     }
     func start() {
         guard canStart, let project = selected, let path = archive.vaultPath else { return }
+        guard !presentLearningRecall(path: project.path, enabled: selectedLearningEnabled) else { return }
         var next = archive
         next.active = DesktopSession(project: project, title: title, targetMinutes: min(1440, max(0, targetMinutes)), vaultPath: path, minimumRecordSeconds: RecordingPolicy.load())
+        if selectedLearningEnabled { next.active?.learningReview = LearningProgress(policy: LearningReviewPolicy.load()) }
         if persist(next) {
+            learningOverride = nil
             alertedID = nil; now = Date()
             UserDefaults.standard.set(targetMinutes, forKey: "timerTargetMinutes")
             UserDefaults.standard.set(project.path, forKey: "timerProjectPath")
@@ -148,7 +159,8 @@ import TimelineCore
         session.pause(at: Date()); var next = archive; next.active = session; return persist(next)
     }
     func resume() {
-        guard var session = active, session.isPaused else { return }
+        guard var session = active, session.isPaused, !finishRequested, learningPrompt == nil else { return }
+        if learningCheckpointDue { openLearningCheckpoint(); return }
         session.resume(at: Date()); var next = archive; next.active = session; _ = persist(next)
     }
     func mark(_ kind: String, level: String = "medium") {
@@ -156,21 +168,25 @@ import TimelineCore
         session.mark(kind, at: Date(), level: level); var next = archive; next.active = session; _ = persist(next)
     }
     func beginFinish() {
-        guard pause(), let session = active else { return }
-        if session.isTooShort(at: Date()) { finish(title: session.title, note: session.note) }
+        guard learningPrompt == nil, pause(), let session = active else { return }
+        if session.learningReview == nil && session.isTooShort(at: Date()) { finish(title: session.title, note: session.note) }
         else { finishRequested = true }
     }
-    func finish(title: String, note: String, separateFromPlan: Bool = false) {
+    func finish(title: String, note: String, learningAnswer: String? = nil, separateFromPlan: Bool = false) {
         guard var session = active, let storage else { return }
-        guard title.count <= 400, note.count <= 20_000 else { error = "标题限400字，备注限20000字。"; return }
-        if separateFromPlan { session.sourcePlan = nil }
-        session.finish(at: Date(), title: title, note: note)
         do {
-            try storage.finish(session)
+            let answer = try session.learningReview?.policy.validated(learningAnswer)
+            let fullNote = [note.trimmingCharacters(in: .whitespacesAndNewlines), answer.map { "学习回顾：" + $0 } ?? ""]
+                .filter { !$0.isEmpty }.joined(separator: "\n\n")
+            guard title.utf16.count <= 400, fullNote.utf16.count <= 20_000 else { error = "标题限400字，备注与回顾合计限20000字。"; return }
+            if separateFromPlan { session.sourcePlan = nil }
+            session.finish(at: Date(), title: title, note: fullNote)
+            try storage.finish(session, learningAnswer: answer)
             refreshShared(); finishRequested = false; self.title = ""; error = nil
         } catch { self.error = error.localizedDescription }
     }
     func cancel() {
+        if active?.learningReview != nil { AppWindows.shared.finish(); return }
         var next = archive; next.active = nil
         if persist(next) { finishRequested = false }
     }
@@ -182,7 +198,7 @@ import TimelineCore
         if active != nil && active?.isPaused == false && now.timeIntervalSince(archive.checkpoint) >= 15 { _ = persist(archive) }
         if now.timeIntervalSince(lastRefresh) >= 5 { refreshShared(); lastRefresh = now }
     }
-    @discardableResult private func persist(_ value: AppArchive) -> Bool {
+    @discardableResult func persist(_ value: AppArchive) -> Bool {
         guard let storage else { return false }
         do {
             let checkpoint = Date()

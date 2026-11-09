@@ -44,6 +44,7 @@ public struct DesktopSession: Codable, Equatable, Identifiable {
     public var markers: [FocusMark]
     public var sourcePlan: PlanSource?
     public var minimumRecordSeconds: Int?
+    public var learningReview: LearningProgress?
 
     public init(project: Project, title: String, targetMinutes: Int, vaultPath: String = "", now: Date = Date(), minimumRecordSeconds: Int? = nil) {
         self.version = 1; self.id = UUID().uuidString.lowercased()

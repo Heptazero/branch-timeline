@@ -4,6 +4,7 @@ public struct SharedSnapshot {
     public let active: DesktopSession?
     public let checkpoint: Date
     public let records: [TimelineRecord]
+    public let learningReviews: [LearningReviewRecord]
 }
 
 public final class SharedStateStore {
@@ -35,7 +36,7 @@ public final class SharedStateStore {
         }
         let checkpoint = (timer["checkpoint"] as? String).flatMap { try? ArchiveStore.decoder().decode(Date.self, from: JSONEncoder().encode($0)) }
         if active != nil && checkpoint == nil { throw SharedStateError.invalid }
-        return SharedSnapshot(active: active, checkpoint: checkpoint ?? Date(), records: timelineRecords(state))
+        return SharedSnapshot(active: active, checkpoint: checkpoint ?? Date(), records: timelineRecords(state), learningReviews: Array(try readLearningReviews(state).values))
     }
     public func saveTimer(_ active: DesktopSession?, expectedID: String?, checkpoint: Date = Date()) throws {
         try SharedFileLock.withLock(file: url) {
@@ -50,7 +51,7 @@ public final class SharedStateStore {
             try write(state, expected: before)
         }
     }
-    public func finish(_ session: DesktopSession) throws {
+    public func finish(_ session: DesktopSession, learningAnswer: String? = nil) throws {
         guard session.vaultPath == bridge.root.path else { throw StorageError.unsafePath }
         try SharedFileLock.withLock(file: url) {
             let (before, original) = try read()
@@ -62,7 +63,16 @@ public final class SharedStateStore {
             let project = projectBefore.flatMap { String(data: $0, encoding: .utf8) } ?? ""
             if projectBefore != nil && project.isEmpty && !projectBefore!.isEmpty { throw SharedStateError.invalid }
             let result = try script.finish(state: String(decoding: before, as: UTF8.self), session: session, settings: bridge.settings(), project: project, alreadyImported: imported)
-            guard let state = result["state"] as? [String: Any], let after = result["project"] as? String else { throw SharedStateError.invalid }
+            guard var state = result["state"] as? [String: Any], let after = result["project"] as? String else { throw SharedStateError.invalid }
+            if let progress = session.learningReview {
+                var reviews = try readLearningReviews(original)
+                if reviews[session.id] == nil {
+                    guard let endedAt = session.endedAt else { throw SharedStateError.invalid }
+                    let answer = try progress.policy.validated(learningAnswer)
+                    reviews[session.id] = LearningReviewRecord(session: session, endedAt: endedAt, answer: answer, progress: progress)
+                    try writeLearningReviews(reviews, into: &state)
+                }
+            }
             let changed = projectBefore != nil && after != project
             if try Data(contentsOf: url) != before { throw SharedStateError.conflict }
             if let projectBefore, try Data(contentsOf: projectURL) != projectBefore { throw SharedStateError.conflict }
