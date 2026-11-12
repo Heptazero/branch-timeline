@@ -25,7 +25,11 @@ public enum VaultDiscovery {
         while parent.path != "/" {
             if FileManager.default.fileExists(atPath: parent.appendingPathComponent(".obsidian").path) {
                 let bridge = VaultBridge(root: parent)
-                guard try bridge.stateURL() == selected else { throw SharedStateError.script("此文件不是该笔记库设置中的时间线数据文件。") }
+                let configured = try bridge.stateURL()
+                guard configured == selected else {
+                    let relativePath = String(configured.path.dropFirst(bridge.root.path.count + 1))
+                    throw SharedStateError.script("请选择该笔记库配置中的时间线数据文件：\(relativePath)")
+                }
                 return bridge
             }
             parent.deleteLastPathComponent()

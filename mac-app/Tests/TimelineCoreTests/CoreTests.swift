@@ -162,6 +162,7 @@ private func expectThrows<T>(_ action: @autoclosure () throws -> T, line: UInt =
         try tests.testActiveProjectEditKeepsThePlanAndSavesOnlyToTheChosenProject()
         try tests.testLearningCheckpointCountsActiveTimeAndRejectsFiller()
         try tests.testLearningJournalSavesAtomicallyAndRecallIsDueOnNextLogicalDay()
-        print("47 native core checks passed")
+        try tests.testMovedVaultResumesItsExistingTimerAtCheckpoint()
+        print("48 native core checks passed")
     }
 }

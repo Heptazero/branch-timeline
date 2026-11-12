@@ -75,8 +75,10 @@ import TimelineCore
         }
     }
 
-    private func connect(_ bridge: VaultBridge) throws {
+    private func connect(_ bridge: VaultBridge, explicitlySelected: Bool = false) throws {
+        let defaults = UserDefaults.standard
         let next = try SharedStateStore(bridge: bridge)
+        let previousRoot = try next.recoverRelocatedTimer(rememberedRoot: defaults.string(forKey: "dataVaultPath"), explicitlySelected: explicitlySelected)
         try next.adoptLegacy(legacy ?? AppArchive())
         var snapshot = try next.load()
         if var active = snapshot.active, !active.isPaused {
@@ -85,7 +87,13 @@ import TimelineCore
             snapshot = try next.load()
         }
         storage = next; archive.vaultPath = bridge.root.path
-        learningProjects = Set(learningProjectDefaultsKey.flatMap { UserDefaults.standard.stringArray(forKey: $0) } ?? [])
+        if let key = learningProjectDefaultsKey {
+            if let previousRoot, defaults.object(forKey: key) == nil,
+               let settings = defaults.stringArray(forKey: "learningReviewProjects:" + previousRoot) {
+                defaults.set(settings, forKey: key)
+            }
+            learningProjects = Set(defaults.stringArray(forKey: key) ?? [])
+        }
         learningReviews = snapshot.learningReviews
         archive.active = snapshot.active; archive.checkpoint = snapshot.checkpoint; records = snapshot.records
         UserDefaults.standard.set(bridge.root.path, forKey: "dataVaultPath")
@@ -106,8 +114,19 @@ import TimelineCore
         panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
         panel.allowedContentTypes = [.json]; panel.message = "选择原有的时间线 state.json，项目笔记位置会自动识别。"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        do { try connect(VaultDiscovery.fromStateFile(url)); selectedPath = nil; error = nil; refreshProjects() }
-        catch { self.error = error.localizedDescription }
+        do {
+            try connect(VaultDiscovery.fromStateFile(url), explicitlySelected: true)
+            selectedPath = active?.projectPath
+            error = nil
+            refreshProjects()
+        } catch {
+            self.error = error.localizedDescription
+            let alert = NSAlert()
+            alert.messageText = "无法连接所选文件"
+            alert.informativeText = error.localizedDescription
+            alert.addButton(withTitle: "好")
+            alert.runModal()
+        }
     }
     func refreshProjects() {
         scan?.cancel()
